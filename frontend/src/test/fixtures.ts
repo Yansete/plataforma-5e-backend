@@ -1,6 +1,6 @@
 /** Datos y utilidades para las pruebas unitarias (no forman parte de la aplicación). */
 import { vi } from 'vitest';
-import type { Course, Evidence, ItemOption, Resource, Unit } from '../types';
+import type { Course, Evidence, ItemOption, Resource, Unit } from '@/shared/types/domain';
 
 export interface FetchCall {
   url: string;
