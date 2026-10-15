@@ -70,7 +70,7 @@ Otros comandos (dentro de `frontend/`):
 | `npm run build`     | Comprueba los tipos y genera la versión de producción en`frontend/dist/`                                       |
 | `npm run preview`   | Sirve la versión de producción en[http://localhost:4173](http://localhost:4173) (ejecuta antes `npm run build`) |
 | `npm run typecheck` | Solo comprueba los tipos de TypeScript                                                                             |
-| `npm test`          | Ejecuta las pruebas unitarias de los servicios (`npm run test:cobertura` con cobertura)                          |
+| `npm test`          | Ejecuta las pruebas unitarias de los servicios (`npm run test:coverage` con cobertura)                          |
 | `npm run test:e2e`  | Recorre la plataforma en Chromium con el backend real (necesita el backend instalado; ver [docs/pruebas.md](docs/pruebas.md)) |
 
 ### Backend
