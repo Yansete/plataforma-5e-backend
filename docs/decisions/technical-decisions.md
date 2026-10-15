@@ -29,7 +29,7 @@ Estados posibles de cada decisión:
 | B5 | `unidad_id` y `curso_id` repetidos en `fragmento`, con índice en `unidad_id` | Filtrar por unidad (HU-013) sin JOIN | Propuesta |
 | B6 | `texto_tsv` generado con `to_tsvector('spanish', texto)` + índice GIN | Base para la búsqueda híbrida (HU-012). Sin `unaccent` por ahora (exige función IMMUTABLE propia) | Propuesta |
 | B7 | Esquema base mínimo (`curso`, `unidad`, `documento`) en la migración 0001 | EN-002 no existe en el repositorio; se ajustará con migraciones nuevas | Provisional |
-| B8 | La verificación se ejecuta en una base temporal (`db/verificacion/verificar.sh`) | Repetirla sobre la misma base infla el índice HNSW con entradas muertas | Tomada |
+| B8 | La verificación se ejecuta en una base temporal (`backend/database/verification/verify.sh`) | Repetirla sobre la misma base infla el índice HNSW con entradas muertas | Tomada |
 
 ## 2. Arquitectura del frontend
 
@@ -131,7 +131,7 @@ Conclusiones:
 | C5 | Fuentes del estado del arte | S1 y el Charter piden ≥ 20 fuentes; S2 contiene 16 y declara una línea de búsqueda pendiente. Plazo de OE1: semana 5 (S1) o semana 6 (Charter) | Ninguno |
 | C6 | Color «marrón» | La etiqueta «En revisión» usa un «marrón» que no existe como token | Ver D2 |
 | C7 | Contraste | Cifras declaradas distintas a las calculadas y borde de campos insuficiente | Ver 4.1 y D1 |
-| C8 | Contratos | Existen contratos 5E en adapters/inbound/contratos y OpenAPI; futuras ampliaciones deben acordarse | Ver `arquitectura.md` |
+| C8 | Contratos | Existen contratos 5E en adapters/inbound/contratos y OpenAPI; futuras ampliaciones deben acordarse | Ver `docs/architecture/overview.md` |
 | C9 | LMS objetivo | Moodle y Chamilo según SP-003 | Importación real pendiente en TA-006 |
 | C10 | Límites de carga | No hay tamaño máximo ni lista cerrada de tipos de documento | Ver R11 y R12 |
 | C11 | Roles | TA-001 exige roles docente/estudiante/administrador; el alcance actual no incluye autenticación | Usuario único de demostración |
@@ -147,7 +147,7 @@ El token de foco cambia a `2px solid var(--color-brand-dark)` (#16352C) por la i
 ## ADR-005 Plantillas fijas para exportación
 
 Moodle usa Moodle XML y Chamilo usa QTI 2.1 en ZIP con `imsmanifest.xml`, según
-[SP-003](spikes/SP-003-formatos-de-exportacion.md). QTI 3.0 y SCORM quedan descartados.
+[SP-003](../spikes/SP-003-export-formats.md). QTI 3.0 y SCORM quedan descartados.
 El código arma el XML y el paquete mediante plantillas fijas a partir de recursos aprobados.
 El frontend mantiene sus exportadores; el backend de demo delega Moodle XML en un adaptador
 de salida mediante `ExportadorPort`. El título se escapa y los campos HTML se conservan.
@@ -160,3 +160,14 @@ aprobación y exportación viven en application/use_cases. Bootstrap solo conect
 Los errores SQLAlchemy se traducen en persistencia. El correo y la clave demo se inyectan desde
 bootstrap. Dominio y aplicación no dependen de FastAPI ni SQLAlchemy; los adaptadores de entrada
 no dependen de SQLAlchemy. Las pruebas AST verifican estas reglas para todos sus módulos.
+
+## ADR-006 Monorepo de dos aplicaciones independientes (15/10/2026)
+
+La raíz es un monorepo de dos aplicaciones independientes: el frontend se despliega en Vercel y el backend en Render.
+Solo comparten el contrato OpenAPI (`docs/api/openapi.json`); ninguna importa código de la otra. Cada una tiene su
+propio CI (Frontend CI y Backend CI) y un tercer flujo (End-to-end) prueba las dos juntas.
+
+## ADR-007 SCORM 1.2 para Chamilo (15/10/2026)
+
+Chamilo recibe un paquete SCORM 1.2 generado en el backend, con una página HTML por recurso aprobado. Reemplaza al
+ZIP QTI 2.1 de ADR-005 y SP-003: Chamilo lo importaba como lección, pero sin ninguna página que mostrar.

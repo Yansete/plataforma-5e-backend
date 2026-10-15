@@ -2,9 +2,9 @@
 
 **Fecha:** 05/10/2026 · **Estado:** recomendación **propuesta**. Requiere aprobación del equipo y una evaluación de
 calidad con docentes (sección 8). **Alcance:** modelos de **generación**. El modelo de embeddings ya se eligió en
-[SP-001](SP-001-modelos-embeddings.md).
+[SP-001](SP-001-embedding-models.md).
 
-> Identificadores según el backlog vigente en Notion. En el backlog v3.0 de `documentos/`, SP-002 es el spike de
+> Identificadores según el backlog vigente en Notion. En el backlog v3.0 de `docs/project-management/`, SP-002 es el spike de
 > embeddings y EN-004 es la línea base manual de tiempos, no una decisión de arquitectura.
 
 ## 1. Objetivo y criterios
