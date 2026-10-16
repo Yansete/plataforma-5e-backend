@@ -208,6 +208,9 @@ class ScormPackageExporter(UnitExporterPort):
     format = "scorm_zip"
     media_type = "application/zip"
 
+    def supports(self, resource: Mapping) -> bool:
+        return True  # cada recurso aprobado es una página de la lección
+
     def export(self, resources: Sequence[Mapping], course: Mapping, unit: Mapping) -> ExportedFile:
         ordered = sorted(
             resources,

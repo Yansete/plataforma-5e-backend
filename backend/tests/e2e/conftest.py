@@ -16,52 +16,52 @@ import time
 import httpx
 import pytest
 
-RAIZ_BACKEND = Path(__file__).resolve().parents[2]
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 
-def _puerto_libre() -> int:
+def _free_port() -> int:
     with socket.socket() as s:
         s.bind(("127.0.0.1", 0))
         return s.getsockname()[1]
 
 
-def _vaciar_postgres(url: str) -> None:
+def _reset_postgres(url: str) -> None:
     """Deja la base de PostgreSQL sin tablas para que cada servidor arranque limpio."""
     from sqlalchemy import create_engine, text
 
-    motor = create_engine(url)
-    with motor.begin() as conexion:
-        conexion.execute(text("DROP SCHEMA public CASCADE"))
-        conexion.execute(text("CREATE SCHEMA public"))
-    motor.dispose()
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("DROP SCHEMA public CASCADE"))
+        connection.execute(text("CREATE SCHEMA public"))
+    engine.dispose()
 
 
 @pytest.fixture
-def servidor(tmp_path: Path) -> Iterator[str]:
+def server(tmp_path: Path) -> Iterator[str]:
     """Levanta la API en un puerto libre y devuelve su URL base. Se apaga al terminar."""
-    url_bd = os.getenv("E2E_DATABASE_URL")
-    if url_bd:
-        _vaciar_postgres(url_bd)
+    database_url = os.getenv("E2E_DATABASE_URL")
+    if database_url:
+        _reset_postgres(database_url)
     else:
-        url_bd = f"sqlite:///{tmp_path / 'e2e.db'}"
+        database_url = f"sqlite:///{tmp_path / 'e2e.db'}"
 
-    puerto = _puerto_libre()
-    src_dir = str(RAIZ_BACKEND / "src")
+    port = _free_port()
+    src_dir = str(BACKEND_ROOT / "src")
     existing_pythonpath = os.environ.get("PYTHONPATH", "")
     pythonpath = f"{src_dir}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else src_dir
 
-    entorno = {
+    environment = {
         **os.environ,
         "PYTHONPATH": pythonpath,
-        "DATABASE_URL": url_bd,
+        "DATABASE_URL": database_url,
         "CARGAR_DATOS_DEMO": "true",
-        "CATALOGO_DEMO": "true",
-        "IA_PROVEEDOR": "reglas",
-        "BUSQUEDA_POR_TEMA": "false",
+        "DEMO_CATALOG": "true",
+        "LLM_PROVIDER": "rules",
+        "TOPIC_SEARCH_ENABLED": "false",
     }
-    registro = (tmp_path / "uvicorn.log").open("w", encoding="utf-8")
+    record = (tmp_path / "uvicorn.log").open("w", encoding="utf-8")
 
-    proceso = subprocess.Popen(
+    process = subprocess.Popen(
         [
             sys.executable,
             "-m",
@@ -73,20 +73,20 @@ def servidor(tmp_path: Path) -> Iterator[str]:
             "--host",
             "127.0.0.1",
             "--port",
-            str(puerto),
+            str(port),
         ],
-        cwd=RAIZ_BACKEND,
-        env=entorno,
-        stdout=registro,
+        cwd=BACKEND_ROOT,
+        env=environment,
+        stdout=record,
         stderr=subprocess.STDOUT,
     )
-    base = f"http://127.0.0.1:{puerto}"
+    base = f"http://127.0.0.1:{port}"
     try:
-        limite = time.monotonic() + 30
+        limit = time.monotonic() + 30
         while True:
-            if proceso.poll() is not None:
-                registro.flush()
-                registro.close()
+            if process.poll() is not None:
+                record.flush()
+                record.close()
                 error_log = (tmp_path / "uvicorn.log").read_text(encoding="utf-8", errors="replace")
                 pytest.fail("El servidor terminó al arrancar:\n" + error_log)
             try:
@@ -94,18 +94,18 @@ def servidor(tmp_path: Path) -> Iterator[str]:
                     break
             except httpx.HTTPError:
                 pass
-            if time.monotonic() > limite:
-                registro.flush()
-                registro.close()
+            if time.monotonic() > limit:
+                record.flush()
+                record.close()
                 error_log = (tmp_path / "uvicorn.log").read_text(encoding="utf-8", errors="replace")
                 pytest.fail("El servidor no respondió en 30 s:\n" + error_log)
             time.sleep(0.2)
         yield base
     finally:
-        proceso.terminate()
+        process.terminate()
         try:
-            proceso.wait(timeout=10)
+            process.wait(timeout=10)
         except subprocess.TimeoutExpired:
-            proceso.kill()
-        if not registro.closed:
-            registro.close()
+            process.kill()
+        if not record.closed:
+            record.close()

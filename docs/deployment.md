@@ -32,7 +32,7 @@ no hace falta correr migraciones para este despliegue.
 | Root Directory | `backend` |
 | Runtime | Python 3 |
 | Build Command | `pip install .` |
-| Start Command | `uvicorn plataforma5e.bootstrap.app:crear_aplicacion --factory --host 0.0.0.0 --port $PORT` |
+| Start Command | `uvicorn platform5e.main:app --host 0.0.0.0 --port $PORT` |
 | Instance Type | Free |
 | Health Check Path | `/salud` |
 
@@ -42,15 +42,21 @@ no hace falta correr migraciones para este despliegue.
 |---|---|---|
 | `PYTHON_VERSION` | `3.12.7` | Misma versión que la CI |
 | `DATABASE_URL` | la *Connection string* de Neon | Base de datos persistente |
-| `CORS_ORIGENES` | `https://plataforma-5e-taller-integrador.vercel.app` | Permite que el frontend publicado llame al backend |
-| `IA_PROVEEDOR` | `gemini` (o `anthropic`, `openai`) | Proveedor del modelo de lenguaje |
-| `IA_API_KEY` | la clave del proveedor | Sin clave se usa el generador por reglas |
-| `IA_MODELO` | opcional | Por defecto `gemini-3.8-flash`, `claude-sonnet-5-5` o `gpt-5.4-mini` |
-| `IA_URL_BASE` | opcional | Para servicios compatibles con la API de OpenAI |
-| `BUSQUEDA_POR_TEMA` | `true` (por defecto) | `false` desactiva la búsqueda en Wikipedia |
-| `EP002_DOCENTE_EMAIL` y `EP002_DOCENTE_PASSWORD` | opcional | Crean una cuenta inicial configurada en el servidor. Sin ellas, cada docente usa «Crear cuenta». |
+| `CORS_ALLOWED_ORIGINS` | `https://plataforma-5e-taller-integrador.vercel.app` | Permite que el frontend publicado llame al backend |
+| `LLM_PROVIDER` | `gemini` (o `anthropic`, `openai`, `rules`) | Proveedor del modelo de lenguaje |
+| `LLM_API_KEY` | la clave del proveedor | Sin clave se usa el generador por reglas |
+| `LLM_MODEL` | opcional | Por defecto `gemini-2.5-flash`, `claude-sonnet-5-5` o `gpt-5.4-mini` |
+| `LLM_BASE_URL` | opcional | Para servicios compatibles con la API de OpenAI |
+| `LLM_TIMEOUT_SECONDS` | opcional | Tiempo de espera por respuesta (por defecto 90) |
+| `TOPIC_SEARCH_ENABLED` | `true` (por defecto) | `false` desactiva la búsqueda en Wikipedia |
+| `BOOTSTRAP_TEACHER_EMAIL` y `BOOTSTRAP_TEACHER_PASSWORD` | opcional | Crean una cuenta inicial configurada en el servidor. Sin ellas, cada docente usa «Crear cuenta». |
 
-`CATALOGO_DEMO` no se define en producción: solo lo usan las pruebas automáticas (curso y cuenta de ejemplo).
+`DEMO_CATALOG` no se define en producción: solo lo usan las pruebas automáticas (curso y cuenta de ejemplo).
+
+Los nombres anteriores en español (`CORS_ORIGENES`, `IA_PROVEEDOR`, `IA_API_KEY`, `IA_MODELO`, `IA_URL_BASE`,
+`BUSQUEDA_POR_TEMA`, `EP002_DOCENTE_EMAIL`, `EP002_DOCENTE_PASSWORD`, `CATALOGO_DEMO`) se siguen leyendo si el nombre
+nuevo no está definido (`backend/src/platform5e/infrastructure/settings.py`). Conviene renombrarlos en el panel de Render
+cuanto antes; el Sprint 2 quita la compatibilidad.
 
 La clave de Gemini se crea en Google AI Studio (https://aistudio.google.com, opción *Get API key*). La clave solo
 se escribe en *Environment* de Render: nunca en el código, en `vercel.json` ni en un commit.
@@ -100,8 +106,8 @@ modo local ni datos de demostración.
 | Síntoma | Causa y solución |
 |---|---|
 | «No se pudo conectar con el servidor» al iniciar sesión | El servicio está despertando: esperar un minuto y reintentar. Si persiste, revisar los *Logs* de Render. |
-| La consola del navegador dice *CORS* | `CORS_ORIGENES` no coincide exactamente con el dominio de Vercel (sin `/` al final). |
-| La generación avisa que «se usó el generador de respaldo» aunque hay clave | Revisar `IA_API_KEY` y `IA_PROVEEDOR`. El motivo exacto (clave inválida, límite 429, modelo inexistente…) queda en los *Logs* de Render, en la línea «Generación con respaldo: …». |
-| La cuenta `docente@5e.demo` ya no entra | Desde esta versión la cuenta de ejemplo solo existe en las pruebas. Usar «Crear cuenta» o definir `EP002_DOCENTE_EMAIL` y `EP002_DOCENTE_PASSWORD`. |
+| La consola del navegador dice *CORS* | `CORS_ALLOWED_ORIGINS` no coincide exactamente con el dominio de Vercel (sin `/` al final). |
+| La generación avisa que «se usó el generador de respaldo» aunque hay clave | Revisar `LLM_API_KEY` y `LLM_PROVIDER`. El motivo exacto (clave inválida, límite 429, modelo inexistente…) queda en los *Logs* de Render, en la línea «Generación con respaldo: …». |
+| La cuenta `docente@5e.demo` ya no entra | Desde esta versión la cuenta de ejemplo solo existe en las pruebas. Usar «Crear cuenta» o definir `BOOTSTRAP_TEACHER_EMAIL` y `BOOTSTRAP_TEACHER_PASSWORD`. |
 | Un PDF queda en «error» | Es un PDF escaneado (imágenes, sin texto) o protegido: subir una versión con texto o un TXT. |
 | Los datos desaparecen | `DATABASE_URL` no está definida y se está usando SQLite dentro del servidor, que se borra en cada despliegue. |

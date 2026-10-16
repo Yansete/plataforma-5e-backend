@@ -133,16 +133,3 @@ def extract_key_terms(texts: list[str], count: int = 12) -> list[str]:
             term_counts[stem] += 1
             surface_forms[stem][word.lower()] += 1
     return [surface_forms[stem].most_common(1)[0][0] for stem, _ in term_counts.most_common(count)]
-
-
-# ---------------------------------------------------------------------------
-# Alias de compatibilidad temporal en español
-# ---------------------------------------------------------------------------
-_SUFIJOS = _SUFFIXES
-normalizar = normalize_text
-raiz = stem_word
-terminos = extract_terms
-puntuar_bm25 = score_bm25
-recuperar = retrieve_relevant_chunks
-terminos_clave = extract_key_terms
-tokenize_and_stem = extract_terms

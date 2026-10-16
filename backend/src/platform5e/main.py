@@ -4,8 +4,6 @@ Punto de composición de la aplicación FastAPI (Bootstrap y contenedor de depen
 
 from __future__ import annotations
 
-import os
-
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,6 +22,7 @@ from platform5e.domain.shared.errors import (
     EntityNotFoundError,
     PersistenceUnavailableError,
 )
+from platform5e.infrastructure.exporters.moodle_xml_exporter import MoodleXmlExporter
 from platform5e.infrastructure.exporters.scorm_package_exporter import ScormPackageExporter
 from platform5e.infrastructure.extraction.document_text_extractor import DocumentTextExtractor
 from platform5e.infrastructure.http.error_handlers import (
@@ -56,6 +55,7 @@ from platform5e.infrastructure.persistence.repositories.sqlalchemy_generation_re
 from platform5e.infrastructure.persistence.repositories.sqlalchemy_resource_repository import (
     SQLAlchemyResourceRepository,
 )
+from platform5e.infrastructure.settings import read_flag, read_setting
 from platform5e.infrastructure.sources.wikipedia_source import WikipediaSource
 
 
@@ -81,7 +81,7 @@ def custom_openapi_schema(app: FastAPI):
     }
 
     # Rutas protegidas que deben declarar SesionDocente
-    rutas_protegidas = [
+    protected_routes = [
         ("/api/v1/solicitudes", "get"),
         ("/api/v1/cursos", "get"),
         ("/api/v1/documentos", "post"),
@@ -89,12 +89,12 @@ def custom_openapi_schema(app: FastAPI):
         ("/api/v1/generaciones", "post"),
     ]
 
-    for ruta, metodo in rutas_protegidas:
-        if ruta in openapi_schema.get("paths", {}) and metodo in openapi_schema["paths"][ruta]:
-            operacion = openapi_schema["paths"][ruta][metodo]
-            operacion["security"] = [{"SesionDocente": []}]
-            operacion["parameters"] = [
-                p for p in operacion.get("parameters", [])
+    for route, method in protected_routes:
+        if route in openapi_schema.get("paths", {}) and method in openapi_schema["paths"][route]:
+            operation = openapi_schema["paths"][route][method]
+            operation["security"] = [{"SesionDocente": []}]
+            operation["parameters"] = [
+                p for p in operation.get("parameters", [])
                 if not (p.get("in") == "header" and p.get("name", "").lower() == "authorization")
             ]
 
@@ -112,7 +112,7 @@ def create_application() -> FastAPI:
 
     cors_origins = [
         origin.strip().rstrip("/")
-        for origin in os.getenv("CORS_ORIGENES", "").split(",")
+        for origin in read_setting("CORS_ALLOWED_ORIGINS").split(",")
         if origin.strip()
     ]
     if cors_origins:
@@ -131,21 +131,21 @@ def create_application() -> FastAPI:
     resource_repository = SQLAlchemyResourceRepository()
 
     # 2. Configuración y servicios de aplicación
-    demo_catalog_enabled = os.getenv("CATALOGO_DEMO", "false").lower() == "true"
+    demo_catalog_enabled = read_flag("DEMO_CATALOG", False)
     account_service = AccountService(
         account_repository,
-        seed_email=os.getenv(
-            "EP002_DOCENTE_EMAIL", "docente@5e.demo" if demo_catalog_enabled else ""
+        seed_email=read_setting(
+            "BOOTSTRAP_TEACHER_EMAIL", "docente@5e.demo" if demo_catalog_enabled else ""
         ),
-        seed_password=os.getenv(
-            "EP002_DOCENTE_PASSWORD", "Demo5E!2026" if demo_catalog_enabled else ""
+        seed_password=read_setting(
+            "BOOTSTRAP_TEACHER_PASSWORD", "Demo5E!2026" if demo_catalog_enabled else ""
         ),
         seed_demo_catalog=demo_catalog_enabled,
     )
 
     open_resource_port = (
         WikipediaSource()
-        if os.getenv("BUSQUEDA_POR_TEMA", "true").lower() != "false"
+        if read_flag("TOPIC_SEARCH_ENABLED", True)
         else None
     )
     material_service = MaterialService(
@@ -157,7 +157,7 @@ def create_application() -> FastAPI:
 
     review_service = ResourceReviewService(account_repository, resource_repository)
     export_use_case = ExportUnitResourcesUseCase(
-        account_repository, resource_repository, [ScormPackageExporter()]
+        account_repository, resource_repository, [ScormPackageExporter(), MoodleXmlExporter()]
     )
 
     # 3. Modelos de lenguaje (LLM o respaldo determinista)
@@ -184,9 +184,7 @@ def create_application() -> FastAPI:
 
     # 5. Registro de enrutadores HTTP
     app.include_router(create_accounts_router(account_service))
-    app.include_router(
-        create_resources_router(review_service, account_service, generation_service)
-    )
+    app.include_router(create_resources_router(review_service, account_service))
     app.include_router(
         create_materials_router(
             material_service, account_service, describe_generator(primary_generator)

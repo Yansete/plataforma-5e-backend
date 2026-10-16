@@ -11,17 +11,10 @@ class DomainError(Exception):
         self.message = message
 
 
-class ResourceNotFoundError(ValueError, DomainError):
-    """Se lanza cuando un recurso educativo solicitado no existe."""
+class EntityNotFoundError(ValueError, DomainError):
+    """Se lanza cuando la entidad pedida no existe o no pertenece al docente."""
 
-    def __init__(self, message: str = "Resource not found") -> None:
-        super().__init__(message)
-
-
-class NoApprovedResourcesError(ValueError, DomainError):
-    """Se lanza cuando se intenta exportar un lote sin recursos aprobados."""
-
-    def __init__(self, message: str = "No approved resources available for export") -> None:
+    def __init__(self, message: str = "Entity not found") -> None:
         super().__init__(message)
 
 
@@ -43,13 +36,3 @@ class DuplicateRecordError(DomainError):
         message: str = "The record already exists. Refresh the list and review the data.",
     ) -> None:
         super().__init__(message)
-
-
-# ---------------------------------------------------------------------------
-# Alias de compatibilidad temporal en español mientras se migran las capas externas
-# ---------------------------------------------------------------------------
-RecursoNoEncontrado = ResourceNotFoundError
-SinRecursosAprobados = NoApprovedResourcesError
-PersistenciaNoDisponible = PersistenceUnavailableError
-RegistroDuplicado = DuplicateRecordError
-EntityNotFoundError = ResourceNotFoundError

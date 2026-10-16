@@ -14,13 +14,4 @@ class AccountConfigurationError(DomainError):
         self.code: str = code
         self.message: str = message
         self.status_code: int = status_code
-
-        # Compatibilidad temporal con atributos en español
-        self.codigo: str = code
-        self.mensaje: str = message
-        self.status: int = status_code
         super().__init__(message)
-
-
-# Alias de compatibilidad temporal en español
-ConfiguracionError = AccountConfigurationError

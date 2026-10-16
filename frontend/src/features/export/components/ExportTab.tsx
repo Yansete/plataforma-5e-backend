@@ -7,7 +7,7 @@ import { errorMessage } from '@/shared/api/httpClient';
 import { typeInfo } from '@/features/generation/model/resourceCatalog';
 import { clearDownloads, exportUnit, listDownloads, registerDownload } from '@/features/export/api/exportApi';
 import { buildFile } from '@/features/export/model/buildFile';
-import { FORMATS, resourcesFor } from '@/features/export/model/exportFormats';
+import { FORMATS, formatInfo, resourcesFor } from '@/features/export/model/exportFormats';
 import { withStatus } from '@/features/review/model/reviewRules';
 import type { Download, DownloadFormat } from '@/shared/types/domain';
 import { formatDateTime, plural } from '@/shared/lib/format';
@@ -63,11 +63,11 @@ export function ExportTab({ course, unit, base, resources, resourcesError, reloa
 
   const download = async (format: DownloadFormat) => {
     setMessage(null);
-    if (format === 'scorm_zip') {
-      // El paquete SCORM se arma en el backend, que además registra la descarga en el historial.
+    if (format !== 'documento') {
+      // Los archivos para Moodle y Chamilo los arma el backend, que además registra la descarga en el historial.
       try {
         const { blob, fileName } = await exportUnit(unit.id, format, resourcesFor(format, chosen).map((r) => r.id));
-        saveFile(fileName, blob, 'application/zip');
+        saveFile(fileName, blob, formatInfo(format).mimeType);
         setHistory(await listDownloads(unit.id));
         setMessage({ tone: 'success', text: `Se descargó «${fileName}».` });
       } catch (e) {

@@ -180,7 +180,7 @@ def build_service_setup(
     return service, repo
 
 
-def test_genera_con_material_cita_fragmentos_y_guarda_historial():
+def test_generates_from_material_cites_chunks_and_saves_history():
     ai_gen = MockGenerator({"recursos": [MOCK_ITEM]})
     service, repo = build_service_setup(ai_gen)
     result = service.generate(make_request_dict(), "docente")
@@ -210,7 +210,7 @@ def test_genera_con_material_cita_fragmentos_y_guarda_historial():
     assert resource["evidence"][0]["documentName"] == "apuntes.pdf"
 
 
-def test_los_recursos_generados_se_guardan_para_la_revision():
+def test_generated_resources_are_saved_for_review():
     class MockReviewRepo(ResourceReviewRepositoryPort):
         def __init__(self) -> None:
             self.saved_records: list[tuple[str, str, list[str]]] = []
@@ -237,7 +237,7 @@ def test_los_recursos_generados_se_guardan_para_la_revision():
     assert review_repo.saved_records == [("docente", "u1", [result["resources"][0]["id"]])]
 
 
-def test_si_la_ia_falla_usa_el_respaldo_y_lo_avisa(caplog):
+def test_if_the_ai_fails_the_fallback_is_used_and_reported(caplog):
     rules_gen = MockGenerator({"recursos": [MOCK_ITEM]}, description="Reglas", uses_ai=False)
     service, _ = build_service_setup(MockGenerator(error=RuntimeError("429 límite")), rules_gen)
     result = service.generate(make_request_dict(), "docente")
@@ -247,7 +247,7 @@ def test_si_la_ia_falla_usa_el_respaldo_y_lo_avisa(caplog):
     assert "no respondió" in result["notice"] and "generador por reglas" in result["notice"]
 
 
-def test_si_la_ia_no_cita_bien_usa_el_respaldo():
+def test_if_the_ai_does_not_cite_properly_the_fallback_is_used():
     bad_output = {
         "recursos": [
             {
@@ -264,35 +264,35 @@ def test_si_la_ia_no_cita_bien_usa_el_respaldo():
     assert "citas válidas" in result["notice"]
 
 
-def test_sin_recursos_validos_rechaza_sin_inventar():
+def test_without_valid_resources_rejects_without_inventing():
     service, repo = build_service_setup(MockGenerator({"recursos": []}), fallback=None)
     with pytest.raises(GenerationError) as err:
         service.generate(make_request_dict(), "docente")
     assert err.value.code == "EVIDENCIA_INSUFICIENTE" and repo.saved_results == []
 
 
-def test_resultado_ajeno_a_la_unidad_se_rechaza():
+def test_outcome_from_another_unit_is_rejected():
     service, _ = build_service_setup(MockGenerator({"recursos": [MOCK_ITEM]}))
     with pytest.raises(GenerationError) as err:
         service.generate(make_request_dict(outcomeId="ra-otro"), "docente")
     assert err.value.code == "RESULTADO_INVALIDO"
 
 
-def test_unidad_sin_material_ni_demo_pide_subir_material():
+def test_unit_without_material_or_demo_asks_for_upload():
     service, _ = build_service_setup(MockGenerator({"recursos": [MOCK_ITEM]}), chunk_repo=MockMaterialChunkRepository([]))
     with pytest.raises(GenerationError) as err:
         service.generate(make_request_dict(), "docente")
     assert err.value.code == "SIN_MATERIAL_PROCESADO" and "pestaña Material" in err.value.message
 
 
-def test_sin_docente_usa_la_demostracion():
+def test_without_teacher_uses_the_demo():
     service, _ = build_service_setup(MockGenerator({"recursos": [MOCK_ITEM]}))
     with pytest.raises(GenerationError) as err:
         service.generate(make_request_dict(unitId="u2"))
     assert err.value.code == "SIN_MATERIAL_PROCESADO"
 
 
-def test_instrucciones_incluyen_curso_pedido_y_fragmentos():
+def test_instructions_include_course_request_and_chunks():
     context = build_generation_context(
         MOCK_COURSE,
         MOCK_UNIT,
@@ -333,12 +333,12 @@ def test_instrucciones_incluyen_curso_pedido_y_fragmentos():
         ('Aquí tienes: {"recursos": [2]} ¡listo!', {"recursos": [2]}),
     ],
 )
-def test_extraer_json_tolera_formatos_comunes(raw_input: str, expected_output: dict[str, Any]):
+def test_extract_json_tolerates_common_formats(raw_input: str, expected_output: dict[str, Any]):
     assert parse_json_response(raw_input) == expected_output
 
 
 @pytest.mark.parametrize("invalid_raw", ["", None, "sin json", "{roto"])
-def test_extraer_json_rechaza_lo_ilegible(invalid_raw: str | None):
+def test_extract_json_rejects_unreadable_output(invalid_raw: str | None):
     with pytest.raises(ValueError):
         parse_json_response(invalid_raw)
 
@@ -349,7 +349,7 @@ def build_test_context(quantity: int = 1, options: int = 3) -> dict[str, Any]:
     )
 
 
-def test_normalizar_acepta_etiquetas_juntas_y_clave_como_texto():
+def test_normalize_accepts_joined_tags_and_key_as_text():
     options = [
         {"texto": "TCP", "correcta": "true", "fragmentos": "F1, F2"},
         {"texto": "UDP", "correcta": "false"},
@@ -362,7 +362,7 @@ def test_normalizar_acepta_etiquetas_juntas_y_clave_como_texto():
     assert correct_opt["texto"] == "TCP" and correct_opt["fragmentos"] == ["f1", "f2"]
 
 
-def test_normalizar_acepta_etiquetas_en_varios_formatos_y_recorta_cantidad():
+def test_normalize_accepts_tags_in_several_formats_and_trims_quantity():
     item_payload = {**MOCK_ITEM, "citas": [{"afirmacion": "a", "fragmentos": ["f2", "[F1]", 1, "F7"]}]}
     resources = normalize_generated_resources({"recursos": [item_payload, item_payload]}, build_test_context(quantity=1))
     assert len(resources) == 1 and resources[0]["citas"][0]["fragmentIds"] == ["f2", "f1"]
@@ -379,11 +379,11 @@ def test_normalizar_acepta_etiquetas_en_varios_formatos_y_recorta_cantidad():
         "no es lista",
     ],
 )
-def test_normalizar_descarta_items_invalidos(options_case):
+def test_normalize_discards_invalid_items(options_case):
     assert normalize_generated_resources({"recursos": [{**MOCK_ITEM, "alternativas": options_case}]}, build_test_context()) == []
 
 
-def test_normalizar_descarta_recursos_sin_cita_o_sin_contenido_y_completa_titulo():
+def test_normalize_discards_uncited_or_empty_resources_and_fills_title():
     ctx = build_generation_context(
         MOCK_COURSE, MOCK_UNIT, make_request_dict(stage="explain", resourceType="explicacion", quantity=3), MOCK_FRAGMENTS, {}
     )
@@ -401,7 +401,7 @@ def test_normalizar_descarta_recursos_sin_cita_o_sin_contenido_y_completa_titulo
     assert len(resources) == 1 and resources[0]["titulo"] == "Explicación citada 1" and resources[0]["alternativas"] is None
 
 
-def test_sin_ejemplos_de_prueba_una_unidad_sin_material_pide_subirlo():
+def test_without_demo_examples_a_unit_without_material_asks_for_upload():
     service = GenerationService(
         repository=MockGenerationRepository(),
         teacher_repository=MockTeacherConfigRepository(),

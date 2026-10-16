@@ -8,7 +8,7 @@ FastAPI y SQLAlchemy con arquitectura hexagonal. Se despliega en Render (`rootDi
 python -m venv .venv
 source .venv/bin/activate          # Windows: .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-uvicorn plataforma5e.bootstrap.app:crear_aplicacion --factory --reload --port 8000
+uvicorn platform5e.main:app --reload --port 8000
 ~~~
 
 Swagger en http://localhost:8000/docs y ReDoc en http://localhost:8000/redoc. El contrato versionado está en [`../docs/api/openapi.json`](../docs/api/openapi.json).
@@ -19,7 +19,7 @@ Swagger en http://localhost:8000/docs y ReDoc en http://localhost:8000/redoc. El
 | --- | --- |
 | `pytest` | Todo: unitarias, arquitectura, integración y punta a punta |
 | `pytest tests/unit` | Dominio y casos de uso |
-| `pytest tests/arquitectura` | Reglas de dependencias entre capas |
+| `pytest tests/architecture` | Reglas de dependencias entre capas y nombres en inglés |
 | `pytest tests/integration` | Repositorios y persistencia |
 | `pytest tests/e2e` | API por HTTP con un servidor real (SQLite temporal, o `E2E_DATABASE_URL`) |
 

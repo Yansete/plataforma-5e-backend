@@ -17,96 +17,11 @@ import zipfile
 import pytest
 
 from platform5e.application.ports.outbound.generation_repository_port import GenerationRepositoryPort
-from platform5e.application.ports.outbound.resource_repository_port import LearningResourceRepositoryPort
 from platform5e.application.ports.outbound.teacher_repository_port import TeacherRepositoryPort
 from platform5e.application.services.accounts.account_service import AccountService
 from platform5e.application.services.generation.generation_service import GenerationService
-from platform5e.application.services.review.learning_resource_service import LearningResourceService as ResourceReviewService
 from platform5e.domain.accounts.teacher_account import AccountConfigurationError
 from platform5e.domain.generation.errors import GenerationError
-from platform5e.domain.review.learning_resource import LearningOptionDomain, LearningResourceDomain
-
-
-# --------------------------------------------------------------------------- recursos
-
-class MockLearningResourceRepository(LearningResourceRepositoryPort):
-    def __init__(self, resources: list[LearningResourceDomain]) -> None:
-        self.resources = {r.id: r for r in resources}
-        self.save_count = 0
-
-    def get_all(self) -> list[LearningResourceDomain]:
-        return list(self.resources.values())
-
-    def get_by_id(self, resource_id: str) -> LearningResourceDomain | None:
-        return self.resources.get(resource_id)
-
-    def save(self, resource: LearningResourceDomain) -> LearningResourceDomain:
-        self.save_count += 1
-        self.resources[resource.id] = resource
-        return resource
-
-    def reset_demo(self) -> list[LearningResourceDomain]:
-        return list(self.resources.values())
-
-
-def _make_resource_item(res_id: str = "rec-1") -> LearningResourceDomain:
-    return LearningResourceDomain(
-        id=res_id,
-        title="Tope de la pila",
-        prompt="¿Qué elemento queda en el tope?",
-        feedback="La pila es LIFO.",
-        alternatives=[
-            LearningOptionDomain("A", "7", True, "Último en entrar"),
-            LearningOptionDomain("B", "3", False, "Primero en entrar"),
-            LearningOptionDomain("C", "5", False, "Elemento intermedio"),
-        ],
-    )
-
-
-def test_decisiones_sobre_alternativas():
-    repo = MockLearningResourceRepository([_make_resource_item()])
-    service = ResourceReviewService(repo)
-    service.decide_option("rec-1", "A", "aceptar")
-    service.decide_option("rec-1", "B", "descartar")
-    resource = service.decide_option("rec-1", "C", "editar", "6")
-    statuses = {opt.letter: (opt.review_status, opt.text) for opt in resource.alternatives}
-    assert statuses == {"A": ("aceptado", "7"), "B": ("descartado", "3"), "C": ("editado", "6")}
-    assert repo.save_count == 3
-
-
-def test_editar_sin_texto_conserva_el_texto():
-    service = ResourceReviewService(MockLearningResourceRepository([_make_resource_item()]))
-    resource = service.decide_option("rec-1", "C", "editar")
-    assert resource.alternatives[2].text == "5"
-
-
-def test_recurso_o_alternativa_inexistente():
-    service = ResourceReviewService(MockLearningResourceRepository([_make_resource_item()]))
-    with pytest.raises(ValueError, match="Recurso no encontrado"):
-        service.decide_option("no-existe", "A", "aceptar")
-    with pytest.raises(ValueError, match="Alternativa no encontrada"):
-        service.decide_option("rec-1", "Z", "aceptar")
-    with pytest.raises(ValueError, match="Recurso no encontrado"):
-        service.approve_resource("no-existe")
-
-
-def test_no_se_aprueba_con_alternativas_pendientes():
-    service = ResourceReviewService(MockLearningResourceRepository([_make_resource_item()]))
-    service.decide_option("rec-1", "A", "aceptar")
-    with pytest.raises(ValueError, match="aprobacion_bloqueada"):
-        service.approve_resource("rec-1")
-    assert service.get_approved_for_export() == []
-
-
-def test_aprobar_y_listar_solo_aprobados():
-    repo = MockLearningResourceRepository([_make_resource_item("rec-1"), _make_resource_item("rec-2")])
-    service = ResourceReviewService(repo)
-    for letter in "ABC":
-        service.decide_option("rec-1", letter, "aceptar")
-    assert service.approve_resource("rec-1").review_status == "aprobado"
-    assert [r.id for r in service.get_approved_for_export()] == ["rec-1"]
-    assert service.get_resource("rec-2").review_status == "borrador"
-    assert len(service.generate_or_reset_resources()) == 2
 
 
 # --------------------------------------------------------------------------- generación
@@ -180,7 +95,7 @@ def _make_request_payload(**overrides) -> dict[str, Any]:
     return {**base, **overrides}
 
 
-def test_genera_con_evidencia_y_la_guarda():
+def test_generates_with_evidence_and_saves_it():
     repo = MockGenerationRepository()
     service = GenerationService(repo)
     result = service.generate(_make_request_payload(), "docente@5e.demo")
@@ -194,7 +109,7 @@ def test_genera_con_evidencia_y_la_guarda():
     assert service.get_by_id(result["request"]["id"]) is result
 
 
-def test_genera_un_item_con_alternativas_sin_decidir():
+def test_generates_an_item_with_undecided_options():
     service = GenerationService(MockGenerationRepository())
     result = service.generate(
         _make_request_payload(stage="evaluate", resourceType="item_opcion_multiple", outcomeId="ra-1")
@@ -204,7 +119,7 @@ def test_genera_un_item_con_alternativas_sin_decidir():
     assert sum(o["isCorrect"] for o in options) == 1
 
 
-def test_rechaza_solicitudes_sin_sustento():
+def test_rejects_requests_without_support():
     service = GenerationService(MockGenerationRepository())
     test_cases = [
         (_make_request_payload(unitId="u9"), "SIN_MATERIAL_PROCESADO"),
@@ -218,7 +133,7 @@ def test_rechaza_solicitudes_sin_sustento():
         assert err.value.code == error_code
 
 
-def test_no_genera_si_falta_un_fragmento_o_su_documento():
+def test_does_not_generate_if_a_chunk_or_its_document_is_missing():
     missing_fragment = deepcopy(DEMO_CATALOG)
     missing_fragment["fragments"] = []
     with pytest.raises(GenerationError, match="Faltan fragmentos"):
@@ -230,7 +145,7 @@ def test_no_genera_si_falta_un_fragmento_o_su_documento():
         GenerationService(MockGenerationRepository(missing_document)).generate(_make_request_payload())
 
 
-def test_obtener_generacion_inexistente():
+def test_get_missing_generation():
     with pytest.raises(GenerationError) as err:
         GenerationService(MockGenerationRepository()).get_by_id("sol-no-existe")
     assert err.value.code == "GENERACION_NO_ENCONTRADA"
@@ -349,14 +264,14 @@ def _get_account_error_code(func, *args) -> str:
     return err.value.code
 
 
-def test_login_autentica_y_cierra_sesion(account_service: AccountService):
+def test_login_authenticates_and_logs_out(account_service: AccountService):
     authorization = _get_bearer_header(account_service)
     assert account_service.authenticate_token(authorization) == SEED_EMAIL
     account_service.logout(authorization)
     assert _get_account_error_code(account_service.authenticate_token, authorization) == "SESION_VENCIDA"
 
 
-def test_credenciales_y_sesiones_invalidas(account_service: AccountService):
+def test_invalid_credentials_and_sessions(account_service: AccountService):
     assert _get_account_error_code(account_service.login, SEED_EMAIL, "otra") == "CREDENCIALES_INVALIDAS"
     assert _get_account_error_code(account_service.login, "otro@5e.demo", SEED_PASSWORD) == "CREDENCIALES_INVALIDAS"
     assert _get_account_error_code(account_service.authenticate_token, None) == "SESION_REQUERIDA"
@@ -368,13 +283,13 @@ def test_credenciales_y_sesiones_invalidas(account_service: AccountService):
     assert _get_account_error_code(account_service.authenticate_token, authorization) == "SESION_VENCIDA"
 
 
-def test_unidad_solo_de_los_cursos_del_docente(account_service: AccountService):
+def test_unit_only_from_the_teachers_courses(account_service: AccountService):
     account_service.login(SEED_EMAIL, SEED_PASSWORD)
     assert account_service.get_unit(SEED_EMAIL, "unidad-1")["title"] == "Pilas"
     assert _get_account_error_code(account_service.get_unit, SEED_EMAIL, "unidad-ajena") == "UNIDAD_NO_ENCONTRADA"
 
 
-def test_crear_y_editar_curso(account_service: AccountService):
+def test_create_and_edit_course(account_service: AccountService):
     account_service.login(SEED_EMAIL, SEED_PASSWORD)
     new_course = account_service.save_course(
         SEED_EMAIL,
@@ -401,7 +316,7 @@ def test_crear_y_editar_curso(account_service: AccountService):
     assert edited_course["units"][0]["id"] == unit["id"]
 
 
-def test_reglas_del_catalogo(account_service: AccountService):
+def test_catalog_rules(account_service: AccountService):
     account_service.login(SEED_EMAIL, SEED_PASSWORD)
     data = {"code": "ED-201", "name": "Copia", "term": "2026-II", "units": []}
     assert _get_account_error_code(account_service.save_course, SEED_EMAIL, data) == "CODIGO_DUPLICADO"
@@ -413,7 +328,7 @@ def test_reglas_del_catalogo(account_service: AccountService):
     assert _get_account_error_code(account_service.save_course, SEED_EMAIL, without_units, "curso-1") == "UNIDADES_INVALIDAS"
 
 
-def test_registra_material_valido(account_service: AccountService):
+def test_registers_valid_material(account_service: AccountService):
     account_service.login(SEED_EMAIL, SEED_PASSWORD)
     doc = account_service.register_document(SEED_EMAIL, "separata.pdf", b"%PDF-1.7 contenido", _make_doc_context())
     assert doc["kind"] == "pdf" and doc["status"] == "registrado" and doc["source"] == "backend"
@@ -439,7 +354,7 @@ def test_registra_material_valido(account_service: AccountService):
     )
 
 
-def test_rechaza_material_invalido(account_service: AccountService):
+def test_rejects_invalid_material(account_service: AccountService):
     account_service.login(SEED_EMAIL, SEED_PASSWORD)
     test_cases = [
         ("a.pdf", b"%PDF-1", _make_doc_context(usePermission=False), "PERMISO_REQUERIDO"),
@@ -460,7 +375,7 @@ def test_rechaza_material_invalido(account_service: AccountService):
         ), filename
 
 
-def test_generacion_de_otro_docente_no_se_expone(account_service: AccountService):
+def test_another_teachers_generation_is_not_exposed(account_service: AccountService):
     authorization = _get_bearer_header(account_service)
     account_service.repository.owners["sol-1"] = "otro@5e.demo"
     assert (

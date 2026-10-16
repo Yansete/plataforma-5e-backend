@@ -59,19 +59,19 @@ def create_minimal_pptx_bytes() -> bytes:
     from pptx import Presentation
     from pptx.util import Inches
 
-    prs = Presentation()
-    slide = prs.slides.add_slide(prs.slide_layouts[1])
+    presentation = Presentation()
+    slide = presentation.slides.add_slide(presentation.slide_layouts[1])
     slide.shapes.title.text = "Protocolos"
     slide.placeholders[1].text = "TCP garantiza la entrega confiable de los datos en la red."
     slide.shapes.add_table(1, 2, Inches(1), Inches(4), Inches(4), Inches(1)).table.cell(0, 0).text = "Capa de transporte"
     slide.notes_slide.notes_text_frame.text = "Explicar con un ejemplo."
-    prs.slides.add_slide(prs.slide_layouts[6])
+    presentation.slides.add_slide(presentation.slide_layouts[6])
     buffer = io.BytesIO()
-    prs.save(buffer)
+    presentation.save(buffer)
     return buffer.getvalue()
 
 
-def test_extractor_pdf_pptx_y_errores():
+def test_pdf_pptx_extractor_and_errors():
     extractor = DocumentTextExtractor()
     assert extractor.extract("pdf", create_minimal_pdf_bytes("El protocolo TCP garantiza la entrega.")) == [
         ("p. 1", "El protocolo TCP garantiza la entrega.")
@@ -92,7 +92,7 @@ def test_extractor_pdf_pptx_y_errores():
         assert err.value.code == expected_code
 
 
-def test_extractor_txt_por_secciones_y_por_titulos_de_wikipedia():
+def test_txt_extractor_by_sections_and_wikipedia_headings():
     extractor = DocumentTextExtractor()
     long_body = "\n\n".join(["Párrafo de prueba con varias palabras. " * 20] * 6)
     sections = extractor.extract("txt", long_body.encode("utf-8-sig"))
@@ -130,7 +130,7 @@ EXPECTED_LLM_OUTPUT = {
 }
 
 
-def test_gemini_envia_instrucciones_y_lee_el_texto():
+def test_gemini_sends_instructions_and_reads_the_text():
     client, requests = build_mock_http_client(
         [(200, {"candidates": [{"content": {"parts": [{"text": json.dumps(EXPECTED_LLM_OUTPUT)}]}}]})]
     )
@@ -144,7 +144,7 @@ def test_gemini_envia_instrucciones_y_lee_el_texto():
     assert "[F1]" in payload["contents"][0]["parts"][0]["text"]
 
 
-def test_gemini_pide_salida_estructurada_y_sigue_sin_ella_si_el_modelo_la_rechaza():
+def test_gemini_requests_structured_output_and_falls_back_if_rejected():
     json_text = json.dumps(EXPECTED_LLM_OUTPUT)
     client, requests = build_mock_http_client(
         [
@@ -159,7 +159,7 @@ def test_gemini_pide_salida_estructurada_y_sigue_sin_ella_si_el_modelo_la_rechaz
     assert generator.generate(TEST_GENERATION_CONTEXT) == EXPECTED_LLM_OUTPUT and len(requests) == 3
 
 
-def test_anthropic_y_openai_compatible():
+def test_anthropic_and_openai_compatible():
     client_anthropic, requests_anthropic = build_mock_http_client(
         [(200, {"content": [{"type": "text", "text": json.dumps(EXPECTED_LLM_OUTPUT)}]})]
     )
@@ -180,7 +180,7 @@ def test_anthropic_y_openai_compatible():
     assert requests_openai[0].headers["authorization"] == "Bearer clave"
 
 
-def test_reintenta_una_vez_si_el_json_no_es_valido():
+def test_retries_once_if_the_json_is_invalid():
     client, requests = build_mock_http_client(
         [
             (200, {"content": [{"type": "text", "text": "no es json"}]}),
@@ -199,14 +199,14 @@ def test_reintenta_una_vez_si_el_json_no_es_valido():
         (200, {"promptFeedback": {"blockReason": "SAFETY"}}, "SAFETY"),
     ],
 )
-def test_errores_del_proveedor_se_explican(status_code: int, body: dict[str, Any], expected_substring: str):
+def test_provider_errors_are_explained(status_code: int, body: dict[str, Any], expected_substring: str):
     client, _ = build_mock_http_client([(status_code, body)])
     with pytest.raises(AIProviderError) as err:
         GeminiLanguageModel("gemini", "k", client=client).generate(TEST_GENERATION_CONTEXT)
     assert expected_substring in str(err.value)
 
 
-def test_sin_conexion_y_proveedor_desconocido():
+def test_no_connection_and_unknown_provider():
     def mock_failing_transport(req):
         raise httpx.ConnectError("sin red")
 
@@ -219,7 +219,7 @@ def test_sin_conexion_y_proveedor_desconocido():
         GeminiLanguageModel("otro", "k")
 
 
-def test_configuracion_desde_el_entorno():
+def test_configuration_from_the_environment():
     primary, fallback = create_generators({})
     assert primary is fallback and primary.uses_ai is False
     assert describe_generator(primary) == {
@@ -229,17 +229,17 @@ def test_configuracion_desde_el_entorno():
         "modelo": None,
     }
 
-    primary_with_key, fallback_with_key = create_generators({"IA_API_KEY": "k"})
+    primary_with_key, fallback_with_key = create_generators({"LLM_API_KEY": "k"})
     assert primary_with_key.provider == "gemini" and fallback_with_key.uses_ai is False
 
     primary_anthropic, _ = create_generators(
-        {"IA_API_KEY": "k", "IA_PROVEEDOR": "Anthropic", "IA_MODELO": "claude-haiku-5-5", "IA_TIEMPO_MAX": "30"}
+        {"LLM_API_KEY": "k", "LLM_PROVIDER": "Anthropic", "LLM_MODEL": "claude-haiku-5-5", "LLM_TIMEOUT_SECONDS": "30"}
     )
     assert describe_generator(primary_anthropic)["modelo"] == "claude-haiku-5-5"
-    assert create_generators({"IA_API_KEY": "k", "IA_PROVEEDOR": "reglas"})[0].uses_ai is False
+    assert create_generators({"LLM_API_KEY": "k", "LLM_PROVIDER": "rules"})[0].uses_ai is False
 
 
-def test_wikipedia_busca_y_limpia_el_articulo():
+def test_wikipedia_searches_and_cleans_the_article():
     def mock_wiki_handler(request: httpx.Request) -> httpx.Response:
         if request.url.params.get("list") == "search":
             return httpx.Response(
@@ -261,7 +261,7 @@ def test_wikipedia_busca_y_limpia_el_articulo():
     assert articles[0]["licencia"] == "CC BY-SA 4.0" and "Referencias" not in articles[0]["texto"]
 
 
-def test_wikipedia_se_identifica_con_datos_de_contacto():
+def test_wikipedia_client_identifies_itself_with_contact_details():
     # Sin un enlace o correo de contacto en el User-Agent, Wikimedia responde 403 (https://w.wiki/4WJS).
     agent = WikipediaSource()._client.headers["User-Agent"]
     assert agent.startswith("Platform5E/") and "https://github.com/" in agent
@@ -280,7 +280,7 @@ def test_wikipedia_se_identifica_con_datos_de_contacto():
         ("elaborate", "ejercicio_aplicacion"),
     ],
 )
-def test_generador_por_reglas_produce_recursos_validos_y_citados(stage: str, resource_type: str):
+def test_rule_based_generator_produces_valid_cited_resources(stage: str, resource_type: str):
     context = build_generation_context(
         {"name": "Redes"},
         {"id": "u1", "number": 1, "title": "Protocolos", "outcomes": []},
@@ -299,7 +299,7 @@ def test_generador_por_reglas_produce_recursos_validos_y_citados(stage: str, res
         assert key_text.lower() not in item["titulo"].lower()
 
 
-def test_generador_por_reglas_sin_material_util_no_inventa():
+def test_rule_based_generator_does_not_invent_without_useful_material():
     context = build_generation_context(
         {},
         {"id": "u1", "number": 1, "title": "U", "outcomes": []},

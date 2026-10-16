@@ -22,7 +22,7 @@ from platform5e.infrastructure.http.dependencies import extract_authorization_he
 class BaseContract(BaseModel):
     """Contrato base que prohíbe atributos adicionales y limpia espacios superfluos."""
 
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True, populate_by_name=True)
 
 
 class LoginRequest(BaseContract):
@@ -128,12 +128,14 @@ class CourseInput(BaseContract):
         description="Periodo o semestre académico de impartición.",
         examples=["2026-II"],
     )
-    sumilla: str | None = Field(
+    summary: str | None = Field(
+        alias="sumilla",
         default=None,
         max_length=3000,
         description="Sumilla oficial del curso que resume propósitos y alcances.",
     )
-    logro: str | None = Field(
+    learning_goal: str | None = Field(
+        alias="logro",
         default=None,
         max_length=1000,
         description="Competencia o logro formativo general esperado de la asignatura.",
@@ -283,7 +285,7 @@ def create_accounts_router(account_service: AccountService) -> APIRouter:
     def create_course(
         request: CourseInput, teacher_email: str = Depends(get_current_teacher)
     ) -> dict[str, Any]:
-        return account_service.save_course(teacher_email, request.model_dump())
+        return account_service.save_course(teacher_email, request.model_dump(by_alias=True))
 
     @router.put(
         "/cursos/{course_id}",
@@ -304,7 +306,7 @@ def create_accounts_router(account_service: AccountService) -> APIRouter:
         teacher_email: str = Depends(get_current_teacher),
     ) -> dict[str, Any]:
         return account_service.save_course(
-            teacher_email, request.model_dump(), course_id
+            teacher_email, request.model_dump(by_alias=True), course_id
         )
 
     @router.delete(
@@ -361,8 +363,9 @@ def create_accounts_router(account_service: AccountService) -> APIRouter:
     )
     async def upload_document(
         file: UploadFile = File(..., description="Archivo binario de cátedra a registrar."),
-        contexto: str = Form(
+        context: str = Form(
             ...,
+            alias="contexto",
             description="Cadena JSON serializada con la estructura de DocumentContextInput.",
             examples=['{"unitId": "u2", "outcomeIds": [], "documentType": "lectura", "suggestedStage": "explore", "usePermission": true}'],
         ),
@@ -371,7 +374,7 @@ def create_accounts_router(account_service: AccountService) -> APIRouter:
         try:
             try:
                 parsed_context = DocumentContextInput.model_validate(
-                    json.loads(contexto)
+                    json.loads(context)
                 ).model_dump()
             except (ValueError, TypeError):
                 raise AccountConfigurationError(

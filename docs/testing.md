@@ -58,9 +58,9 @@ frontend/
 ### Pruebas sin red ni clave de IA
 
 Las pruebas automáticas no llaman a servicios externos. Las de punta a punta levantan el backend con
-`IA_PROVEEDOR=reglas` (generador por reglas, sin IA) y `BUSQUEDA_POR_TEMA=false`, y las llamadas a Gemini,
+`LLM_PROVIDER=rules` (generador por reglas, sin IA) y `TOPIC_SEARCH_ENABLED=false`, y las llamadas a Gemini,
 Anthropic, OpenAI y Wikipedia se prueban con respuestas HTTP simuladas (`httpx.MockTransport`) en
-`test_adaptadores_material_ia.py`. Así las pruebas no gastan cuota, no dependen de internet y nunca necesitan la
+`test_material_adapters_llm.py`. Así las pruebas no gastan cuota, no dependen de internet y nunca necesitan la
 clave. Que el proveedor real responda se comprueba a mano en el sistema publicado (ver más abajo).
 
 ## Cómo correrlas en local

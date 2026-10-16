@@ -8,9 +8,8 @@ services:
     region: virginia
     rootDir: backend
     buildCommand: pip install .
-    # El sábado: uvicorn platform5e.main:create_app --factory --host 0.0.0.0 --port $PORT
-    startCommand: uvicorn plataforma5e.bootstrap.app:crear_aplicacion --factory --host 0.0.0.0 --port $PORT
-    healthCheckPath: /salud   # el sábado: /health
+    startCommand: uvicorn platform5e.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /salud
     buildFilter:
       paths:
         - backend/**
@@ -19,11 +18,13 @@ services:
         value: 3.12.7
       - key: DATABASE_URL
         sync: false           # se escribe en el panel de Render, nunca en Git
-      - key: CORS_ORIGENES
+      # Nombres en inglés. El backend todavía lee los anteriores (CORS_ORIGENES, IA_PROVEEDOR, IA_API_KEY,
+      # BUSQUEDA_POR_TEMA…) para que el servicio no se caiga mientras se renombran en el panel.
+      - key: CORS_ALLOWED_ORIGINS
         value: https://plataforma-5e-taller-integrador.vercel.app
-      - key: IA_PROVEEDOR
+      - key: LLM_PROVIDER
         value: gemini
-      - key: IA_API_KEY
+      - key: LLM_API_KEY
         sync: false
-      - key: BUSQUEDA_POR_TEMA
+      - key: TOPIC_SEARCH_ENABLED
         value: "true"

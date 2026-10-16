@@ -30,11 +30,6 @@ class MaterialError(DomainError):
         self.code: str = code
         self.message: str = message
         self.status_code: int = status_code
-
-        # Propiedades en español para compatibilidad hacia atrás
-        self.codigo: str = code
-        self.mensaje: str = message
-        self.status: int = status_code
         super().__init__(message)
 
 
@@ -104,15 +99,9 @@ def _join_chunk_parts(parts: list[tuple[str, int]]) -> str:
     return joined_text
 
 
-def chunk_pages(
-    pages: list[tuple[str, str]],
-    target_words: int | None = None,
-    words: int | None = None,
-    palabras: int | None = None,
-    words_per_chunk: int | None = None,
-) -> list[dict[str, Any]]:
+def chunk_pages(pages: list[tuple[str, str]], target_words: int | None = None) -> list[dict[str, Any]]:
     """Divide las páginas en fragmentos de texto respetando oraciones y párrafos."""
-    chunk_size = target_words or words or palabras or words_per_chunk or WORDS_PER_CHUNK
+    chunk_size = target_words or WORDS_PER_CHUNK
     words_per_chunk_effective = chunk_size
     max_overlap = MAX_OVERLAP
 
@@ -154,18 +143,3 @@ def chunk_pages(
             "texto": chunk["text"],
         })
     return result
-
-
-# ---------------------------------------------------------------------------
-# Alias y compatibilidad con nombres en español para pruebas y adaptadores
-# ---------------------------------------------------------------------------
-PALABRAS_POR_FRAGMENTO = WORDS_PER_CHUNK
-SOLAPE_MAXIMO = MAX_OVERLAP
-MAX_FRAGMENTOS = MAX_CHUNKS
-
-limpiar_texto = clean_text
-parrafos = extract_paragraphs
-oraciones = extract_sentences
-_trozos_de_oracion = _split_long_sentence
-_unir = _join_chunk_parts
-fragmentar = chunk_pages

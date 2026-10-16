@@ -110,7 +110,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description='Recolecta muestras de generación para la evaluación con Ragas.')
     parser.add_argument('--api', default='http://127.0.0.1:8000', help='URL base del backend (sin / al final)')
     parser.add_argument('--cases', type=Path, default=HERE / 'cases.json')
-    parser.add_argument('--corpus', type=Path, default=HERE / 'corpus' / 'protocolos.txt')
+    parser.add_argument('--corpus', type=Path, default=HERE / 'corpus' / 'protocols.txt')
     parser.add_argument('--out', type=Path, default=HERE / 'results' / 'samples.jsonl')
     args = parser.parse_args()
 

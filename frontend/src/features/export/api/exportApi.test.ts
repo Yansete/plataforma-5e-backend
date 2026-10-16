@@ -4,7 +4,7 @@ import { clearDownloads, listDownloads, registerDownload } from '@/features/expo
 import { buildFile } from '@/features/export/model/buildFile';
 import { FORMATS, fileNameFor, formatInfo, isQuestion, resourcesFor, slug } from '@/features/export/model/exportFormats';
 import { buildUnitDocument } from '@/features/export/model/unitDocument';
-import { buildMoodleXml, exportedOptions } from '@/features/export/model/fileBuilders';
+import { exportedOptions } from '@/features/export/model/fileBuilders';
 import { decideOption, setStatus } from '@/features/review/model/reviewRules';
 import { course, item, mockFetch, text, unit } from '@/test/fixtures';
 import type { Resource } from '@/shared/types/domain';
@@ -37,24 +37,12 @@ describe('nombres y formatos', () => {
 });
 
 describe('archivos', () => {
-  it('Moodle XML: la clave con 100 % y solo los distractores no descartados', () => {
-    const r = approvedItem({ title: 'TCP & UDP', body: 'Enunciado <b>' });
-    expect(exportedOptions(r).map((o) => o.id)).toEqual(['a', 'b', 'c']);
-    const xml = buildMoodleXml([r], 'RED-301 · Unidad 1');
-    expect(xml.startsWith('<?xml')).toBe(true);
-    expect(xml).toContain('<text>$course$/top/RED-301 · Unidad 1</text>');
-    expect(xml).toContain('<name><text>TCP &amp; UDP</text></name>');
-    expect(xml.match(/fraction="100"/g)).toHaveLength(1);
-    expect(xml.match(/<answer /g)).toHaveLength(3);
-    expect(xml).toContain('Enunciado &lt;b&gt;');
-    expect(xml).not.toContain('<p>DNS</p>');
-    expect(buildMoodleXml([])).toContain('Plataforma Docente');
+  it('solo se exportan la clave y los distractores no descartados', () => {
+    expect(exportedOptions(approvedItem()).map((o) => o.id)).toEqual(['a', 'b', 'c']);
   });
 
-  it('arma cada formato con el nombre correcto', () => {
+  it('arma el documento de la unidad con el nombre correcto', () => {
     const list = [approvedItem(), text({ status: 'aprobado' })];
-    const moodle = buildFile('moodle_xml', list, course(), unit());
-    expect(moodle).toMatchObject({ fileName: 'red-301-unidad-1-moodle.xml', mimeType: 'application/xml', resourceCount: 1 });
     const html = buildFile('documento', list, course(), unit(), new Date(2026, 9, 10));
     expect(html).toMatchObject({ fileName: 'red-301-unidad-1-documento.html', mimeType: 'text/html', resourceCount: 2 });
   });

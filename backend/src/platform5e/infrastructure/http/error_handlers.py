@@ -5,7 +5,6 @@ Traduce excepciones de negocio y de validación a respuestas JSON uniformes.
 
 from __future__ import annotations
 
-from typing import Any
 
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
@@ -67,9 +66,9 @@ async def configuration_error_handler(
     request: Request, exc: AccountConfigurationError | MaterialError | GenerationError
 ) -> JSONResponse:
     """Maneja errores tipados de dominio de configuración docente, materiales y generación."""
-    status_code = getattr(exc, "status_code", getattr(exc, "status", 400))
-    error_code = getattr(exc, "code", getattr(exc, "codigo", "ERROR_CONFIGURACION"))
-    error_message = getattr(exc, "message", getattr(exc, "mensaje", str(exc)))
+    status_code = getattr(exc, "status_code", 400)
+    error_code = getattr(exc, "code", "ERROR_CONFIGURACION")
+    error_message = getattr(exc, "message", str(exc))
     return JSONResponse(
         status_code=status_code,
         content={"error": {"codigo": error_code, "mensaje": error_message}},

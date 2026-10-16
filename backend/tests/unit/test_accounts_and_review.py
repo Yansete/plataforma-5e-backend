@@ -105,7 +105,7 @@ def get_error_info(func, *args) -> tuple[str, int]:
     return err.value.code, err.value.status_code
 
 
-def test_crear_cuenta_abre_sesion_y_permite_volver_a_entrar(account_service: AccountService):
+def test_register_opens_a_session_and_allows_signing_in_again(account_service: AccountService):
     session = account_service.register_account("  Ana   Pérez ", " Ana@Correo.pe ", "clave-segura")
     assert session["email"] == "ana@correo.pe" and session["name"] == "Ana Pérez" and session["token"]
     saved_user = account_service.repository.get_user_by_email("ana@correo.pe")
@@ -116,7 +116,7 @@ def test_crear_cuenta_abre_sesion_y_permite_volver_a_entrar(account_service: Acc
     assert get_error_info(account_service.login, "ana@correo.pe", "otra-clave") == ("CREDENCIALES_INVALIDAS", 401)
 
 
-def test_crear_cuenta_valida_los_datos(account_service: AccountService):
+def test_register_validates_the_data(account_service: AccountService):
     account_service.register_account("Ana", "ana@correo.pe", "clave-segura")
     assert get_error_info(account_service.register_account, "Otra", "ana@correo.pe", "clave-segura") == ("CUENTA_EXISTENTE", 409)
     assert get_error_info(account_service.register_account, "Otra", DEFAULT_EMAIL, "clave-segura") == ("CUENTA_EXISTENTE", 409)
@@ -125,13 +125,13 @@ def test_crear_cuenta_valida_los_datos(account_service: AccountService):
     assert get_error_info(account_service.register_account, "Beto", "b@correo.pe", "corta")[0] == "CLAVE_INSEGURA"
 
 
-def test_cuenta_inicial_sigue_funcionando_sin_curso_de_ejemplo(account_service: AccountService):
+def test_bootstrap_account_works_without_sample_course(account_service: AccountService):
     session = account_service.login(DEFAULT_EMAIL, DEFAULT_PASSWORD)
     assert session["name"] == "Docente" and account_service.repository.initialized_catalogs == {}
     assert account_service.get_profile(DEFAULT_EMAIL)["name"] == "Docente"
 
 
-def test_borrar_curso_incluye_sus_unidades(account_service: AccountService):
+def test_deleting_a_course_includes_its_units(account_service: AccountService):
     course = account_service.save_course(
         "ana@correo.pe",
         {
@@ -247,7 +247,7 @@ def make_changes_dict(resource: dict[str, Any], decisions: dict[str, str] | None
     }
 
 
-def test_listar_ordena_y_solo_unidades_propias():
+def test_listing_is_sorted_and_only_for_own_units():
     service, _ = make_review_service(make_sample_item("r1"), make_sample_item("r2", createdAt="2026-10-10T11:00:00"))
     assert [r["id"] for r in service.list_resources("ana", "u1")] == ["r2", "r1"]
     with pytest.raises(AccountConfigurationError) as error:
@@ -255,7 +255,7 @@ def test_listar_ordena_y_solo_unidades_propias():
     assert error.value.status_code == 404
 
 
-def test_aprobar_exige_decidir_distractores():
+def test_approval_requires_deciding_distractors():
     resource = make_sample_item()
     service, repo = make_review_service(resource)
     with pytest.raises(AccountConfigurationError) as error:
@@ -281,7 +281,7 @@ def test_aprobar_exige_decidir_distractores():
     assert reverted["status"] == "pendiente" and reverted["decidedAt"] is None
 
 
-def test_descartar_guarda_motivo_y_edicion():
+def test_discard_saves_reason_and_edit():
     resource = make_sample_item()
     service, _ = make_review_service(resource)
     edited = service.update_resource(
@@ -305,7 +305,7 @@ def test_descartar_guarda_motivo_y_edicion():
         ({"options": None}, "ALTERNATIVAS_INVALIDAS"),
     ],
 )
-def test_actualizar_rechaza_datos_invalidos(bad_payload, expected_code):
+def test_update_rejects_invalid_data(bad_payload, expected_code):
     resource = make_sample_item()
     service, _ = make_review_service(resource)
     with pytest.raises(AccountConfigurationError) as error:
@@ -313,7 +313,7 @@ def test_actualizar_rechaza_datos_invalidos(bad_payload, expected_code):
     assert error.value.code == expected_code
 
 
-def test_decision_invalida_en_una_alternativa():
+def test_invalid_decision_on_an_option():
     resource = make_sample_item()
     service, _ = make_review_service(resource)
     incoming = make_changes_dict(resource)
@@ -323,7 +323,7 @@ def test_decision_invalida_en_una_alternativa():
     assert error.value.code == "DECISION_INVALIDA"
 
 
-def test_recurso_sin_alternativas_y_recurso_de_otra_unidad():
+def test_resource_without_options_and_resource_from_another_unit():
     explanation = {**make_sample_item("r9"), "options": None}
     service, _ = make_review_service(explanation)
     approved = service.update_resource("ana", "u1", "r9", make_changes_dict(explanation, status="aprobado"))
@@ -337,14 +337,14 @@ def test_recurso_sin_alternativas_y_recurso_de_otra_unidad():
     assert service.list_resources("ana", "u1") == []
 
 
-def test_bloqueos_de_aprobacion():
+def test_approval_blockers():
     assert validate_approval_blockers({"body": " ", "options": None}) == ["El contenido no puede estar vacío."]
     without_key = make_sample_item()
     without_key["options"] = [{**o, "isCorrect": False, "decision": "aceptado"} for o in without_key["options"]]
     assert validate_approval_blockers(without_key) == ["El ítem necesita una clave (respuesta correcta)."]
 
 
-def test_historial_de_descargas():
+def test_download_history():
     service, _ = make_review_service()
     first = service.register_download(
         "ana", "u1", {"format": "moodle_xml", "fileName": "red-301-unidad-1.xml", "resourceCount": 2}
@@ -360,7 +360,7 @@ def test_historial_de_descargas():
     assert service.get_downloads_history("ana", "u1") == [] and len(service.get_downloads_history("ana", "u2")) == 1
 
 
-def test_sin_cuenta_inicial_solo_entran_las_cuentas_creadas():
+def test_without_bootstrap_account_only_registered_accounts_sign_in():
     service = AccountService(MockTeacherRepository(), "", "", seed_demo_catalog=False)
     assert get_error_info(service.login, "", "") == ("CREDENCIALES_INVALIDAS", 401)
     assert get_error_info(service.login, DEFAULT_EMAIL, DEFAULT_PASSWORD) == ("CREDENCIALES_INVALIDAS", 401)
@@ -368,7 +368,7 @@ def test_sin_cuenta_inicial_solo_entran_las_cuentas_creadas():
     assert service.login("ana@correo.pe", "clave-segura")["name"] == "Ana"
 
 
-def test_resumen_cuenta_aprobados_y_pendientes_por_unidad():
+def test_summary_counts_approved_and_pending_per_unit():
     service, _ = make_review_service(
         make_sample_item("r1"),
         make_sample_item("r2", status="aprobado"),

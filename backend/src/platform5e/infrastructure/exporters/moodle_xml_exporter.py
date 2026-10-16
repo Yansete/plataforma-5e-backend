@@ -1,78 +1,102 @@
 """
-Plantilla y adaptador Moodle XML para exportación de recursos formativos (ADR-005).
+Exportador Moodle XML (ADR-005): banco de preguntas de opción múltiple con los ítems aprobados.
+
+Misma estructura que la muestra importada con éxito en Moodle durante SP-003
+(tests/fixtures/verified_moodle_sample.xml). Solo se exportan la clave y los distractores que el
+docente no descartó. La IA nunca escribe XML: el archivo sale de esta plantilla fija.
 """
 
 from __future__ import annotations
 
-from xml.sax.saxutils import escape
+import html
+import re
+from collections.abc import Mapping, Sequence
 
-from platform5e.application.ports.outbound.resource_exporter_port import ResourceExporterPort
-from platform5e.domain.review.learning_resource import LearningResourceDomain
+from platform5e.application.ports.outbound.unit_exporter_port import ExportedFile, UnitExporterPort
+
+# Quitar "descartado" cuando los valores guardados estén migrados al inglés.
+DISCARDED = {"discarded", "descartado"}
 
 
-def _wrap_cdata(text: str) -> str:
-    """Envuelve texto en un bloque CDATA de XML escapando secuencias de cierre."""
-    return text.replace("]]>", "]]]]><![CDATA[>")
+def _escape(value: object) -> str:
+    return html.escape(str(value or ""), quote=True)
 
 
-def generate_moodle_xml(approved_resources: list[LearningResourceDomain]) -> str:
-    """Genera la estructura XML completa en formato Moodle Quiz a partir de recursos aprobados."""
-    xml_lines: list[str] = [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        "<quiz>",
-        '  <question type="category"><category><text>$course$/top/Por defecto en Curso</text></category><info format="html"><text></text></info><idnumber></idnumber></question>',
+def _cdata(value: str) -> str:
+    return "<![CDATA[" + value.replace("]]>", "]]]]><![CDATA[>") + "]]>"
+
+
+def _to_html(text: str) -> str:
+    paragraphs = [p.strip() for p in re.split(r"\n{2,}", text or "") if p.strip()]
+    return "".join(f"<p>{_escape(p).replace(chr(10), '<br/>')}</p>" for p in paragraphs)
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", (value or "").lower()).strip("-") or "curso"
+
+
+def exported_options(resource: Mapping) -> list[Mapping]:
+    """La clave y los distractores que el docente no descartó."""
+    return [o for o in resource.get("options") or [] if o.get("isCorrect") or o.get("decision") not in DISCARDED]
+
+
+def _general_feedback(resource: Mapping) -> str:
+    claims = [c.get("claim", "") for c in resource.get("citations") or [] if c.get("claim")]
+    return f"Para repasar: {' '.join(claims)}" if claims else ""
+
+
+def _question(resource: Mapping) -> list[str]:
+    lines = [
+        '  <question type="multichoice">',
+        f"    <name><text>{_escape(resource.get('title'))}</text></name>",
+        f'    <questiontext format="html"><text>{_cdata(_to_html(resource.get("body", "")))}</text></questiontext>',
+        f'    <generalfeedback format="html"><text>{_cdata(_to_html(_general_feedback(resource)))}</text></generalfeedback>',
+        "    <defaultgrade>1.0000000</defaultgrade>",
+        "    <penalty>0.3333333</penalty>",
+        "    <hidden>0</hidden>",
+        "    <idnumber></idnumber>",
+        "    <single>true</single>",
+        "    <shuffleanswers>true</shuffleanswers>",
+        "    <answernumbering>abc</answernumbering>",
+        "    <showstandardinstruction>0</showstandardinstruction>",
+        f'    <correctfeedback format="html"><text>{_cdata("<p>Respuesta correcta.</p>")}</text></correctfeedback>',
+        '    <partiallycorrectfeedback format="html"><text>'
+        f'{_cdata("<p>Respuesta parcialmente correcta.</p>")}</text></partiallycorrectfeedback>',
+        f'    <incorrectfeedback format="html"><text>{_cdata("<p>Respuesta incorrecta.</p>")}</text></incorrectfeedback>',
+        "    <shownumcorrect/>",
     ]
-
-    for resource in approved_resources:
-        active_options = [
-            opt
-            for opt in resource.alternatives
-            if getattr(opt, "review_status", getattr(opt, "estado", "")) != "descartado"
+    for option in exported_options(resource):
+        lines += [
+            f'    <answer fraction="{"100" if option.get("isCorrect") else "0"}" format="html">',
+            f"      <text>{_cdata(_to_html(option.get('text', '')))}</text>",
+            f'      <feedback format="html"><text>{_cdata(_to_html(option.get("feedback", "")))}</text></feedback>',
+            "    </answer>",
         ]
-        xml_lines.append('  <question type="multichoice">')
-        xml_lines.append(f"    <name><text>{escape(resource.title)}</text></name>")
-        xml_lines.append(
-            f'    <questiontext format="html"><text><![CDATA[{_wrap_cdata(resource.prompt)}]]></text></questiontext>'
-        )
-        xml_lines.append(
-            f'    <generalfeedback format="html"><text><![CDATA[{_wrap_cdata(resource.feedback)}]]></text></generalfeedback>'
-        )
-        xml_lines.append("    <defaultgrade>1.0000000</defaultgrade>")
-        xml_lines.append("    <penalty>0.3333333</penalty>")
-        xml_lines.append("    <hidden>0</hidden>")
-        xml_lines.append("    <idnumber></idnumber>")
-        xml_lines.append("    <single>true</single>")
-        xml_lines.append("    <shuffleanswers>true</shuffleanswers>")
-        xml_lines.append("    <answernumbering>abc</answernumbering>")
-        xml_lines.append("    <showstandardinstruction>0</showstandardinstruction>")
-        xml_lines.append(
-            '    <correctfeedback format="html"><text><![CDATA[<p>Respuesta correcta.</p>]]></text></correctfeedback>'
-        )
-        xml_lines.append(
-            '    <partiallycorrectfeedback format="html"><text><![CDATA[<p>Respuesta parcialmente correcta.</p>]]></text></partiallycorrectfeedback>'
-        )
-        xml_lines.append(
-            '    <incorrectfeedback format="html"><text><![CDATA[<p>Respuesta incorrecta.</p>]]></text></incorrectfeedback>'
-        )
-        xml_lines.append("    <shownumcorrect/>")
-
-        for opt in active_options:
-            fraction = "100" if opt.is_correct else "0"
-            xml_lines.append(f'    <answer fraction="{fraction}" format="html">')
-            xml_lines.append(f"      <text><![CDATA[{_wrap_cdata(opt.text)}]]></text>")
-            xml_lines.append(
-                f"      <feedback format=\"html\"><text><![CDATA[{_wrap_cdata(opt.justification)}]]></text></feedback>"
-            )
-            xml_lines.append("    </answer>")
-        xml_lines.append("  </question>")
-
-    xml_lines.append("</quiz>")
-    return "\n".join(xml_lines)
+    lines.append("  </question>")
+    return lines
 
 
-class MoodleXMLExporter(ResourceExporterPort):
-    """Adaptador de infraestructura para exportar recursos de dominio a formato Moodle XML."""
+class MoodleXmlExporter(UnitExporterPort):
+    """Adaptador del formato «moodle_xml»: Moodle solo importa los ítems de opción múltiple."""
 
-    def export(self, resources: list[LearningResourceDomain]) -> str:
-        """Serializa la lista de recursos de dominio aprobados al esquema XML."""
-        return generate_moodle_xml(resources)
+    format = "moodle_xml"
+    media_type = "application/xml"
+
+    def supports(self, resource: Mapping) -> bool:
+        return bool(resource.get("options"))
+
+    def export(self, resources: Sequence[Mapping], course: Mapping, unit: Mapping) -> ExportedFile:
+        number = unit.get("number", 1)
+        category = f"{course.get('code', '')} · Unidad {number}"
+        lines = [
+            '<?xml version="1.0" encoding="UTF-8"?>',
+            "<quiz>",
+            f'  <question type="category"><category><text>$course$/top/{_escape(category)}</text></category>'
+            '<info format="html"><text></text></info><idnumber></idnumber></question>',
+        ]
+        for resource in resources:
+            if self.supports(resource):
+                lines += _question(resource)
+        lines.append("</quiz>")
+        file_name = f"{_slug(course.get('code', ''))}-unidad-{number}-moodle.xml"
+        return ExportedFile(file_name, self.media_type, "\n".join(lines).encode("utf-8"))

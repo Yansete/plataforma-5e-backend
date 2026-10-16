@@ -128,7 +128,7 @@ def build_test_environment(
     return service, config_repo, chunk_repo
 
 
-def test_procesar_guarda_fragmentos_y_marca_procesado():
+def test_processing_saves_chunks_and_marks_processed():
     service, config_repo, chunk_repo = build_test_environment()
     data = service.process_material("d", "doc1")
     assert data["status"] == "procesado" and data["fragmentCount"] == 1 and data["pageCount"] == 1
@@ -141,20 +141,20 @@ def test_procesar_guarda_fragmentos_y_marca_procesado():
     assert fragments_view[0]["text"].startswith("El protocolo TCP")
 
 
-def test_procesar_sin_texto_deja_error_explicado():
+def test_processing_without_text_leaves_an_explained_error():
     service, _, chunk_repo = build_test_environment(pages=[("p. 1", " "), ("p. 2", "")])
     data = service.process_material("d", "doc1")
     assert data["status"] == "error" and "escaneado" in data["errorMessage"] and data["pageCount"] == 2
     assert chunk_repo.chunks_db["doc1"] == []
 
 
-def test_procesar_archivo_ilegible_no_lanza_y_explica():
+def test_processing_an_unreadable_file_does_not_raise_and_explains():
     service, _, _ = build_test_environment(error=MaterialError("PDF_PROTEGIDO", "El PDF está protegido."))
     data = service.process_material("d", "doc1")
     assert data["status"] == "error" and data["errorMessage"] == "El PDF está protegido."
 
 
-def test_documento_inexistente_devuelve_404():
+def test_missing_document_returns_404():
     service, _, _ = build_test_environment()
     with pytest.raises(MaterialError) as error:
         service.process_material("d", "no-existe")
@@ -163,7 +163,7 @@ def test_documento_inexistente_devuelve_404():
         service.get_document_chunks("d", "no-existe")
 
 
-def test_desde_tema_crea_documentos_procesados_y_no_duplica():
+def test_from_topic_creates_processed_documents_without_duplicates():
     article = {
         "titulo": "Protocolo de control de transmisión",
         "url": "https://es.wikipedia.org/wiki/TCP",
@@ -199,14 +199,14 @@ def test_desde_tema_crea_documentos_procesados_y_no_duplica():
         ("redes", "u1", MockOpenResource([]), "SIN_RESULTADOS"),
     ],
 )
-def test_desde_tema_rechazos(topic, unit_id, source_instance, expected_code):
+def test_from_topic_rejections(topic, unit_id, source_instance, expected_code):
     service, _, _ = build_test_environment(open_resource=source_instance)
     with pytest.raises(MaterialError) as error:
         service.create_from_topic("d", unit_id, topic)
     assert error.value.code == expected_code
 
 
-def test_desde_tema_propaga_errores_propios_de_la_fuente():
+def test_from_topic_propagates_source_errors():
     class SourceWithQuotaError(MockOpenResource):
         def search(self, topic: str, limit: int) -> list[dict[str, Any]]:
             raise MaterialError("CUOTA", "Límite de la fuente.", 429)
@@ -217,6 +217,6 @@ def test_desde_tema_propaga_errores_propios_de_la_fuente():
     assert error.value.code == "CUOTA"
 
 
-def test_nombre_para_articulo_es_seguro():
+def test_article_file_name_is_safe():
     assert build_article_filename("TCP/IP \\ redes", "Wikipedia") == "TCP IP   redes.txt"
     assert build_article_filename("", "Wikipedia") == "Artículo.txt"
