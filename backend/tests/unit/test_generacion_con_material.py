@@ -169,8 +169,9 @@ def test_instrucciones_incluyen_curso_pedido_y_fragmentos():
     contexto = construir_contexto(CURSO, UNIDAD, solicitud(outcomeId='ra-1'), [{**f, 'relevancia': 1} for f in FRAGMENTOS], {'doc1': 'apuntes.pdf'})
     sistema, usuario = construir_instrucciones(contexto)
     assert 'Evaluar' in sistema and 'JSON' in sistema
+    assert 'Genera solo texto' in sistema  # Sprint 1: sin multimedia
     for texto in ('SUMILLA: Curso de redes.', 'RA1.1: Distingue TCP y UDP', 'exactamente 3 alternativas', 'Tercer ciclo',
-                  'Pensamiento crítico', 'Textual', 'contexto peruano', '[F1] (apuntes.pdf, p. 1)'):
+                  'Pensamiento crítico', 'contexto peruano', '[F1] (apuntes.pdf, p. 1)'):
         assert texto in usuario
     vacio = construir_contexto({}, {'title': 'U', 'number': 2}, solicitud(stage='explain', resourceType='glosario', audience='',
                                                                           competency='', modalities=[], instructions=''), [], {})

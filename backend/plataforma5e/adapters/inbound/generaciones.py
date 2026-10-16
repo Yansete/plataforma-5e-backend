@@ -13,7 +13,8 @@ class SolicitudIntegrada(GenerationRequestModel):
     model_config = ConfigDict(extra='forbid')
     publico_objetivo: str = Field(default='', max_length=200)
     competencia: str = Field(default='', max_length=200)
-    modalidades: list[Literal['Textual','Gamificado','Multimedia','Kinestésico']] = Field(default_factory=list, max_length=4)
+    # Sprint 1: solo texto. Otra modalidad responde 422 (HU-053, alcance acordado con el docente).
+    modalidades: list[Literal['Textual']] = Field(default_factory=lambda: ['Textual'], max_length=1)
 
     def a_dominio(self) -> dict:
         return {'unitId': self.unidad_id, 'outcomeId': self.resultado_aprendizaje_id, 'stage': self.etapa_5e, 'resourceType': self.tipo_recurso, 'quantity': self.cantidad, 'difficulty': self.dificultad, 'optionCount': self.alternativas, 'topK': self.top_k, 'evidenceThreshold': self.umbral_evidencia, 'instructions': self.indicaciones or '', 'audience': self.publico_objetivo, 'competency': self.competencia, 'modalities': self.modalidades}

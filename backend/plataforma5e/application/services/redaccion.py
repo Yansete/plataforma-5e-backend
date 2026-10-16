@@ -65,6 +65,7 @@ def construir_instrucciones(contexto: dict) -> tuple[str, str]:
         'Usa SOLO la información de los FRAGMENTOS del material del docente: no agregues datos que no estén en ellos. '
         'Cada afirmación importante debe citar las etiquetas de los fragmentos que la respaldan (F1, F2…). '
         'Si los fragmentos no alcanzan para un recurso, no lo inventes: devuelve menos recursos. '
+        'Genera solo texto: no incluyas imágenes, enlaces a video o audio, ni instrucciones para producir material multimedia. '
         'Responde únicamente con JSON válido, sin texto antes ni después.'
     )
     curso, unidad = contexto['curso'], contexto['unidad']
@@ -84,8 +85,6 @@ def construir_instrucciones(contexto: dict) -> tuple[str, str]:
         lineas.append(f"Público: {s['publico']}.")
     if s['competencia']:
         lineas.append(f"Competencia a desarrollar: {s['competencia']}.")
-    if s['modalidades']:
-        lineas.append('Modalidades preferidas: ' + ', '.join(s['modalidades']) + '. Describe en texto cómo se presentaría el recurso en esa modalidad.')
     if s['indicaciones']:
         lineas.append(f"Indicaciones del docente: {s['indicaciones']}")
     lineas += [

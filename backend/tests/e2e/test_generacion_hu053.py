@@ -38,6 +38,12 @@ def test_cantidad_invalida_devuelve_422(servidor, cantidad):
     assert response.status_code == 422
     assert response.json()['error']['codigo'] == 'PARAMETROS_INVALIDOS'
 
+@pytest.mark.parametrize('modalidades', [['Multimedia'], ['Textual', 'Gamificado']])
+def test_solo_texto_rechaza_otras_modalidades(servidor, modalidades):
+    response = httpx.post(f'{servidor}/api/v1/generaciones', json={**SOLICITUD, 'modalidades': modalidades})
+    assert response.status_code == 422
+    assert response.json()['error']['codigo'] == 'PARAMETROS_INVALIDOS'
+
 @pytest.mark.parametrize('patch,code', [({'unidad_id': 'unidad-nueva'}, 'SIN_MATERIAL_PROCESADO'), ({'etapa_5e': 'explore', 'tipo_recurso': 'item_opcion_multiple'}, 'EVIDENCIA_INSUFICIENTE'), ({'resultado_aprendizaje_id': 'ra-3-1'}, 'RESULTADO_INVALIDO')])
 def test_rechazos_estandarizados_sin_recursos(servidor, patch, code):
     response = httpx.post(f'{servidor}/api/v1/generaciones', json={**SOLICITUD, **patch})
