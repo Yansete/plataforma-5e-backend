@@ -58,6 +58,7 @@ class GenerationResponseSchema(BaseModel):
     available: int
     fragments: list[dict[str, Any]]
     documents: list[dict[str, Any]]
+    retrievedChunks: list[dict[str, Any]] = []  # todo lo recuperado; lo usa la evaluación RAG
 
 
 def create_generations_router(

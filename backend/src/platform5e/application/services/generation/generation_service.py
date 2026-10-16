@@ -256,6 +256,16 @@ class GenerationService:
                 for chunk in used_chunks
             ],
             "documents": associated_docs,
+            # Todo lo recuperado (no solo lo citado): lo usa la evaluación RAG. La interfaz no lo muestra.
+            "retrievedChunks": [
+                {
+                    "id": chunk["id"],
+                    "location": chunk.get("location") or chunk.get("ubicacion"),
+                    "text": chunk.get("text") or chunk.get("texto"),
+                    "relevance": chunk.get("relevance", chunk.get("relevancia", 0.0)),
+                }
+                for chunk in selected_chunks
+            ],
         }
 
         self._repository.save(result_payload, teacher_id)
