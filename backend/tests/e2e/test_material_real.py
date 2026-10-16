@@ -44,6 +44,9 @@ def test_material_real_se_procesa_y_genera_recursos_citados(servidor):
         datos = respuesta.json()
         assert datos['mode'] == 'rag' and datos['generator']['usaIA'] is False
         ids = {f['id'] for f in datos['fragments']}
+        # Lo recuperado incluye todo lo citado (la evaluación con Ragas lo usa como contexto).
+        recuperados = {f['id'] for f in datos['retrievedChunks']}
+        assert ids and ids <= recuperados and all(f['text'] for f in datos['retrievedChunks'])
         for recurso in datos['resources']:
             assert recurso['source'] == 'rag' and recurso['status'] == 'pendiente'
             assert all(set(c['fragmentIds']) <= ids for c in recurso['citations'])

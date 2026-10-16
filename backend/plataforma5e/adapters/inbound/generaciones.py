@@ -27,6 +27,7 @@ class GeneracionRespuesta(BaseModel):
     available: int
     fragments: list[dict]
     documents: list[dict]
+    retrievedChunks: list[dict] = []  # todo lo recuperado; lo usa la evaluación RAG
 
 def crear_router_generaciones(servicio: GeneracionService, configuracion=None) -> APIRouter:
     router = APIRouter(prefix='/api/v1/generaciones', tags=['EP-003 Generación de recursos'])

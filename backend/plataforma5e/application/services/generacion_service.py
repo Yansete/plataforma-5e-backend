@@ -120,6 +120,9 @@ class GeneracionService:
             'fragments': [{'id': f['id'], 'documentId': f['documento_id'], 'location': f['ubicacion'], 'unitId': unidad['id'],
                            'outcomeId': outcome, 'text': f['texto'], 'relevance': f.get('relevancia', 0.0)} for f in usados],
             'documents': docs,
+            # Todo lo recuperado (no solo lo citado): lo usa la evaluación RAG. La interfaz no lo muestra.
+            'retrievedChunks': [{'id': f['id'], 'location': f['ubicacion'], 'text': f['texto'],
+                                 'relevance': f.get('relevancia', 0.0)} for f in elegidos],
         }
         self._repo.guardar(resultado, docente)
         return resultado
