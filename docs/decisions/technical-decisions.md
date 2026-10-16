@@ -171,3 +171,10 @@ propio CI (Frontend CI y Backend CI) y un tercer flujo (End-to-end) prueba las d
 
 Chamilo recibe un paquete SCORM 1.2 generado en el backend, con una página HTML por recurso aprobado. Reemplaza al
 ZIP QTI 2.1 de ADR-005 y SP-003: Chamilo lo importaba como lección, pero sin ninguna página que mostrar.
+
+## ADR-008 Sprint 1 solo genera texto (15/10/2026)
+
+En el Sprint 1 los recursos se generan solo como texto. El material de entrada también es solo texto: el extractor lee
+el texto de PDF, PPTX y TXT e ignora las imágenes. Imágenes, video y otras modalidades se evalúan en el Sprint 2. La
+interfaz ya no ofrece modalidades, la API responde 422 a cualquier modalidad distinta de «Textual» y el prompt pide no
+incluir material multimedia.

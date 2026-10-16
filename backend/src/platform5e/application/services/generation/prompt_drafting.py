@@ -130,6 +130,7 @@ def build_prompt_instructions(context: dict[str, Any]) -> tuple[str, str]:
         "Usa SOLO la información de los FRAGMENTOS del material: no agregues datos ajenos. "
         "Cada afirmación importante debe citar las etiquetas de los fragmentos que la respaldan (F1, F2…). "
         "Si los fragmentos no alcanzan, devuelve menos recursos. "
+        "Genera solo texto: no incluyas imágenes, enlaces a video o audio, ni instrucciones para producir material multimedia. "
         "Responde únicamente con JSON válido, sin delimitadores adicionales."
     )
 
@@ -153,8 +154,6 @@ def build_prompt_instructions(context: dict[str, Any]) -> tuple[str, str]:
         lines.append(f"Público: {req['publico']}.")
     if req["competencia"]:
         lines.append(f"Competencia a desarrollar: {req['competencia']}.")
-    if req["modalidades"]:
-        lines.append("Modalidades preferidas: " + ", ".join(req["modalidades"]) + ".")
     if req["indicaciones"]:
         lines.append(f"Indicaciones del docente: {req['indicaciones']}")
 
