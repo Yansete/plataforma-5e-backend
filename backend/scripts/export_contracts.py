@@ -14,7 +14,7 @@ from plataforma5e.adapters.inbound.contratos.evaluate import ResourceEvaluateIte
 
 # Determina la raíz del repositorio y el directorio de documentación compartido
 ROOT_DIR = Path(__file__).resolve().parents[2]
-OUTPUT_DIR = ROOT_DIR / "docs" / "contratos"
+OUTPUT_DIR = ROOT_DIR / "docs" / "api" / "contracts"
 
 
 def exportar_todos_los_contratos() -> None:
@@ -22,12 +22,12 @@ def exportar_todos_los_contratos() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
     catalogo_contratos = {
-        "solicitud_generacion_v1.json": GenerationRequestModel.model_json_schema(),
-        "recurso_engage_v1.json": ResourceEngageItemModel.model_json_schema(),
-        "recurso_explore_v1.json": ResourceExploreItemModel.model_json_schema(),
-        "recurso_explain_v1.json": ResourceExplainItemModel.model_json_schema(),
-        "recurso_elaborate_v1.json": ResourceElaborateItemModel.model_json_schema(),
-        "recurso_evaluate_v1.json": ResourceEvaluateItemModel.model_json_schema()
+        "generation-request.v1.json": GenerationRequestModel.model_json_schema(),
+        "resource-engage.v1.json": ResourceEngageItemModel.model_json_schema(),
+        "resource-explore.v1.json": ResourceExploreItemModel.model_json_schema(),
+        "resource-explain.v1.json": ResourceExplainItemModel.model_json_schema(),
+        "resource-elaborate.v1.json": ResourceElaborateItemModel.model_json_schema(),
+        "resource-evaluate.v1.json": ResourceEvaluateItemModel.model_json_schema()
     }
     
     for nombre_archivo, esquema_json in catalogo_contratos.items():

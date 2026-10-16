@@ -2,7 +2,7 @@
 
 Entorno de EN-011: PostgreSQL 17 con la extensión **pgvector 0.8.1**, tabla de fragmentos con embeddings de
 **768 dimensiones** (SP-001), índice HNSW por distancia coseno, índice por unidad e índice GIN para búsqueda por
-palabras en español. Existe un backend FastAPI con SQLAlchemy. Usa SQLite por defecto; este entorno PostgreSQL se configura aparte. Ver [arquitectura y conexión](../docs/arquitectura.md).
+palabras en español. Existe un backend FastAPI con SQLAlchemy. Usa SQLite por defecto; este entorno PostgreSQL se configura aparte. Ver [arquitectura y conexión](../../docs/architecture/overview.md).
 
 ## Requisitos
 
@@ -11,7 +11,7 @@ palabras en español. Existe un backend FastAPI con SQLAlchemy. Usa SQLite por d
 
 ## Primera vez
 
-Desde la raíz del repositorio:
+Desde `backend/`:
 
 ```bash
 cp .env.example .env                  # variables locales (revisa los comentarios del archivo)
@@ -24,10 +24,10 @@ Si el puerto 5432 ya está en uso por otro PostgreSQL, cambia `POSTGRES_PORT` (y
 ## Verificar la base vectorial
 
 ```bash
-./db/verificacion/verificar.sh
+./database/verification/verify.sh
 ```
 
-Crea una base temporal, le aplica todas las migraciones, ejecuta `db/verificacion/verificar_base_vectorial.sql`
+Crea una base temporal, le aplica todas las migraciones, ejecuta `database/verification/verify_vector_store.sql`
 y la elimina al terminar. La base de desarrollo no se modifica. Debe terminar con `VERIFICACIÓN EN-011 SUPERADA`.
 
 | Comprobación | Qué demuestra |
@@ -52,9 +52,9 @@ Sobre los planes de ejecución:
 | Comando | Qué hace |
 |---|---|
 | `docker compose run --rm dbmate status` | Lista migraciones aplicadas y pendientes |
-| `docker compose run --rm dbmate up` | Aplica las pendientes y actualiza `db/schema.sql` |
+| `docker compose run --rm dbmate up` | Aplica las pendientes y actualiza `database/schema.sql` |
 | `docker compose run --rm dbmate rollback` | Revierte la última migración (sección `migrate:down`) |
-| `docker compose run --rm dbmate new nombre_en_minusculas` | Crea `db/migrations/<fecha>_nombre_en_minusculas.sql` |
+| `docker compose run --rm dbmate new nombre_en_minusculas` | Crea `database/migrations/<fecha>_nombre_en_minusculas.sql` |
 | `docker compose exec db psql -U plataforma5e -d plataforma5e` | Consola SQL (usuario y base según tu `.env`) |
 | `docker compose stop` | Detiene PostgreSQL conservando los datos |
 | `docker compose down -v` | **Borra** el contenedor y los datos locales (empezar de cero) |
@@ -63,7 +63,7 @@ Sobre los planes de ejecución:
 
 - **No editar migraciones ya aplicadas**: crear una nueva con `dbmate new`. Cada archivo tiene `-- migrate:up` y
   `-- migrate:down`.
-- `db/schema.sql` lo genera dbmate. No se edita a mano; se sube al repositorio como referencia del esquema actual.
+- `database/schema.sql` lo genera dbmate. No se edita a mano; se sube al repositorio como referencia del esquema actual.
 - `.env` no se sube al repositorio (ya está en `.gitignore`). Las variables nuevas se documentan en `.env.example`.
 
 ## Estructura actual
@@ -86,4 +86,4 @@ LIMIT $3;
 ```
 
 Recuerda que con multilingual-e5-base el vector de la consulta se genera con el prefijo `"query: "` y el de los
-fragmentos con `"passage: "` (ver `docs/spikes/SP-001-modelos-embeddings.md`).
+fragmentos con `"passage: "` (ver `docs/spikes/SP-001-embedding-models.md`).

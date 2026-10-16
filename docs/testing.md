@@ -139,7 +139,7 @@ Las pruebas en navegador ya corren en la CI contra el backend real (antes usaban
 
 ## Prueba manual después del despliegue
 
-Se hace en el enlace de Vercel, con el backend de Render configurado (ver [despliegue.md](despliegue.md)), y se
+Se hace en el enlace de Vercel, con el backend de Render configurado (ver [despliegue.md](deployment.md)), y se
 anota el resultado en el acta de la semana:
 
 1. Abrir `https://<servicio>.onrender.com/api/v1/ia`: debe indicar el proveedor y el modelo configurados

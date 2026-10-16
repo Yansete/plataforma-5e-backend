@@ -2,9 +2,9 @@
 # Verificación de EN-011 en una base de datos temporal:
 #   1. crea la base en011_verificacion en el contenedor db,
 #   2. le aplica todas las migraciones con dbmate (prueba también que migran desde cero),
-#   3. ejecuta verificar_base_vectorial.sql,
+#   3. ejecuta verify_vector_store.sql,
 #   4. elimina la base temporal (también si algo falla).
-# La base de desarrollo no se modifica. Uso, desde la raíz del repositorio: ./db/verificacion/verificar.sh
+# La base de desarrollo no se modifica. Uso, desde backend/: ./database/verification/verify.sh
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
@@ -41,4 +41,4 @@ docker compose run --rm \
   dbmate --no-dump-schema up
 
 echo "== Ejecutando la verificación =="
-psql_db -d "$BD_TEMPORAL" -f /verificacion/verificar_base_vectorial.sql
+psql_db -d "$BD_TEMPORAL" -f /verification/verify_vector_store.sql
