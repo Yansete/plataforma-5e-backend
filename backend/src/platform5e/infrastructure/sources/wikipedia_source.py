@@ -12,7 +12,10 @@ import httpx
 
 from platform5e.application.ports.outbound.chunk_repository_port import OpenEducationalResourcePort
 
-USER_AGENT_HEADER: str = "Platform5E/1.0 (academic project Taller Integrador UPAO)"
+# La política de Wikimedia exige un User-Agent con datos de contacto (https://w.wiki/4WJS); sin ellos responde 403.
+USER_AGENT_HEADER: str = (
+    "Platform5E/1.0 (https://github.com/Yansete/plataforma-5e-taller-integrador; academic project UPAO) python-httpx"
+)
 _TRAILING_SECTIONS_REGEX: re.Pattern[str] = re.compile(
     r"^\s*={2,}\s*(Véase también|Referencias|Notas|Bibliografía|Enlaces externos|Fuentes)\s*={2,}\s*$",
     re.MULTILINE | re.IGNORECASE,

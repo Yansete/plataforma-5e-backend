@@ -16,7 +16,7 @@ from platform5e.application.services.generation.prompt_drafting import (
 )
 
 DEFAULT_MODELS: dict[str, str] = {
-    "gemini": "gemini-2.5-flash",
+    "gemini": "gemini-3.8-flash",  # gemini-2.5-flash responde 404 a las claves nuevas
     "anthropic": "claude-sonnet-5-5",
     "openai": "gpt-5.4-mini",
 }

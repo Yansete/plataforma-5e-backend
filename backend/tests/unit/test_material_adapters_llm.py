@@ -137,7 +137,7 @@ def test_gemini_envia_instrucciones_y_lee_el_texto():
     generator = GeminiLanguageModel("gemini", "clave", client=client)
     output = generator.generate(TEST_GENERATION_CONTEXT)
     assert output == EXPECTED_LLM_OUTPUT
-    assert requests[0].url.path.endswith("/models/gemini-2.5-flash:generateContent") or requests[0].url.path.endswith("/generateContent")
+    assert requests[0].url.path.endswith("/models/gemini-3.8-flash:generateContent")
     assert requests[0].headers["x-goog-api-key"] == "clave"
     payload = json.loads(requests[0].content)
     assert payload["generationConfig"]["responseMimeType"] == "application/json"
@@ -259,6 +259,12 @@ def test_wikipedia_busca_y_limpia_el_articulo():
     articles = source.search("protocolo TCP", 3)
     assert [a["titulo"] for a in articles] == ["Protocolo TCP"]
     assert articles[0]["licencia"] == "CC BY-SA 4.0" and "Referencias" not in articles[0]["texto"]
+
+
+def test_wikipedia_se_identifica_con_datos_de_contacto():
+    # Sin un enlace o correo de contacto en el User-Agent, Wikimedia responde 403 (https://w.wiki/4WJS).
+    agent = WikipediaSource()._client.headers["User-Agent"]
+    assert agent.startswith("Platform5E/") and "https://github.com/" in agent
 
 
 @pytest.mark.parametrize(
