@@ -20,7 +20,7 @@ export function MaterialTab({ unit, base, documents }: UnitTabProps & { document
       </div>
 
       <Card>
-        <CardHeader title="Material de la unidad" description={`${plural(summary.processed, 'documento', 'documentos')} · ${plural(summary.fragments, 'fragmento', 'fragmentos')}`} />
+        <CardHeader title="Material de la unidad" description={plural(summary.processed, 'documento procesado', 'documentos procesados')} />
         {documents.length === 0 ? (
           <EmptyState icon="file" title="Todavía no hay material">
             Sube un documento o busca el tema. Cada idea de los recursos generados citará un fragmento de este material.
@@ -80,7 +80,7 @@ function UploadCard({ unitId, outcomes }: { unitId: string; outcomes: { id: stri
     try {
       const saved = await uploadAndProcess(file, { unitId, outcomeIds: selected, documentType }, setStep);
       await reloadDocuments();
-      if (saved.status === 'procesado') setDone(`«${saved.fileName}» quedó listo: ${plural(saved.fragmentCount, 'fragmento', 'fragmentos')}.`);
+      if (saved.status === 'procesado') setDone(`«${saved.fileName}» quedó listo para generar recursos.`);
       else setError(saved.errorMessage ?? 'No se pudo leer el archivo.');
       setFile(null);
       if (inputRef.current) inputRef.current.value = '';
@@ -298,7 +298,7 @@ function DocumentRow({ document: d, outcomeCodes }: { document: MaterialDocument
           </span>
           <span className={d.status === 'procesado' ? 'doc__status doc__status--ok' : d.status === 'error' ? 'doc__status doc__status--error' : 'doc__status'}>
             {d.status === 'procesado'
-              ? `Procesado · ${plural(d.fragmentCount, 'fragmento', 'fragmentos')}`
+              ? 'Procesado'
               : d.status === 'error'
                 ? `No se pudo procesar${d.errorMessage ? `: ${d.errorMessage}` : ''}`
                 : 'Sin procesar'}
@@ -335,7 +335,7 @@ function DocumentRow({ document: d, outcomeCodes }: { document: MaterialDocument
           ))}
           {fragments && fragments.length > SHOWN_FRAGMENTS && (
             <button type="button" className="link-button" onClick={() => setShowAll((v) => !v)}>
-              {showAll ? 'Ver menos' : `y ${plural(fragments.length - SHOWN_FRAGMENTS, 'fragmento más', 'fragmentos más')}`}
+              {showAll ? 'Ver menos' : 'Ver más'}
             </button>
           )}
         </div>
