@@ -81,7 +81,7 @@ export function CursoPage() {
               {material.processed > 0 ? (
                 <p className="unit-card__stats">
                   <span>
-                    <strong>Material:</strong> {plural(material.processed, 'documento procesado', 'documentos procesados')}
+                    <strong>Material:</strong> {plural(material.processed, 'documento', 'documentos')} · {plural(material.fragments, 'fragmento', 'fragmentos')}
                   </span>
                   <span>
                     <strong>Recursos:</strong> {resources && resources.approved + resources.pending > 0 ? `${plural(resources.approved, 'aprobado', 'aprobados')} · ${resources.pending} por revisar` : 'todavía no hay'}

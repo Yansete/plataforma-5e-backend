@@ -262,7 +262,7 @@ export function GeneracionTab({ unit, base, documents, upsertResources }: UnitTa
             <span>
               <strong>Tu material</strong>
               <span className="caption">
-                {plural(material.processed, 'documento procesado', 'documentos procesados')}
+                {plural(material.processed, 'documento', 'documentos')} · {plural(material.fragments, 'fragmento', 'fragmentos')}
               </span>
             </span>
           </li>
