@@ -1,5 +1,5 @@
 /** Descarga un archivo armado en el navegador. */
-export function saveFile(fileName: string, data: string | Uint8Array, mimeType: string): void {
+export function saveFile(fileName: string, data: BlobPart, mimeType: string): void {
   const blob = new Blob([data], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

@@ -23,13 +23,13 @@ export const FORMATS: FormatInfo[] = [
     howTo: 'En Moodle: Banco de preguntas › Importar › Formato Moodle XML.',
   },
   {
-    id: 'qti21',
+    id: 'scorm_zip',
     title: 'Chamilo',
-    description: 'Paquete QTI 2.1 comprimido, el formato que pide Chamilo.',
+    description: 'Paquete SCORM 1.2: cada recurso aprobado es una página de la lección.',
     extension: 'zip',
     mimeType: 'application/zip',
-    onlyQuestions: true,
-    howTo: 'En Chamilo: Ejercicios › Importar QTI2.',
+    onlyQuestions: false,
+    howTo: 'En Chamilo: Lecciones › Importar AICC, SCORM y Chamilo.',
   },
   {
     id: 'documento',
@@ -42,7 +42,7 @@ export const FORMATS: FormatInfo[] = [
   },
 ];
 
-const SUFFIX: Record<DownloadFormat, string> = { moodle_xml: 'moodle', qti21: 'chamilo', documento: 'documento' };
+const SUFFIX: Record<DownloadFormat, string> = { moodle_xml: 'moodle', scorm_zip: 'scorm', documento: 'documento' };
 
 export function formatInfo(id: DownloadFormat): FormatInfo {
   return FORMATS.find((f) => f.id === id) ?? FORMATS[0];

@@ -66,3 +66,24 @@ export function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   return 'Ocurrió un error inesperado. Vuelve a intentar.';
 }
+
+/** POST que devuelve un archivo (por ejemplo, el paquete SCORM) en vez de JSON. */
+export async function apiDownload(path: string, json: unknown): Promise<{ blob: Blob; fileName: string }> {
+  const session = getSession();
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (session) headers.Authorization = `Bearer ${session.token}`;
+  let response: Response;
+  try {
+    response = await fetch(apiUrl(path), { method: 'POST', headers, body: JSON.stringify(json) });
+  } catch {
+    throw new ApiError(0, 'SIN_CONEXION', CONNECTION_ERROR_MESSAGE);
+  }
+  if (!response.ok) {
+    const data = (await response.json().catch(() => null)) as { error?: Record<string, string> } | null;
+    if (response.status === 401 && session) setSession(null);
+    const error = data?.error ?? {}; // mientras convivan los dos formatos: code/message y codigo/mensaje
+    throw new ApiError(response.status, error.code ?? error.codigo ?? `HTTP_${response.status}`, error.message ?? error.mensaje ?? 'No se pudo generar el archivo.');
+  }
+  const fileName = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '')?.[1] ?? 'exportacion.zip';
+  return { blob: await response.blob(), fileName };
+}
