@@ -262,7 +262,7 @@ export function GenerationTab({ unit, base, documents, upsertResources }: UnitTa
             <span>
               <strong>Tu material</strong>
               <span className="caption">
-                {plural(material.processed, 'documento', 'documentos')} · {plural(material.fragments, 'fragmento', 'fragmentos')}
+                {plural(material.processed, 'documento', 'documentos')}
               </span>
             </span>
           </li>
@@ -277,7 +277,7 @@ export function GenerationTab({ unit, base, documents, upsertResources }: UnitTa
             <Icon name="quote" />
             <span>
               <strong>Todo con su fuente</strong>
-              <span className="caption">Cada afirmación cita un fragmento. Si el material no alcanza, no se genera.</span>
+              <span className="caption">Cada afirmación cita tu material. Si el material no alcanza, no se genera.</span>
             </span>
           </li>
         </ul>

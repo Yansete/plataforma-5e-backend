@@ -46,11 +46,10 @@ export const deleteDocument = (id: string) => apiFetch<void>(`/api/v1/documentos
 export const searchTopic = (unitId: string, tema: string, maximo: number) =>
   apiFetch<MaterialDocument[]>('/api/v1/documentos/desde-tema', { method: 'POST', json: { unitId, tema: tema.trim(), maximo }, timeoutMs: 180000 });
 
-export function materialSummary(documents: MaterialDocument[]): { processed: number; fragments: number; withError: number } {
+export function materialSummary(documents: MaterialDocument[]): { processed: number; withError: number } {
   const processed = documents.filter((d) => d.status === 'procesado');
   return {
     processed: processed.length,
-    fragments: processed.reduce((total, d) => total + d.fragmentCount, 0),
     withError: documents.filter((d) => d.status === 'error').length,
   };
 }

@@ -233,8 +233,7 @@ class GenerationService:
         result_payload: dict[str, Any] = {
             "mode": "rag",
             "notice": (
-                f"Generado con {active_generator.description} a partir de "
-                f"{len(selected_chunks)} fragmento(s) de tu material.{suffix_notice}"
+                f"Generado con {active_generator.description} a partir de tu material.{suffix_notice}"
             ),
             "generator": {
                 "descripcion": active_generator.description,

@@ -7,7 +7,6 @@ import { DISCARD_REASONS, discardReasonLabel, typeInfo } from '@/features/genera
 import { deleteResource, regenerate, saveResource } from '@/features/review/api/reviewApi';
 import { approvalBlockers, citedEvidence, countByStatus, decideOption, editContent, editOption, editProblem, optionProblem, optionSource, setStatus, withStatus, highlight } from '@/features/review/model/reviewRules';
 import type { DiscardReason, Evidence, ItemOption, Resource, ReviewStatus, Unit } from '@/shared/types/domain';
-import { plural } from '@/shared/lib/format';
 import type { UnitTabProps } from '@/features/units/model/unitTab';
 
 const FILTERS: { status: ReviewStatus; label: string }[] = [
@@ -177,7 +176,7 @@ function ResourceReview({ resource, unit, onSaved, onRemoved, onRegenerated }: R
         <div className="cluster">
           <span className="tag tag--outline">{[typeInfo(resource.type).singular, outcome?.code].filter(Boolean).join(' · ')}</span>
           {resource.generatorKind && <span className="tag">{resource.generatorKind === 'ia' ? 'Redactado con IA' : 'Generador de respaldo'}</span>}
-          <span className="tag">Cita {plural(resource.evidence.length, 'fragmento', 'fragmentos')}</span>
+          {resource.evidence.length > 0 && <span className="tag">Con evidencia del material</span>}
           {resource.edited && <span className="tag">Editado</span>}
           {resource.status === 'aprobado' && <span className="tag tag--approved">Aprobado</span>}
           {resource.status === 'descartado' && <span className="tag tag--discarded">Descartado · {discardReasonLabel(resource.discardReason)}</span>}
@@ -457,8 +456,8 @@ function EvidencePanel({ resource, focused }: { resource: Resource; focused: str
   return (
     <aside className="card card--soft review__evidence" aria-label="Evidencia del material">
       <h3 className="title">Evidencia del material</h3>
-      <p className="caption">Cada idea del recurso apunta al fragmento de donde salió.</p>
-      {claims.length === 0 && others.length === 0 && <p className="caption">Este recurso no tiene fragmentos guardados.</p>}
+      <p className="caption">Cada idea del recurso apunta a la parte del material de donde salió.</p>
+      {claims.length === 0 && others.length === 0 && <p className="caption">Este recurso no tiene evidencia guardada.</p>}
       {claims.map((c, i) => (
         <div key={i} className="evidence-group">
           <strong className="evidence-group__claim">{c.claim}</strong>

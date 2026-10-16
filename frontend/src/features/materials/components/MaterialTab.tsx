@@ -4,9 +4,9 @@ import { Alert, Button, ButtonLink, Card, CardHeader, Checkbox, ConfirmDialog, E
 import { Icon } from '@/shared/components/Icon';
 import { errorMessage } from '@/shared/api/httpClient';
 import { DOCUMENT_TYPES, MAX_FILE_MB } from '@/features/generation/model/resourceCatalog';
-import { deleteDocument, fileProblem, listFragments, materialSummary, processDocument, searchTopic, uploadAndProcess } from '@/features/materials/api/materialsApi';
+import { deleteDocument, fileProblem, materialSummary, processDocument, searchTopic, uploadAndProcess } from '@/features/materials/api/materialsApi';
 import { useData } from '@/app/DataProvider';
-import type { Fragment, MaterialDocument } from '@/shared/types/domain';
+import type { MaterialDocument } from '@/shared/types/domain';
 import { formatBytes, plural } from '@/shared/lib/format';
 import type { UnitTabProps } from '@/features/units/model/unitTab';
 
@@ -20,10 +20,10 @@ export function MaterialTab({ unit, base, documents }: UnitTabProps & { document
       </div>
 
       <Card>
-        <CardHeader title="Material de la unidad" description={`${plural(summary.processed, 'documento', 'documentos')} · ${plural(summary.fragments, 'fragmento', 'fragmentos')}`} />
+        <CardHeader title="Material de la unidad" description={plural(summary.processed, 'documento', 'documentos')} />
         {documents.length === 0 ? (
           <EmptyState icon="file" title="Todavía no hay material">
-            Sube un documento o busca el tema. Cada idea de los recursos generados citará un fragmento de este material.
+            Sube un documento o busca el tema. Cada idea de los recursos generados citará este material.
           </EmptyState>
         ) : (
           <ul className="doc-list">
@@ -80,7 +80,7 @@ function UploadCard({ unitId, outcomes }: { unitId: string; outcomes: { id: stri
     try {
       const saved = await uploadAndProcess(file, { unitId, outcomeIds: selected, documentType }, setStep);
       await reloadDocuments();
-      if (saved.status === 'procesado') setDone(`«${saved.fileName}» quedó listo: ${plural(saved.fragmentCount, 'fragmento', 'fragmentos')}.`);
+      if (saved.status === 'procesado') setDone(`«${saved.fileName}» quedó listo para generar recursos.`);
       else setError(saved.errorMessage ?? 'No se pudo leer el archivo.');
       setFile(null);
       if (inputRef.current) inputRef.current.value = '';
@@ -156,7 +156,7 @@ function UploadCard({ unitId, outcomes }: { unitId: string; outcomes: { id: stri
           <Button type="submit" variant="primary" icon="upload" loading={busy}>
             Subir y procesar
           </Button>
-          {busy && <Spinner label={step === 'subiendo' ? 'Subiendo el archivo…' : 'Leyendo el archivo y partiéndolo en fragmentos…'} />}
+          {busy && <Spinner label={step === 'subiendo' ? 'Subiendo el archivo…' : 'Leyendo el archivo…'} />}
         </div>
       </form>
     </Card>
@@ -220,27 +220,11 @@ function TopicCard({ unitId }: { unitId: string }) {
   );
 }
 
-const SHOWN_FRAGMENTS = 3;
-
 function DocumentRow({ document: d, outcomeCodes }: { document: MaterialDocument; outcomeCodes: string }) {
   const { reloadDocuments } = useData();
-  const [fragments, setFragments] = useState<Fragment[] | null>(null);
-  const [open, setOpen] = useState(false);
-  const [showAll, setShowAll] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
-
-  const toggle = async () => {
-    if (open) return setOpen(false);
-    setOpen(true);
-    if (fragments) return;
-    try {
-      setFragments(await listFragments(d.id));
-    } catch (err) {
-      setError(errorMessage(err));
-    }
-  };
 
   const retry = async () => {
     setBusy(true);
@@ -270,7 +254,6 @@ function DocumentRow({ document: d, outcomeCodes }: { document: MaterialDocument
 
   const fromTopic = Boolean(d.origin);
   const sourceUrl = d.origin?.url && /^https?:\/\//.test(d.origin.url) ? d.origin.url : null;
-  const shown = fragments ? (showAll ? fragments : fragments.slice(0, SHOWN_FRAGMENTS)) : [];
   return (
     <li className="doc">
       <div className="doc__row">
@@ -298,18 +281,14 @@ function DocumentRow({ document: d, outcomeCodes }: { document: MaterialDocument
           </span>
           <span className={d.status === 'procesado' ? 'doc__status doc__status--ok' : d.status === 'error' ? 'doc__status doc__status--error' : 'doc__status'}>
             {d.status === 'procesado'
-              ? `Procesado · ${plural(d.fragmentCount, 'fragmento', 'fragmentos')}`
+              ? 'Listo para generar'
               : d.status === 'error'
                 ? `No se pudo procesar${d.errorMessage ? `: ${d.errorMessage}` : ''}`
                 : 'Sin procesar'}
           </span>
         </div>
         <div className="btn-row">
-          {d.status === 'procesado' ? (
-            <Button compact onClick={() => void toggle()} aria-expanded={open}>
-              {open ? 'Ocultar fragmentos' : 'Ver fragmentos'}
-            </Button>
-          ) : (
+          {d.status !== 'procesado' && (
             <Button compact icon="refresh" loading={busy} onClick={() => void retry()}>
               Procesar de nuevo
             </Button>
@@ -322,24 +301,6 @@ function DocumentRow({ document: d, outcomeCodes }: { document: MaterialDocument
           {error}
         </Alert>
       )}
-      {open && (
-        <div className="fragments">
-          {!fragments && !error && <Spinner label="Cargando fragmentos…" />}
-          {shown.map((f) => (
-            <blockquote key={f.id} className="fragment">
-              <span className="caption">
-                Fragmento {f.orden + 1} · {f.location}
-              </span>
-              <p>{f.text.length > 320 ? `${f.text.slice(0, 320).trimEnd()}…` : f.text}</p>
-            </blockquote>
-          ))}
-          {fragments && fragments.length > SHOWN_FRAGMENTS && (
-            <button type="button" className="link-button" onClick={() => setShowAll((v) => !v)}>
-              {showAll ? 'Ver menos' : `y ${plural(fragments.length - SHOWN_FRAGMENTS, 'fragmento más', 'fragmentos más')}`}
-            </button>
-          )}
-        </div>
-      )}
       <ConfirmDialog
         open={confirmDelete}
         title="¿Borrar este documento?"
@@ -350,7 +311,7 @@ function DocumentRow({ document: d, outcomeCodes }: { document: MaterialDocument
         onCancel={() => setConfirmDelete(false)}
       >
         <p>
-          Se borra «{d.fileName}» con sus fragmentos. Los recursos ya generados conservan su evidencia, pero no podrás generar nuevos con este
+          Se borra «{d.fileName}». Los recursos ya generados conservan su evidencia, pero no podrás generar nuevos con este
           material.
         </p>
       </ConfirmDialog>
