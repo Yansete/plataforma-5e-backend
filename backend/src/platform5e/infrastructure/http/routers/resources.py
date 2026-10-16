@@ -59,7 +59,7 @@ class ReviewedResourceInput(BaseContract):
 class DownloadRegistrationInput(BaseContract):
     """Esquema de entrada para registrar una descarga en el historial de la unidad."""
 
-    format: Literal["moodle_xml", "qti21", "documento"]
+    format: Literal["moodle_xml", "scorm_zip", "documento"]
     fileName: str = Field(min_length=1, max_length=200)
     resourceCount: int = Field(ge=0, le=500)
 

@@ -4,7 +4,7 @@ import { clearDownloads, listDownloads, registerDownload } from '@/features/expo
 import { buildFile } from '@/features/export/model/buildFile';
 import { FORMATS, fileNameFor, formatInfo, isQuestion, resourcesFor, slug } from '@/features/export/model/exportFormats';
 import { buildUnitDocument } from '@/features/export/model/unitDocument';
-import { buildMoodleXml, buildQti21Item, buildQti21Manifest, crc32, createZip, escapeXml, exportedOptions, qtiIdentifier } from '@/features/export/model/fileBuilders';
+import { buildMoodleXml, exportedOptions } from '@/features/export/model/fileBuilders';
 import { decideOption, setStatus } from '@/features/review/model/reviewRules';
 import { course, item, mockFetch, text, unit } from '@/test/fixtures';
 import type { Resource } from '@/shared/types/domain';
@@ -22,10 +22,10 @@ describe('nombres y formatos', () => {
   it('el nombre del archivo lleva el curso y la unidad', () => {
     expect(slug('  Redes & Comunicación 2026  ')).toBe('redes-comunicacion-2026');
     expect(fileNameFor({ code: 'RED-301' }, { number: 1 }, 'moodle_xml')).toBe('red-301-unidad-1-moodle.xml');
-    expect(fileNameFor({ code: 'RED-301' }, { number: 2 }, 'qti21')).toBe('red-301-unidad-2-chamilo.zip');
+    expect(fileNameFor({ code: 'RED-301' }, { number: 2 }, 'scorm_zip')).toBe('red-301-unidad-2-scorm.zip');
     expect(fileNameFor({ code: '***' }, { number: 3 }, 'documento')).toBe('curso-unidad-3-documento.html');
     expect(FORMATS.map((f) => f.title)).toEqual(['Moodle', 'Chamilo', 'Documento de la unidad']);
-    expect(formatInfo('qti21').extension).toBe('zip');
+    expect(formatInfo('scorm_zip').extension).toBe('zip');
   });
 
   it('Moodle y Chamilo reciben solo preguntas aprobadas; el documento, todo lo aprobado', () => {
@@ -51,27 +51,10 @@ describe('archivos', () => {
     expect(buildMoodleXml([])).toContain('Plataforma Docente');
   });
 
-  it('QTI 2.1: ítem, manifiesto y ZIP válido', () => {
-    const r = approvedItem({ id: '9-raro id' });
-    expect(qtiIdentifier('9-raro id')).toBe('i_9-raro_id');
-    const itemXml = buildQti21Item(r);
-    expect(itemXml).toContain('<choiceInteraction responseIdentifier="RESPONSE" shuffle="true" maxChoices="1">');
-    expect(itemXml.match(/<simpleChoice /g)).toHaveLength(3);
-    expect(itemXml).toContain('<value>opcion_a</value>');
-    expect(buildQti21Manifest([r], 'red-301')).toContain('identifier="red-301"');
-    expect(crc32(new TextEncoder().encode('123456789'))).toBe(0xcbf43926);
-    const zip = createZip([{ name: 'a.txt', content: 'hola' }], new Date(2026, 9, 10, 12, 30, 10));
-    expect([...zip.slice(0, 4)]).toEqual([0x50, 0x4b, 0x03, 0x04]);
-    expect(escapeXml(`<'&">`)).toBe('&lt;&apos;&amp;&quot;&gt;');
-  });
-
   it('arma cada formato con el nombre correcto', () => {
     const list = [approvedItem(), text({ status: 'aprobado' })];
     const moodle = buildFile('moodle_xml', list, course(), unit());
     expect(moodle).toMatchObject({ fileName: 'red-301-unidad-1-moodle.xml', mimeType: 'application/xml', resourceCount: 1 });
-    const chamilo = buildFile('qti21', list, course(), unit());
-    expect(chamilo.fileName).toBe('red-301-unidad-1-chamilo.zip');
-    expect(new TextDecoder().decode(chamilo.data as Uint8Array)).toContain('identifier="red-301-unidad-1"');
     const html = buildFile('documento', list, course(), unit(), new Date(2026, 9, 10));
     expect(html).toMatchObject({ fileName: 'red-301-unidad-1-documento.html', mimeType: 'text/html', resourceCount: 2 });
   });

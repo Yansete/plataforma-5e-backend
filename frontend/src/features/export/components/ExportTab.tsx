@@ -5,7 +5,7 @@ import { Icon } from '@/shared/components/Icon';
 import { saveFile } from '@/shared/lib/saveFile';
 import { errorMessage } from '@/shared/api/httpClient';
 import { typeInfo } from '@/features/generation/model/resourceCatalog';
-import { clearDownloads, listDownloads, registerDownload } from '@/features/export/api/exportApi';
+import { clearDownloads, exportUnit, listDownloads, registerDownload } from '@/features/export/api/exportApi';
 import { buildFile } from '@/features/export/model/buildFile';
 import { FORMATS, resourcesFor } from '@/features/export/model/exportFormats';
 import { withStatus } from '@/features/review/model/reviewRules';
@@ -63,6 +63,18 @@ export function ExportTab({ course, unit, base, resources, resourcesError, reloa
 
   const download = async (format: DownloadFormat) => {
     setMessage(null);
+    if (format === 'scorm_zip') {
+      // El paquete SCORM se arma en el backend, que además registra la descarga en el historial.
+      try {
+        const { blob, fileName } = await exportUnit(unit.id, format, resourcesFor(format, chosen).map((r) => r.id));
+        saveFile(fileName, blob, 'application/zip');
+        setHistory(await listDownloads(unit.id));
+        setMessage({ tone: 'success', text: `Se descargó «${fileName}».` });
+      } catch (e) {
+        setMessage({ tone: 'warn', text: errorMessage(e) });
+      }
+      return;
+    }
     const file = buildFile(format, chosen, course, unit);
     saveFile(file.fileName, file.data, file.mimeType);
     try {

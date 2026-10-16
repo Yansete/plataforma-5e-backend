@@ -154,7 +154,7 @@ export interface GenerationInput {
   modalities: string[];
 }
 
-export type DownloadFormat = 'moodle_xml' | 'qti21' | 'documento';
+export type DownloadFormat = 'moodle_xml' | 'scorm_zip' | 'documento';
 
 export interface Download {
   id: string;

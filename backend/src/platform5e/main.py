@@ -15,6 +15,7 @@ from platform5e.application.services.accounts.account_service import AccountServ
 from platform5e.application.services.generation.generation_service import GenerationService
 from platform5e.application.services.materials.material_service import MaterialService
 from platform5e.application.services.review.resource_review_service import ResourceReviewService
+from platform5e.application.use_cases.export.export_unit_resources import ExportUnitResourcesUseCase
 from platform5e.domain.accounts.teacher_account import AccountConfigurationError
 from platform5e.domain.generation.errors import GenerationError
 from platform5e.domain.materials.chunking import MaterialError
@@ -23,6 +24,7 @@ from platform5e.domain.shared.errors import (
     EntityNotFoundError,
     PersistenceUnavailableError,
 )
+from platform5e.infrastructure.exporters.scorm_package_exporter import ScormPackageExporter
 from platform5e.infrastructure.extraction.document_text_extractor import DocumentTextExtractor
 from platform5e.infrastructure.http.error_handlers import (
     configuration_error_handler,
@@ -34,6 +36,7 @@ from platform5e.infrastructure.http.error_handlers import (
 )
 from platform5e.infrastructure.http.routers.accounts import create_accounts_router
 from platform5e.infrastructure.http.routers.documents import create_materials_router
+from platform5e.infrastructure.http.routers.exports import create_exports_router
 from platform5e.infrastructure.http.routers.generations import create_generations_router
 from platform5e.infrastructure.http.routers.health import create_health_router
 from platform5e.infrastructure.http.routers.resources import create_resources_router
@@ -118,6 +121,7 @@ def create_application() -> FastAPI:
             allow_origins=cors_origins,
             allow_methods=["*"],
             allow_headers=["*"],
+            expose_headers=["Content-Disposition"],  # nombre del archivo exportado
         )
 
     # 1. Repositorios de persistencia
@@ -152,6 +156,9 @@ def create_application() -> FastAPI:
     )
 
     review_service = ResourceReviewService(account_repository, resource_repository)
+    export_use_case = ExportUnitResourcesUseCase(
+        account_repository, resource_repository, [ScormPackageExporter()]
+    )
 
     # 3. Modelos de lenguaje (LLM o respaldo determinista)
     primary_generator, fallback_generator = create_generators()
@@ -188,6 +195,7 @@ def create_application() -> FastAPI:
     app.include_router(
         create_generations_router(generation_service, account_service)
     )
+    app.include_router(create_exports_router(export_use_case, account_service))
     app.include_router(create_health_router())
 
     # Sobrescribir generador openapi

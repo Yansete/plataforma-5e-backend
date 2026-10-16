@@ -25,7 +25,7 @@ ALLOWED_DISCARD_REASONS: set[str] = {
     "otro",
     "regenerado",
 }
-ALLOWED_EXPORT_FORMATS: set[str] = {"moodle_xml", "qti21", "documento"}
+ALLOWED_EXPORT_FORMATS: set[str] = {"moodle_xml", "scorm_zip", "documento"}
 MAX_DOWNLOADS_HISTORY: int = 50
 
 
