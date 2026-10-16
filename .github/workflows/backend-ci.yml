@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:16
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: platform
           POSTGRES_PASSWORD: platform
@@ -44,8 +44,8 @@ jobs:
         run: pip install -e ".[dev,postgres]" pytest-cov
       - name: Unit, architecture and integration tests with coverage (TA-008)
         run: >-
-          python -m pytest tests/unit tests/arquitectura tests/integration -q
-          --cov=plataforma5e.domain --cov=plataforma5e.application
+          python -m pytest tests/unit tests/architecture tests/integration -q
+          --cov=platform5e.domain --cov=platform5e.application
           --cov-report=term-missing --cov-report=xml:reports/coverage.xml --cov-fail-under=80
           --junitxml=reports/unit.xml
       - name: Coverage summary
