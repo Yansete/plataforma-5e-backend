@@ -1,23 +1,17 @@
 """Servidor real para las pruebas de punta a punta (TA-007).
 
-A diferencia de tests/integration (que llama a la API dentro del mismo proceso), aquí se
-levanta uvicorn en un proceso aparte y todo se hace por HTTP, como en la demo del sábado.
-
-Base de datos:
-- Por defecto, un archivo SQLite nuevo en una carpeta temporal.
-- Si existe la variable E2E_DATABASE_URL (por ejemplo, PostgreSQL en GitHub Actions),
-  se usa esa base. Debe estar vacía: las pruebas comparan contra lo que ellas mismas crean.
+Levanta uvicorn en un subproceso independiente y ejecuta llamadas HTTP reales.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 import os
+from pathlib import Path
 import socket
 import subprocess
 import sys
 import time
-from collections.abc import Iterator
-from pathlib import Path
 
 import httpx
 import pytest
@@ -52,14 +46,39 @@ def servidor(tmp_path: Path) -> Iterator[str]:
         url_bd = f"sqlite:///{tmp_path / 'e2e.db'}"
 
     puerto = _puerto_libre()
-    # Generador por reglas y sin búsqueda en Wikipedia: las pruebas no dependen de internet ni de una clave de IA.
-    entorno = {**os.environ, "DATABASE_URL": url_bd, "CARGAR_DATOS_DEMO": "true", "CATALOGO_DEMO": "true",
-               "IA_PROVEEDOR": "reglas", "BUSQUEDA_POR_TEMA": "false"}
-    registro = (tmp_path / "uvicorn.log").open("w")
+    src_dir = str(RAIZ_BACKEND / "src")
+    existing_pythonpath = os.environ.get("PYTHONPATH", "")
+    pythonpath = f"{src_dir}{os.pathsep}{existing_pythonpath}" if existing_pythonpath else src_dir
+
+    entorno = {
+        **os.environ,
+        "PYTHONPATH": pythonpath,
+        "DATABASE_URL": url_bd,
+        "CARGAR_DATOS_DEMO": "true",
+        "CATALOGO_DEMO": "true",
+        "IA_PROVEEDOR": "reglas",
+        "BUSQUEDA_POR_TEMA": "false",
+    }
+    registro = (tmp_path / "uvicorn.log").open("w", encoding="utf-8")
+
     proceso = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "plataforma5e.bootstrap.app:crear_aplicacion", "--factory",
-         "--host", "127.0.0.1", "--port", str(puerto)],
-        cwd=RAIZ_BACKEND, env=entorno, stdout=registro, stderr=subprocess.STDOUT,
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "platform5e.main:create_application",
+            "--factory",
+            "--app-dir",
+            src_dir,
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(puerto),
+        ],
+        cwd=RAIZ_BACKEND,
+        env=entorno,
+        stdout=registro,
+        stderr=subprocess.STDOUT,
     )
     base = f"http://127.0.0.1:{puerto}"
     try:
@@ -67,14 +86,19 @@ def servidor(tmp_path: Path) -> Iterator[str]:
         while True:
             if proceso.poll() is not None:
                 registro.flush()
-                pytest.fail("El servidor terminó al arrancar:\n" + (tmp_path / "uvicorn.log").read_text())
+                registro.close()
+                error_log = (tmp_path / "uvicorn.log").read_text(encoding="utf-8", errors="replace")
+                pytest.fail("El servidor terminó al arrancar:\n" + error_log)
             try:
                 if httpx.get(f"{base}/salud", timeout=1).status_code == 200:
                     break
             except httpx.HTTPError:
                 pass
             if time.monotonic() > limite:
-                pytest.fail("El servidor no respondió en 30 s:\n" + (tmp_path / "uvicorn.log").read_text())
+                registro.flush()
+                registro.close()
+                error_log = (tmp_path / "uvicorn.log").read_text(encoding="utf-8", errors="replace")
+                pytest.fail("El servidor no respondió en 30 s:\n" + error_log)
             time.sleep(0.2)
         yield base
     finally:
@@ -83,4 +107,5 @@ def servidor(tmp_path: Path) -> Iterator[str]:
             proceso.wait(timeout=10)
         except subprocess.TimeoutExpired:
             proceso.kill()
-        registro.close()
+        if not registro.closed:
+            registro.close()
