@@ -1,20 +1,21 @@
 """
-Endpoint de monitoreo y verificación de disponibilidad del servicio (Health Check).
+Comprobación de salud para Render (Health Check Path: /health).
 """
 
 from __future__ import annotations
 
-from typing import Any
-
 from fastapi import APIRouter
+
+from platform5e.infrastructure.http.schemas.health import HealthResponse
 
 
 def create_health_router() -> APIRouter:
-    """Crea el router para la comprobación de salud de la API."""
-    router = APIRouter()
+    router = APIRouter(tags=["system"])
 
-    @router.get("/salud", summary="Verificar el estado activo de la API")
-    def check_health() -> dict[str, Any]:
-        return {"estado": "ok"}
+    @router.get("/health", response_model=HealthResponse, summary="Check that the API is up")
+    @router.get("/salud", include_in_schema=False)  # ruta anterior: Render la usa hasta cambiar su Health Check Path
+    def check_health() -> dict[str, str]:
+        """Answers without touching the database, so Render can wake the service up quickly."""
+        return {"status": "ok"}
 
     return router

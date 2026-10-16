@@ -113,16 +113,16 @@ def test_register_opens_a_session_and_allows_signing_in_again(account_service: A
     assert account_service.authenticate_token("Bearer " + session["token"]) == "ana@correo.pe"
     assert account_service.login("ANA@correo.pe", "clave-segura")["name"] == "Ana Pérez"
     assert account_service.get_profile("ana@correo.pe") == {"email": "ana@correo.pe", "name": "Ana Pérez"}
-    assert get_error_info(account_service.login, "ana@correo.pe", "otra-clave") == ("CREDENCIALES_INVALIDAS", 401)
+    assert get_error_info(account_service.login, "ana@correo.pe", "otra-clave") == ("INVALID_CREDENTIALS", 401)
 
 
 def test_register_validates_the_data(account_service: AccountService):
     account_service.register_account("Ana", "ana@correo.pe", "clave-segura")
-    assert get_error_info(account_service.register_account, "Otra", "ana@correo.pe", "clave-segura") == ("CUENTA_EXISTENTE", 409)
-    assert get_error_info(account_service.register_account, "Otra", DEFAULT_EMAIL, "clave-segura") == ("CUENTA_EXISTENTE", 409)
-    assert get_error_info(account_service.register_account, "A", "b@correo.pe", "clave-segura")[0] == "NOMBRE_INVALIDO"
-    assert get_error_info(account_service.register_account, "Beto", "sin-arroba", "clave-segura")[0] == "CORREO_INVALIDO"
-    assert get_error_info(account_service.register_account, "Beto", "b@correo.pe", "corta")[0] == "CLAVE_INSEGURA"
+    assert get_error_info(account_service.register_account, "Otra", "ana@correo.pe", "clave-segura") == ("ACCOUNT_EXISTS", 409)
+    assert get_error_info(account_service.register_account, "Otra", DEFAULT_EMAIL, "clave-segura") == ("ACCOUNT_EXISTS", 409)
+    assert get_error_info(account_service.register_account, "A", "b@correo.pe", "clave-segura")[0] == "INVALID_NAME"
+    assert get_error_info(account_service.register_account, "Beto", "sin-arroba", "clave-segura")[0] == "INVALID_EMAIL"
+    assert get_error_info(account_service.register_account, "Beto", "b@correo.pe", "corta")[0] == "WEAK_PASSWORD"
 
 
 def test_bootstrap_account_works_without_sample_course(account_service: AccountService):
@@ -146,7 +146,7 @@ def test_deleting_a_course_includes_its_units(account_service: AccountService):
     assert account_service.repository.deleted_courses == [
         ("ana@correo.pe", course["id"], [u["id"] for u in course["units"]])
     ]
-    assert get_error_info(account_service.delete_course, "ana@correo.pe", course["id"]) == ("CURSO_NO_ENCONTRADO", 404)
+    assert get_error_info(account_service.delete_course, "ana@correo.pe", course["id"]) == ("COURSE_NOT_FOUND", 404)
 
 
 # --------------------------------------------------------------------------- revisión
@@ -260,7 +260,7 @@ def test_approval_requires_deciding_distractors():
     service, repo = make_review_service(resource)
     with pytest.raises(AccountConfigurationError) as error:
         service.update_resource("ana", "u1", "r1", make_changes_dict(resource, status="aprobado"))
-    assert error.value.code == "APROBACION_BLOQUEADA" and "pendiente" in error.value.message
+    assert error.value.code == "APPROVAL_BLOCKED" and "pendiente" in error.value.message
 
     partial = make_changes_dict(resource, {"b": "aceptado", "c": "descartado", "d": "descartado"}, status="aprobado")
     with pytest.raises(AccountConfigurationError) as error:
@@ -299,10 +299,10 @@ def test_discard_saves_reason_and_edit():
 @pytest.mark.parametrize(
     "bad_payload,expected_code",
     [
-        ({"status": "otro"}, "ESTADO_INVALIDO"),
-        ({"discardReason": "inventado"}, "MOTIVO_INVALIDO"),
-        ({"options": []}, "ALTERNATIVAS_INVALIDAS"),
-        ({"options": None}, "ALTERNATIVAS_INVALIDAS"),
+        ({"status": "otro"}, "INVALID_STATUS"),
+        ({"discardReason": "inventado"}, "INVALID_REASON"),
+        ({"options": []}, "INVALID_OPTIONS"),
+        ({"options": None}, "INVALID_OPTIONS"),
     ],
 )
 def test_update_rejects_invalid_data(bad_payload, expected_code):
@@ -320,7 +320,7 @@ def test_invalid_decision_on_an_option():
     incoming["options"][1] = {**incoming["options"][1], "decision": "quizas"}
     with pytest.raises(AccountConfigurationError) as error:
         service.update_resource("ana", "u1", "r1", incoming)
-    assert error.value.code == "DECISION_INVALIDA"
+    assert error.value.code == "INVALID_DECISION"
 
 
 def test_resource_without_options_and_resource_from_another_unit():
@@ -331,7 +331,7 @@ def test_resource_without_options_and_resource_from_another_unit():
 
     with pytest.raises(AccountConfigurationError) as error:
         service.update_resource("ana", "u2", "r9", make_changes_dict(explanation))
-    assert error.value.code == "RECURSO_NO_ENCONTRADO"
+    assert error.value.code == "RESOURCE_NOT_FOUND"
 
     service.delete_resource("ana", "u1", "r9")
     assert service.list_resources("ana", "u1") == []
@@ -354,7 +354,7 @@ def test_download_history():
 
     with pytest.raises(AccountConfigurationError) as error:
         service.register_download("ana", "u1", {"format": "pdf", "fileName": "x.pdf", "resourceCount": 1})
-    assert error.value.code == "FORMATO_INVALIDO"
+    assert error.value.code == "INVALID_FORMAT"
 
     service.clear_downloads_history("ana", "u1")
     assert service.get_downloads_history("ana", "u1") == [] and len(service.get_downloads_history("ana", "u2")) == 1
@@ -362,8 +362,8 @@ def test_download_history():
 
 def test_without_bootstrap_account_only_registered_accounts_sign_in():
     service = AccountService(MockTeacherRepository(), "", "", seed_demo_catalog=False)
-    assert get_error_info(service.login, "", "") == ("CREDENCIALES_INVALIDAS", 401)
-    assert get_error_info(service.login, DEFAULT_EMAIL, DEFAULT_PASSWORD) == ("CREDENCIALES_INVALIDAS", 401)
+    assert get_error_info(service.login, "", "") == ("INVALID_CREDENTIALS", 401)
+    assert get_error_info(service.login, DEFAULT_EMAIL, DEFAULT_PASSWORD) == ("INVALID_CREDENTIALS", 401)
     service.register_account("Ana", "ana@correo.pe", "clave-segura")
     assert service.login("ana@correo.pe", "clave-segura")["name"] == "Ana"
 

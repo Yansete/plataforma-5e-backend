@@ -49,23 +49,23 @@ def request(client: httpx.Client, method: str, path: str, retries: int = 3, **kw
 
 
 def login(client: httpx.Client, email: str, password: str) -> dict:
-    created = request(client, 'POST', '/api/v1/cuentas', json={'name': 'Evaluación RAG', 'email': email, 'password': password})
+    created = request(client, 'POST', '/api/v1/accounts', json={'name': 'Evaluación RAG', 'email': email, 'password': password})
     if created.status_code == 201:
         return {'Authorization': f"Bearer {created.json()['token']}"}
-    session = request(client, 'POST', '/api/v1/sesiones', json={'email': email, 'password': password})
+    session = request(client, 'POST', '/api/v1/sessions', json={'email': email, 'password': password})
     if session.status_code != 200:
         fail(f'no se pudo iniciar sesión ({session.status_code}): {session.text}')
     return {'Authorization': f"Bearer {session.json()['token']}"}
 
 
 def ensure_unit(client: httpx.Client, headers: dict) -> dict:
-    courses = request(client, 'GET', '/api/v1/cursos', headers=headers).json()
+    courses = request(client, 'GET', '/api/v1/courses', headers=headers).json()
     course = next((c for c in courses if c.get('code') == COURSE_CODE), None)
     if course is None:
-        response = request(client, 'POST', '/api/v1/cursos', headers=headers, json={
+        response = request(client, 'POST', '/api/v1/courses', headers=headers, json={
             'code': COURSE_CODE, 'name': 'Redes de computadoras (evaluación RAG)', 'term': '2026-II',
-            'sumilla': 'Curso de redes de computadoras: protocolos de transporte y de red.',
-            'logro': 'Explica cómo se comunican los equipos en una red.',
+            'summary': 'Curso de redes de computadoras: protocolos de transporte y de red.',
+            'learningGoal': 'Explica cómo se comunican los equipos en una red.',
             'units': [{'title': 'Protocolos de transporte', 'outcomes': [{'text': 'Distingue TCP, UDP e IP según su función'}]}],
         })
         if response.status_code != 201:
@@ -75,18 +75,18 @@ def ensure_unit(client: httpx.Client, headers: dict) -> dict:
 
 
 def ensure_material(client: httpx.Client, headers: dict, unit: dict, corpus: Path) -> None:
-    documents = request(client, 'GET', '/api/v1/documentos', headers=headers).json()
+    documents = request(client, 'GET', '/api/v1/documents', headers=headers).json()
     document = next((d for d in documents if d.get('unitId') == unit['id'] and d.get('fileName') == corpus.name), None)
     if document is None:
         context = {'unitId': unit['id'], 'outcomeIds': [o['id'] for o in unit.get('outcomes', [])],
                    'documentType': 'Separata o apuntes de clase', 'suggestedStage': None, 'usePermission': True}
-        uploaded = request(client, 'POST', '/api/v1/documentos', headers=headers,
-                           files={'file': (corpus.name, corpus.read_bytes(), 'text/plain')}, data={'contexto': json.dumps(context)})
+        uploaded = request(client, 'POST', '/api/v1/documents', headers=headers,
+                           files={'file': (corpus.name, corpus.read_bytes(), 'text/plain')}, data={'context': json.dumps(context)})
         if uploaded.status_code != 201:
             fail(f'no se pudo subir el corpus ({uploaded.status_code}): {uploaded.text}')
         document = uploaded.json()
     if document.get('status') != 'procesado':
-        processed = request(client, 'POST', f"/api/v1/documentos/{document['id']}/procesar", headers=headers)
+        processed = request(client, 'POST', f"/api/v1/documents/{document['id']}/process", headers=headers)
         if processed.status_code != 200:
             fail(f'no se pudo procesar el corpus ({processed.status_code}): {processed.text}')
 
@@ -127,14 +127,14 @@ def main() -> None:
         ensure_material(client, headers, unit, args.corpus)
         for case in cases:
             body = {
-                'unidad_id': unit['id'], 'resultado_aprendizaje_id': None, 'etapa_5e': case['stage'],
-                'tipo_recurso': case['resourceType'], 'cantidad': case.get('quantity', 1),
-                'dificultad': case.get('difficulty', 'intermedia'), 'alternativas': case.get('optionCount', 4),
-                'top_k': case.get('topK', 8), 'umbral_evidencia': 0.6, 'indicaciones': case['instructions'],
-                'publico_objetivo': '', 'competencia': '', 'modalidades': ['Textual'],
+                'unitId': unit['id'], 'outcomeId': None, 'stage': case['stage'],
+                'resourceType': case['resourceType'], 'quantity': case.get('quantity', 1),
+                'difficulty': case.get('difficulty', 'intermedia'), 'optionCount': case.get('optionCount', 4),
+                'topK': case.get('topK', 8), 'evidenceThreshold': 0.6, 'instructions': case['instructions'],
+                'audience': '', 'competency': '', 'modalities': ['Textual'],
             }
             started = time.perf_counter()
-            response = request(client, 'POST', '/api/v1/generaciones', headers=headers, json=body)
+            response = request(client, 'POST', '/api/v1/generations', headers=headers, json=body)
             elapsed = round(time.perf_counter() - started, 2)
             if response.status_code != 200:
                 print(f"{case['id']}: sin muestra ({response.status_code}) {response.text[:200]}")
@@ -154,7 +154,7 @@ def main() -> None:
                     'response': resource_text(resource),
                     'cited_contexts': [f['text'] for f in data.get('fragments', [])],
                     'cites_material': cites,
-                    'generator': (data.get('generator') or {}).get('descripcion'),
+                    'generator': (data.get('generator') or {}).get('description'),
                     'seconds': elapsed,
                 })
             print(f"{case['id']} · {case['stage']} · {case['resourceType']}: {len(data['resources'])} recurso(s), "

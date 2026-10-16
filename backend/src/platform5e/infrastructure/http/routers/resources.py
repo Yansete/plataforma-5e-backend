@@ -1,153 +1,70 @@
 """
-API de revisión docente (HU-010) e historial de descargas por unidad didáctica.
+Adaptador HTTP de la revisión docente de los recursos generados (HU-010).
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
-from fastapi import APIRouter, Depends, Response
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Depends, Response, status
 
 from platform5e.application.services.accounts.account_service import AccountService
 from platform5e.application.services.review.resource_review_service import ResourceReviewService
-from platform5e.infrastructure.http.dependencies import extract_authorization_header
-
-DiscardReasonType = Literal[
-    "sin_sentido",
-    "tambien_correcto",
-    "duplicado",
-    "fuera_de_unidad",
-    "otro",
-    "regenerado",
-]
+from platform5e.infrastructure.http.dependencies import current_teacher_dependency
+from platform5e.infrastructure.http.schemas.common import error_responses
+from platform5e.infrastructure.http.schemas.resources import (
+    ResourceResponse,
+    ReviewedResourceInput,
+    UnitSummaryResponse,
+)
 
 
-class BaseContract(BaseModel):
-    """Contrato base restrictivo para esquemas de revisión."""
-
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-
-
-class ReviewedOptionInput(BaseContract):
-    """Esquema para una alternativa de respuesta revisada."""
-
-    id: str = Field(min_length=1, max_length=120)
-    text: str = Field(min_length=1, max_length=600)
-    feedback: str = Field(default="", max_length=600)
-    decision: Literal["pendiente", "aceptado", "descartado"]
-    discardReason: DiscardReasonType | None = None
-    edited: bool = False
-
-
-class ReviewedResourceInput(BaseContract):
-    """Esquema para la actualización del estado y contenido de un recurso docente."""
-
-    title: str = Field(min_length=1, max_length=160)
-    body: str = Field(min_length=1, max_length=8000)
-    status: Literal["pendiente", "aprobado", "descartado"]
-    discardReason: DiscardReasonType | None = None
-    edited: bool = False
-    options: list[ReviewedOptionInput] | None = Field(default=None, max_length=10)
-
-
-class DownloadRegistrationInput(BaseContract):
-    """Esquema de entrada para registrar una descarga en el historial de la unidad."""
-
-    format: Literal["moodle_xml", "scorm_zip", "documento"]
-    fileName: str = Field(min_length=1, max_length=200)
-    resourceCount: int = Field(ge=0, le=500)
-
-
-def create_resources_router(
-    review_service: ResourceReviewService,
-    account_service: AccountService,
-) -> APIRouter:
-    """Construye el router HTTP para la revisión docente y descargas de recursos."""
-    router = APIRouter(prefix="/api/v1", tags=["Revisión y descargas"])
-
-    def get_current_teacher(
-        authorization: str | None = Depends(extract_authorization_header),
-    ) -> str:
-        return account_service.authenticate_token(authorization)
+def create_resources_router(review_service: ResourceReviewService, account_service: AccountService) -> APIRouter:
+    router = APIRouter(prefix="/api/v1", tags=["resources"])
+    current_teacher = current_teacher_dependency(account_service)
 
     @router.get(
-        "/resumen",
-        summary="Obtener resumen de recursos aprobados y pendientes por unidad",
+        "/review-summary",
+        response_model=list[UnitSummaryResponse],
+        summary="Count approved and pending resources per unit",
+        responses=error_responses(401),
     )
-    def get_review_summary(
-        teacher_email: str = Depends(get_current_teacher),
-    ) -> list[dict[str, Any]]:
-        return review_service.get_summary(teacher_email)
+    def get_review_summary(teacher_id: str = Depends(current_teacher)) -> list[dict[str, Any]]:
+        """One row per unit of the teacher's courses."""
+        return review_service.get_summary(teacher_id)
 
     @router.get(
-        "/unidades/{unit_id}/recursos",
-        summary="Listar los recursos generados para una unidad con su estado de revisión",
+        "/units/{unit_id}/resources",
+        response_model=list[ResourceResponse],
+        summary="List the resources of a unit",
+        responses=error_responses(401, 404),
     )
-    def list_unit_resources(
-        unit_id: str, teacher_email: str = Depends(get_current_teacher)
-    ) -> list[dict[str, Any]]:
-        return review_service.list_resources(teacher_email, unit_id)
+    def list_unit_resources(unit_id: str, teacher_id: str = Depends(current_teacher)) -> list[dict[str, Any]]:
+        """Generated resources of the unit with their review, newest first."""
+        return review_service.list_resources(teacher_id, unit_id)
 
     @router.put(
-        "/unidades/{unit_id}/recursos/{resource_id}",
-        summary="Guardar la revisión y decisiones sobre un recurso",
+        "/units/{unit_id}/resources/{resource_id}",
+        response_model=ResourceResponse,
+        summary="Save the review of a resource",
+        responses=error_responses(400, 401, 404, 409, 422),
     )
-    def update_resource_review(
-        unit_id: str,
-        resource_id: str,
-        request: ReviewedResourceInput,
-        teacher_email: str = Depends(get_current_teacher),
+    def update_resource(
+        unit_id: str, resource_id: str, body: ReviewedResourceInput, teacher_id: str = Depends(current_teacher)
     ) -> dict[str, Any]:
-        return review_service.update_resource(
-            teacher_email, unit_id, resource_id, request.model_dump()
-        )
+        """Saves edits and decisions. `aprobado` needs a key, no pending distractors and at least two accepted
+        (409 APPROVAL_BLOCKED otherwise): the same rule the review screen shows."""
+        return review_service.update_resource(teacher_id, unit_id, resource_id, body.model_dump(by_alias=True))
 
     @router.delete(
-        "/unidades/{unit_id}/recursos/{resource_id}",
-        status_code=204,
-        summary="Eliminar un recurso formativo",
+        "/units/{unit_id}/resources/{resource_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        summary="Delete a resource",
+        responses=error_responses(401, 404),
     )
-    def delete_resource(
-        unit_id: str,
-        resource_id: str,
-        teacher_email: str = Depends(get_current_teacher),
-    ) -> Response:
-        review_service.delete_resource(teacher_email, unit_id, resource_id)
-        return Response(status_code=204)
-
-    @router.get(
-        "/unidades/{unit_id}/descargas",
-        summary="Obtener el historial de descargas de la unidad",
-    )
-    def get_downloads_history(
-        unit_id: str, teacher_email: str = Depends(get_current_teacher)
-    ) -> list[dict[str, Any]]:
-        return review_service.get_downloads_history(teacher_email, unit_id)
-
-    @router.post(
-        "/unidades/{unit_id}/descargas",
-        status_code=201,
-        summary="Registrar un evento de descarga de recursos",
-    )
-    def register_download(
-        unit_id: str,
-        request: DownloadRegistrationInput,
-        teacher_email: str = Depends(get_current_teacher),
-    ) -> dict[str, Any]:
-        return review_service.register_download(
-            teacher_email, unit_id, request.model_dump()
-        )
-
-    @router.delete(
-        "/unidades/{unit_id}/descargas",
-        status_code=204,
-        summary="Limpiar el historial de descargas de la unidad",
-    )
-    def clear_downloads_history(
-        unit_id: str, teacher_email: str = Depends(get_current_teacher),
-    ) -> Response:
-        review_service.clear_downloads_history(teacher_email, unit_id)
-        return Response(status_code=204)
+    def delete_resource(unit_id: str, resource_id: str, teacher_id: str = Depends(current_teacher)) -> Response:
+        """Deletes the resource from the unit."""
+        review_service.delete_resource(teacher_id, unit_id, resource_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     return router

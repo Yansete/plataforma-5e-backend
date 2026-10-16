@@ -29,8 +29,8 @@ describe('material', () => {
     expect(result.status).toBe('procesado');
     expect(steps).toEqual(['subiendo', 'procesando']);
     const form = calls[0].body as FormData;
-    expect(JSON.parse(String(form.get('contexto')))).toEqual({ unitId: 'u1', outcomeIds: ['ra1'], documentType: 'Guía de práctica', suggestedStage: null, usePermission: true });
-    expect(calls[1].url).toBe('/api/v1/documentos/d1/procesar');
+    expect(JSON.parse(String(form.get('context')))).toEqual({ unitId: 'u1', outcomeIds: ['ra1'], documentType: 'Guía de práctica', suggestedStage: null, usePermission: true });
+    expect(calls[1].url).toBe('/api/v1/documents/d1/process');
   });
 
   it('lista, procesa, muestra fragmentos, borra y busca por tema', async () => {
@@ -41,7 +41,7 @@ describe('material', () => {
     await listFragments('d1');
     await deleteDocument('d1');
     expect(await searchTopic('u1', '  TCP  ', 2)).toHaveLength(1);
-    expect(calls[4]).toMatchObject({ url: '/api/v1/documentos/desde-tema', body: { unitId: 'u1', tema: 'TCP', maximo: 2 } });
+    expect(calls[4]).toMatchObject({ url: '/api/v1/documents/from-topic', body: { unitId: 'u1', topic: 'TCP', maxResults: 2 } });
   });
 
   it('resume lo procesado de la unidad', () => {

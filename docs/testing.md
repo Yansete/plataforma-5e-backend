@@ -1,6 +1,6 @@
 # Pruebas del proyecto
 
-**Responsable:** Juan Alegria (TA-001, TA-007, TA-008) · **Última actualización:** 10/10/2026 (noche)
+**Responsable:** Juan Alegria (TA-001, TA-007, TA-008) · **Última actualización:** 16/10/2026
 
 Este documento responde a la pregunta del asesor: *«Si van a hacer casos de prueba, por ejemplo una prueba
 unitaria, ¿cuál es el directorio?»*. Cada tipo de prueba tiene su carpeta y las pruebas corren solas en GitHub
@@ -11,31 +11,29 @@ Actions en cada `push` (archivo `.github/workflows/ci.yml`, pestaña **Actions**
 ```
 backend/tests/
 ├── unit/                    Pruebas unitarias, sin base de datos ni red
-│   ├── test_servicios_aplicacion.py             Capa de servicios con puertos falsos en memoria
-│   ├── test_contratos_5e.py                     Contratos de generación (pydantic)
-│   ├── test_revision_exportacion.py             Reglas de revisión y exportación
-│   ├── test_recurso_unit.py                     Entidad del dominio
-│   ├── test_configuracion_limites.py            Límites de la configuración
-│   ├── test_cursos_con_sumilla_y_resultados.py  Sumilla, logro y resultados de aprendizaje del curso
-│   ├── test_material_y_recuperacion.py          Ingesta: limpiar y fragmentar el texto; búsqueda de evidencia (BM25)
+│   ├── test_application_services.py             Servicios de aplicación con puertos falsos en memoria
+│   ├── test_accounts_and_review.py              Cuentas, borrado de cursos, revisión guardada, resumen e historial
+│   ├── test_configuration_limits.py             Límites y variables de entorno (nombres nuevos y anteriores)
+│   ├── test_courses_with_syllabus_and_outcomes.py  Sumilla, logro y resultados de aprendizaje del curso
+│   ├── test_five_e_contracts.py                 Contratos 5E: se aceptan con evidencia y se rechazan sin ella
+│   ├── test_material_retrieval.py               Limpiar y fragmentar el texto; búsqueda de evidencia (BM25)
 │   ├── test_material_service.py                 Procesar documentos y crear material desde un tema
-│   ├── test_generacion_con_material.py          Generación con el material del docente: citas, respaldo, validación
-│   ├── test_cuentas_y_revision.py               Crear cuenta, borrar curso, revisión guardada, resumen e historial
-│   └── test_adaptadores_material_ia.py          Lectura de PDF, PPTX y TXT; Wikipedia e IA con HTTP simulado;
-│                                                generador por reglas
-├── arquitectura/            Vigila la regla de dependencia entre las capas hexagonales (análisis del código)
-├── integration/             Adaptadores de persistencia contra una base real y traducción de sus errores
+│   ├── test_generation_with_material.py         Generación con el material: citas, respaldo, validación, solo texto
+│   ├── test_material_adapters_llm.py            PDF, PPTX y TXT; Wikipedia e IA con HTTP simulado; generador por reglas
+│   ├── test_export_unit_resources.py            Caso de uso de exportación con puertos falsos
+│   ├── test_scorm_package_exporter.py           Paquete SCORM 1.2 para Chamilo
+│   ├── test_moodle_xml_exporter.py              Moodle XML contra la muestra que Moodle importó en SP-003
+│   └── test_legacy_stored_data.py               Datos guardados antes del contrato en inglés
+├── architecture/            Regla de dependencia entre capas y nombres en inglés (análisis del código con AST)
+├── integration/             Persistencia contra una base real y documentación de la API (OpenAPI)
 ├── e2e/                     Punta a punta: servidor uvicorn real, por HTTP, con SQLite o PostgreSQL
-│   ├── conftest.py                    Levanta y apaga el servidor en un puerto libre (TA-007)
-│   ├── test_demo_punta_a_punta.py     Historia de la demo (HU-043) y fidelidad del XML exportado (TA-007)
-│   ├── validador_moodle_xml.py        Reglas de la muestra que Moodle importó en SP-003 (TA-007)
-│   ├── test_validador_moodle_xml.py   Controles del validador (TA-007)
-│   ├── test_configuracion_ep002.py    Configuración del docente (EP-002)
-│   ├── test_generacion_hu053.py       Generación desde la configuración (HU-053)
-│   ├── test_material_real.py          Material real: subir, procesar, ver fragmentos y generar con citas
-│   ├── test_cuentas_y_revision.py     Cuenta nueva → curso → material → generación → revisión → descargas → borrado
-│   └── test_errores_recursos.py       Errores de la API de recursos
-└── data/                    Archivos de referencia (muestra_moodle_verificada.xml)
+│   ├── conftest.py                       Levanta y apaga el servidor en un puerto libre (TA-007)
+│   ├── test_accounts_and_review_api.py   Cuenta nueva → curso → material → generación → revisión → descargas → borrado
+│   ├── test_courses_and_documents_api.py Cursos, archivos, historial, sesión y reinicio del servidor (EP-002)
+│   ├── test_material_ingestion_api.py    Material real: subir, procesar, buscar por tema y generar con citas
+│   └── test_exports_api.py               Exportación SCORM y Moodle XML por HTTP (TA-007)
+├── support/moodle_xml_validator.py       Reglas de la muestra que Moodle importó en SP-003
+└── fixtures/verified_moodle_sample.xml   Esa muestra
 
 frontend/
 ├── src/features/**/{api,model}/*.test.ts y src/shared/**/*.test.ts   Pruebas unitarias (vitest), junto al código que prueban
@@ -47,7 +45,7 @@ frontend/
 | Tipo | Qué comprueba | Dónde | Comando |
 |---|---|---|---|
 | Unitaria | Una pieza aislada: entidad, contrato, servicio, adaptador | `backend/tests/unit`, `frontend/src/**/*.test.ts` | `pytest tests/unit` · `npm test` |
-| Arquitectura | Que las capas respeten la regla de dependencia | `backend/tests/arquitectura` | `pytest tests/arquitectura` |
+| Arquitectura | Que las capas respeten la regla de dependencia y que los nombres estén en inglés | `backend/tests/architecture` | `pytest tests/architecture` |
 | Integración | Los adaptadores de persistencia con una base real | `backend/tests/integration` | `pytest tests/integration` |
 | Punta a punta (backend) | Historias completas contra el servidor real y fidelidad del XML exportado (I19) | `backend/tests/e2e` | `pytest tests/e2e` |
 | Punta a punta (sistema completo) | El recorrido del docente en el navegador contra el backend real, de crear la cuenta a la descarga | `frontend/e2e` | `npm run test:e2e` |
@@ -97,7 +95,7 @@ carpeta temporal, así que no toca tus datos. Si ese Python no es el `python` po
 Revisar un XML antes de importarlo en Moodle (desde `backend/`):
 
 ```bash
-python -m tests.e2e.validador_moodle_xml salida_demo/archivo.xml
+python -m tests.support.moodle_xml_validator red-301-unidad-1-moodle.xml
 ```
 
 ## Cobertura (caja blanca, TA-008)
@@ -107,13 +105,13 @@ mira el código por dentro y señala lo que ninguna prueba recorre.
 
 | Parte | Qué se mide | Umbral mínimo | Última medición documentada |
 |---|---|---|---|
-| Backend | `plataforma5e/domain` y `plataforma5e/application` (reglas y servicios) | 80 % | 98,9 % (10/10/2026) |
+| Backend | `platform5e/domain` y `platform5e/application` (reglas, servicios y casos de uso) | 80 % | 98 % (16/10/2026) |
 | Frontend | `src/features/**/api`, `src/features/**/model`, `src/shared/api`, `src/shared/lib` | 80 % en líneas, sentencias y funciones; 70 % en ramas | 98,56 % en líneas, 100 % en funciones, 94,71 % en ramas (15/10/2026; tarea 7, entrega de estructura y rutas) |
 
 Si un cambio hace bajar la cobertura del umbral, la CI marca el commit en rojo. Dónde ver el detalle:
 
 - En GitHub, en cada ejecución de **Actions** aparece la tabla de cobertura en el resumen (*Summary*), y los
-  reportes se descargan como `cobertura-frontend` y `reportes-pytest`.
+  reportes se descargan como `frontend-coverage` y `backend-reports`.
 - En local:
 
 ```bash
@@ -121,7 +119,7 @@ Si un cambio hace bajar la cobertura del umbral, la CI marca el commit en rojo. 
 npm run test:coverage            # luego abre coverage/index.html
 
 # Backend (desde backend/)
-python -m pytest tests/unit tests/arquitectura tests/integration --cov=plataforma5e.domain --cov=plataforma5e.application --cov-report=term-missing
+python -m pytest tests/unit tests/architecture tests/integration --cov=platform5e.domain --cov=platform5e.application --cov-report=term-missing
 ```
 
 ## Qué hace la integración continua
@@ -132,7 +130,7 @@ python -m pytest tests/unit tests/arquitectura tests/integration --cov=plataform
 | Backend | unitarias y arquitectura → integración → cobertura → punta a punta con SQLite → punta a punta con PostgreSQL 16 |
 
 PostgreSQL se descarga del espejo público de Amazon ECR para evitar el límite de descargas de Docker Hub.
-Si el commit rompe algo, GitHub lo marca con ✗ y guarda los reportes (`reportes-pytest`, `cobertura-frontend`,
+Si el commit rompe algo, GitHub lo marca con ✗ y guarda los reportes (`backend-reports`, `frontend-coverage`,
 `informe-playwright`). Si alguna vez falta `backend/pyproject.toml`, el trabajo del backend se omite con un aviso.
 
 Las pruebas en navegador ya corren en la CI contra el backend real (antes usaban datos de demostración).
@@ -142,18 +140,32 @@ Las pruebas en navegador ya corren en la CI contra el backend real (antes usaban
 Se hace en el enlace de Vercel, con el backend de Render configurado (ver [despliegue.md](deployment.md)), y se
 anota el resultado en el acta de la semana:
 
-1. Abrir `https://<servicio>.onrender.com/api/v1/ia`: debe indicar el proveedor y el modelo configurados
+1. Abrir `https://<servicio>.onrender.com/api/v1/generator`: debe indicar el proveedor y el modelo configurados
    (por ejemplo, `Gemini · gemini-3.8-flash`). Si dice «Generador por reglas», falta la clave o el proveedor.
 2. En la plataforma: crear una cuenta y un curso con un resultado de aprendizaje, subir un PDF con texto (o
-   buscar el tema) y comprobar que aparecen fragmentos.
+   buscar el tema) y comprobar que el documento queda «Listo para generar».
 3. Generar preguntas de opción múltiple: el aviso debe decir «Listo: … para revisar» sin mencionar el generador de
    respaldo, y en Revisión el recurso debe llevar la etiqueta «Redactado con IA». Si aparece «Generador de respaldo»,
    el motivo está en los *Logs* de Render («Generación con respaldo: …»).
 4. En Revisión, comprobar con «Ver origen» que cada alternativa lleva a un fragmento del material; aprobar, recargar
    la página (lo aprobado sigue ahí) y descargar el Moodle XML y el documento de la unidad (.html).
-5. Validar el XML descargado con `python -m tests.e2e.validador_moodle_xml <archivo.xml>` antes de importarlo en Moodle.
+5. Validar el XML descargado con `python -m tests.support.moodle_xml_validator <archivo.xml>` antes de importarlo en Moodle.
 
-## Última verificación: 10/10/2026 (noche), copia limpia de `main` con el rediseño (antes del merge)
+## Última verificación: 16/10/2026, estructura hexagonal y API en inglés
+
+Hecha sobre `main` con la reestructuración del backend (#24) y los cambios de la tarea del docente aplicados, con
+Python 3.13 y Node 22:
+
+- Backend: 281 pruebas superadas: 124 unitarias, 105 de arquitectura (dependencias entre capas y nombres en inglés,
+  archivo por archivo), 36 de integración (persistencia y documentación OpenAPI de las 28 operaciones) y 16 de punta a
+  punta por HTTP. Cobertura de dominio y aplicación: 98 %.
+- Frontend: tipos y build sin errores; 69 pruebas unitarias (95 % de las líneas) y 4 pruebas en navegador contra el
+  backend real (inicio de sesión, recorrido completo hasta la descarga de Moodle XML, menú en el celular y regreso a la
+  ruta protegida).
+- No cubierto: las respuestas reales de los proveedores de IA y de Wikipedia (se simulan); la punta a punta con
+  PostgreSQL la corre la CI.
+
+## Verificación anterior: 10/10/2026 (noche), copia limpia de `main` con el rediseño (antes del merge)
 
 Hecha en un clon nuevo de `main` (4bad0e6) con los cambios aplicados, Python 3.12 y Node 22:
 

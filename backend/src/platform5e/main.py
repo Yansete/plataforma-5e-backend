@@ -1,5 +1,8 @@
 """
-Punto de composición de la aplicación FastAPI (Bootstrap y contenedor de dependencias).
+Punto de composición (composition root): crea los adaptadores, los inyecta en los servicios y casos de uso de la
+capa de aplicación y registra las rutas HTTP. Es el único módulo que conoce todas las capas.
+
+    uvicorn platform5e.main:app --reload --port 8000
 """
 
 from __future__ import annotations
@@ -7,7 +10,6 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.openapi.utils import get_openapi
 
 from platform5e.application.services.accounts.account_service import AccountService
 from platform5e.application.services.generation.generation_service import GenerationService
@@ -17,38 +19,29 @@ from platform5e.application.use_cases.export.export_unit_resources import Export
 from platform5e.domain.accounts.teacher_account import AccountConfigurationError
 from platform5e.domain.generation.errors import GenerationError
 from platform5e.domain.materials.chunking import MaterialError
-from platform5e.domain.shared.errors import (
-    DuplicateRecordError,
-    EntityNotFoundError,
-    PersistenceUnavailableError,
-)
+from platform5e.domain.shared.errors import DuplicateRecordError, EntityNotFoundError, PersistenceUnavailableError
 from platform5e.infrastructure.exporters.moodle_xml_exporter import MoodleXmlExporter
 from platform5e.infrastructure.exporters.scorm_package_exporter import ScormPackageExporter
 from platform5e.infrastructure.extraction.document_text_extractor import DocumentTextExtractor
 from platform5e.infrastructure.http.error_handlers import (
-    configuration_error_handler,
     conflict_error_handler,
+    domain_error_handler,
+    not_found_handler,
     persistence_unavailable_handler,
     request_validation_error_handler,
-    resource_not_found_handler,
     value_error_handler,
 )
 from platform5e.infrastructure.http.routers.accounts import create_accounts_router
-from platform5e.infrastructure.http.routers.documents import create_materials_router
+from platform5e.infrastructure.http.routers.courses import create_courses_router
+from platform5e.infrastructure.http.routers.documents import create_documents_router
+from platform5e.infrastructure.http.routers.downloads import create_downloads_router
 from platform5e.infrastructure.http.routers.exports import create_exports_router
 from platform5e.infrastructure.http.routers.generations import create_generations_router
 from platform5e.infrastructure.http.routers.health import create_health_router
 from platform5e.infrastructure.http.routers.resources import create_resources_router
-from platform5e.infrastructure.llm.language_model_factory import (
-    create_generators,
-    describe_generator,
-)
-from platform5e.infrastructure.persistence.repositories.sqlalchemy_account_repository import (
-    SQLAlchemyAccountRepository,
-)
-from platform5e.infrastructure.persistence.repositories.sqlalchemy_chunk_repository import (
-    SQLAlchemyChunkRepository,
-)
+from platform5e.infrastructure.llm.language_model_factory import create_generators, describe_generator
+from platform5e.infrastructure.persistence.repositories.sqlalchemy_account_repository import SQLAlchemyAccountRepository
+from platform5e.infrastructure.persistence.repositories.sqlalchemy_chunk_repository import SQLAlchemyChunkRepository
 from platform5e.infrastructure.persistence.repositories.sqlalchemy_generation_repository import (
     SQLAlchemyGenerationRepository,
 )
@@ -58,63 +51,39 @@ from platform5e.infrastructure.persistence.repositories.sqlalchemy_resource_repo
 from platform5e.infrastructure.settings import read_flag, read_setting
 from platform5e.infrastructure.sources.wikipedia_source import WikipediaSource
 
+API_DESCRIPTION = """
+Backend of **Platform 5E**: teachers upload the material of a unit, generate 5E learning resources that cite it
+(RAG), review them and export the approved ones to Moodle (Moodle XML) or Chamilo (SCORM 1.2).
 
-def custom_openapi_schema(app: FastAPI):
-    if app.openapi_schema:
-        return app.openapi_schema
+**Authentication.** `POST /api/v1/accounts` or `POST /api/v1/sessions` return a bearer token. Click *Authorize* and
+paste only the token. Private routes answer 401 without it.
 
-    openapi_schema = get_openapi(
-        title=app.title,
-        version=app.version,
-        description="Plataforma de generación de secuencias didácticas 5E",
-        routes=app.routes,
-    )
+**Errors.** Every error has the same shape: `{"error": {"code": "UNIT_NOT_FOUND", "message": "…"}}`. The `code` is
+stable and in English; the `message` is shown to the teacher, so it is in Spanish.
 
-    # Inyectar el esquema de seguridad SesionDocente que esperan las pruebas
-    components = openapi_schema.setdefault("components", {})
-    security_schemes = components.setdefault("securitySchemes", {})
-    security_schemes["SesionDocente"] = {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "JWT",
-        "description": "Token JWT de sesión docente",
-    }
+**Stored values.** Review statuses (`pendiente`, `aprobado`, `descartado`), resource types (`item_opcion_multiple`…)
+and difficulties (`basica`, `intermedia`, `avanzada`) are values saved in the database. They move to English in
+Sprint 2 together with a data migration.
+"""
 
-    # Rutas protegidas que deben declarar SesionDocente
-    protected_routes = [
-        ("/api/v1/solicitudes", "get"),
-        ("/api/v1/cursos", "get"),
-        ("/api/v1/documentos", "post"),
-        ("/api/v1/sesiones/actual", "delete"),
-        ("/api/v1/generaciones", "post"),
-    ]
-
-    for route, method in protected_routes:
-        if route in openapi_schema.get("paths", {}) and method in openapi_schema["paths"][route]:
-            operation = openapi_schema["paths"][route][method]
-            operation["security"] = [{"SesionDocente": []}]
-            operation["parameters"] = [
-                p for p in operation.get("parameters", [])
-                if not (p.get("in") == "header" and p.get("name", "").lower() == "authorization")
-            ]
-
-    # Quitar security de login si existiera
-    if "/api/v1/sesiones" in openapi_schema.get("paths", {}) and "post" in openapi_schema["paths"]["/api/v1/sesiones"]:
-        openapi_schema["paths"]["/api/v1/sesiones"]["post"].pop("security", None)
-
-    app.openapi_schema = openapi_schema
-    return app.openapi_schema
+OPENAPI_TAGS = [
+    {"name": "accounts", "description": "Teacher registration."},
+    {"name": "sessions", "description": "Sign in, current teacher and sign out."},
+    {"name": "courses", "description": "Courses with their units and learning outcomes."},
+    {"name": "documents", "description": "Unit material: upload, text extraction, chunks and open sources."},
+    {"name": "generations", "description": "Resource generation from the unit material (RAG) and its history."},
+    {"name": "resources", "description": "Teacher review of the generated resources."},
+    {"name": "downloads", "description": "Download history of each unit."},
+    {"name": "exports", "description": "Moodle XML and SCORM 1.2 files built in the backend."},
+    {"name": "system", "description": "Health check and active generator."},
+]
 
 
 def create_application() -> FastAPI:
-    """Inicializa la aplicación FastAPI, resuelve las dependencias y registra middlewares y rutas."""
-    app = FastAPI(title="Plataforma Docente - Backend", version="1.2.0")
+    """Crea la aplicación con sus dependencias. Las variables de entorno se leen solo aquí y en los adaptadores."""
+    app = FastAPI(title="Platform 5E API", version="2.0.0", description=API_DESCRIPTION, openapi_tags=OPENAPI_TAGS)
 
-    cors_origins = [
-        origin.strip().rstrip("/")
-        for origin in read_setting("CORS_ALLOWED_ORIGINS").split(",")
-        if origin.strip()
-    ]
+    cors_origins = [o.strip().rstrip("/") for o in read_setting("CORS_ALLOWED_ORIGINS").split(",") if o.strip()]
     if cors_origins:
         app.add_middleware(
             CORSMiddleware,
@@ -124,44 +93,26 @@ def create_application() -> FastAPI:
             expose_headers=["Content-Disposition"],  # nombre del archivo exportado
         )
 
-    # 1. Repositorios de persistencia
+    # 1. Adaptadores de salida (persistencia, extracción, fuentes abiertas, modelos de lenguaje, exportadores)
     generation_repository = SQLAlchemyGenerationRepository()
     account_repository = SQLAlchemyAccountRepository(generation_repository)
     chunk_repository = SQLAlchemyChunkRepository()
     resource_repository = SQLAlchemyResourceRepository()
+    open_source = WikipediaSource() if read_flag("TOPIC_SEARCH_ENABLED", True) else None
+    primary_generator, fallback_generator = create_generators()
 
-    # 2. Configuración y servicios de aplicación
+    # 2. Servicios y casos de uso de la capa de aplicación
     demo_catalog_enabled = read_flag("DEMO_CATALOG", False)
     account_service = AccountService(
         account_repository,
-        seed_email=read_setting(
-            "BOOTSTRAP_TEACHER_EMAIL", "docente@5e.demo" if demo_catalog_enabled else ""
-        ),
-        seed_password=read_setting(
-            "BOOTSTRAP_TEACHER_PASSWORD", "Demo5E!2026" if demo_catalog_enabled else ""
-        ),
+        seed_email=read_setting("BOOTSTRAP_TEACHER_EMAIL", "docente@5e.demo" if demo_catalog_enabled else ""),
+        seed_password=read_setting("BOOTSTRAP_TEACHER_PASSWORD", "Demo5E!2026" if demo_catalog_enabled else ""),
         seed_demo_catalog=demo_catalog_enabled,
     )
-
-    open_resource_port = (
-        WikipediaSource()
-        if read_flag("TOPIC_SEARCH_ENABLED", True)
-        else None
-    )
     material_service = MaterialService(
-        account_repository,
-        chunk_repository,
-        DocumentTextExtractor(),
-        open_resource_port=open_resource_port,
+        account_repository, chunk_repository, DocumentTextExtractor(), open_resource_port=open_source
     )
-
     review_service = ResourceReviewService(account_repository, resource_repository)
-    export_use_case = ExportUnitResourcesUseCase(
-        account_repository, resource_repository, [ScormPackageExporter(), MoodleXmlExporter()]
-    )
-
-    # 3. Modelos de lenguaje (LLM o respaldo determinista)
-    primary_generator, fallback_generator = create_generators()
     generation_service = GenerationService(
         repository=generation_repository,
         teacher_repository=account_repository,
@@ -171,34 +122,30 @@ def create_application() -> FastAPI:
         review_repository=resource_repository,
         demo_examples_enabled=demo_catalog_enabled,
     )
+    export_use_case = ExportUnitResourcesUseCase(
+        account_repository, resource_repository, [ScormPackageExporter(), MoodleXmlExporter()]
+    )
 
-    # 4. Manejo centralizado de excepciones
-    app.add_exception_handler(AccountConfigurationError, configuration_error_handler)
-    app.add_exception_handler(MaterialError, configuration_error_handler)
-    app.add_exception_handler(GenerationError, configuration_error_handler)
+    # 3. Errores del dominio → JSON uniforme
+    for domain_error in (AccountConfigurationError, MaterialError, GenerationError):
+        app.add_exception_handler(domain_error, domain_error_handler)
     app.add_exception_handler(DuplicateRecordError, conflict_error_handler)
     app.add_exception_handler(PersistenceUnavailableError, persistence_unavailable_handler)
-    app.add_exception_handler(EntityNotFoundError, resource_not_found_handler)
+    app.add_exception_handler(EntityNotFoundError, not_found_handler)
     app.add_exception_handler(ValueError, value_error_handler)
     app.add_exception_handler(RequestValidationError, request_validation_error_handler)
 
-    # 5. Registro de enrutadores HTTP
+    # 4. Adaptadores de entrada (rutas HTTP)
     app.include_router(create_accounts_router(account_service))
+    app.include_router(create_courses_router(account_service))
+    app.include_router(create_documents_router(account_service, material_service))
+    app.include_router(
+        create_generations_router(generation_service, account_service, describe_generator(primary_generator))
+    )
     app.include_router(create_resources_router(review_service, account_service))
-    app.include_router(
-        create_materials_router(
-            material_service, account_service, describe_generator(primary_generator)
-        )
-    )
-    app.include_router(
-        create_generations_router(generation_service, account_service)
-    )
+    app.include_router(create_downloads_router(review_service, account_service))
     app.include_router(create_exports_router(export_use_case, account_service))
     app.include_router(create_health_router())
-
-    # Sobrescribir generador openapi
-    app.openapi = lambda: custom_openapi_schema(app)
-
     return app
 
 

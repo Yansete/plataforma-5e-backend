@@ -24,8 +24,8 @@ export interface Course {
   code: string;
   name: string;
   term: string;
-  sumilla?: string;
-  logro?: string;
+  summary?: string;
+  learningGoal?: string;
   units: Unit[];
 }
 
@@ -49,12 +49,12 @@ export interface MaterialDocument {
   pageCount: number | null;
   errorMessage: string | null;
   /** Material creado desde un tema: enlace y licencia de la fuente abierta. */
-  origin?: { fuente: string; url: string; licencia: string; tema: string };
+  origin?: { source: string; url: string; license: string; topic: string };
 }
 
 export interface Fragment {
   id: string;
-  orden: number;
+  order: number;
   location: string;
   text: string;
 }
@@ -171,7 +171,7 @@ export interface Session {
   token: string;
 }
 
-/** Recursos aprobados y por revisar de una unidad (GET /api/v1/resumen). */
+/** Recursos aprobados y por revisar de una unidad (GET /api/v1/review-summary). */
 export interface UnitSummary {
   courseId: string;
   unitId: string;

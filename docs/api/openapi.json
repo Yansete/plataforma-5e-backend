@@ -1,22 +1,24 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Plataforma Docente - Backend",
-    "version": "1.2.0"
+    "title": "Platform 5E API",
+    "description": "\nBackend of **Platform 5E**: teachers upload the material of a unit, generate 5E learning resources that cite it\n(RAG), review them and export the approved ones to Moodle (Moodle XML) or Chamilo (SCORM 1.2).\n\n**Authentication.** `POST /api/v1/accounts` or `POST /api/v1/sessions` return a bearer token. Click *Authorize* and\npaste only the token. Private routes answer 401 without it.\n\n**Errors.** Every error has the same shape: `{\"error\": {\"code\": \"UNIT_NOT_FOUND\", \"message\": \"…\"}}`. The `code` is\nstable and in English; the `message` is shown to the teacher, so it is in Spanish.\n\n**Stored values.** Review statuses (`pendiente`, `aprobado`, `descartado`), resource types (`item_opcion_multiple`…)\nand difficulties (`basica`, `intermedia`, `avanzada`) are values saved in the database. They move to English in\nSprint 2 together with a data migration.\n",
+    "version": "2.0.0"
   },
   "paths": {
-    "/api/v1/cuentas": {
+    "/api/v1/accounts": {
       "post": {
         "tags": [
-          "Cuentas, cursos y documentos"
+          "accounts"
         ],
-        "summary": "Crear una cuenta de docente e iniciar sesión",
-        "operationId": "registrar_api_v1_cuentas_post",
+        "summary": "Register a teacher account",
+        "description": "Creates the account (PBKDF2 password hash) and opens a session right away. 409 if the e-mail is taken.",
+        "operationId": "register_account_api_v1_accounts_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Registro"
+                "$ref": "#/components/schemas/RegistrationRequest"
               }
             }
           },
@@ -27,16 +29,38 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request breaks a business rule (the code says which one).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state (duplicate or blocked approval).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "Invalid parameters (type, range or unknown field).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -44,18 +68,19 @@
         }
       }
     },
-    "/api/v1/sesiones": {
+    "/api/v1/sessions": {
       "post": {
         "tags": [
-          "Cuentas, cursos y documentos"
+          "sessions"
         ],
-        "summary": "Login",
-        "operationId": "login_api_v1_sesiones_post",
+        "summary": "Sign in",
+        "description": "Checks e-mail and password and returns a bearer token valid for 8 hours.",
+        "operationId": "login_api_v1_sessions_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Login"
+                "$ref": "#/components/schemas/LoginRequest"
               }
             }
           },
@@ -66,16 +91,28 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "Invalid parameters (type, range or unknown field).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -83,81 +120,123 @@
         }
       }
     },
-    "/api/v1/sesiones/actual": {
+    "/api/v1/sessions/current": {
       "get": {
         "tags": [
-          "Cuentas, cursos y documentos"
+          "sessions"
         ],
-        "summary": "Actual",
-        "operationId": "actual_api_v1_sesiones_actual_get",
+        "summary": "Get the signed-in teacher",
+        "description": "Returns the e-mail and name of the teacher who owns the token.",
+        "operationId": "get_current_session_api_v1_sessions_current_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ProfileResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
         },
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
           }
         ]
       },
       "delete": {
         "tags": [
-          "Cuentas, cursos y documentos"
+          "sessions"
         ],
-        "summary": "Logout",
-        "operationId": "logout_api_v1_sesiones_actual_delete",
+        "summary": "Sign out",
+        "description": "Revokes the token: later requests with it get 401.",
+        "operationId": "logout_api_v1_sessions_current_delete",
         "responses": {
           "204": {
             "description": "Successful Response"
-          }
-        },
-        "security": [
-          {
-            "SesionDocente": []
-          }
-        ]
-      }
-    },
-    "/api/v1/cursos": {
-      "get": {
-        "tags": [
-          "Cuentas, cursos y documentos"
-        ],
-        "summary": "Cursos",
-        "operationId": "cursos_api_v1_cursos_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
         },
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/courses": {
+      "get": {
+        "tags": [
+          "courses"
+        ],
+        "summary": "List my courses",
+        "description": "Courses of the signed-in teacher with their units and learning outcomes.",
+        "operationId": "list_courses_api_v1_courses_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CourseResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Courses Api V1 Courses Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "TeacherSession": []
           }
         ]
       },
       "post": {
         "tags": [
-          "Cuentas, cursos y documentos"
+          "courses"
         ],
-        "summary": "Crear",
-        "operationId": "crear_api_v1_cursos_post",
+        "summary": "Create a course",
+        "description": "Creates the course with at least one unit. The code is stored in uppercase and must be unique (409).",
+        "operationId": "create_course_api_v1_courses_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CursoEntrada"
+                "$ref": "#/components/schemas/CourseInput"
               }
             }
           },
@@ -168,16 +247,48 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CourseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request breaks a business rule (the code says which one).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state (duplicate or blocked approval).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "Invalid parameters (type, range or unknown field).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -185,31 +296,32 @@
         },
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
           }
         ]
       }
     },
-    "/api/v1/cursos/{id}": {
+    "/api/v1/courses/{course_id}": {
       "put": {
         "tags": [
-          "Cuentas, cursos y documentos"
+          "courses"
         ],
-        "summary": "Editar",
-        "operationId": "editar_api_v1_cursos__id__put",
+        "summary": "Update a course",
+        "description": "Replaces the course data. Existing units must be sent back with their id; new units have none.",
+        "operationId": "update_course_api_v1_courses__course_id__put",
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
           }
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "course_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Id"
+              "title": "Course Id"
             }
           }
         ],
@@ -218,7 +330,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CursoEntrada"
+                "$ref": "#/components/schemas/CourseInput"
               }
             }
           }
@@ -228,16 +340,58 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CourseResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request breaks a business rule (the code says which one).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state (duplicate or blocked approval).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "Invalid parameters (type, range or unknown field).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -246,29 +400,50 @@
       },
       "delete": {
         "tags": [
-          "Cuentas, cursos y documentos"
+          "courses"
         ],
-        "summary": "Borrar un curso con su material, recursos y descargas",
-        "operationId": "borrar_curso_api_v1_cursos__id__delete",
+        "summary": "Delete a course",
+        "description": "Deletes the course with its documents, chunks, resources and download history.",
+        "operationId": "delete_course_api_v1_courses__course_id__delete",
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
           }
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "course_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Id"
+              "title": "Course Id"
             }
           }
         ],
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -283,40 +458,58 @@
         }
       }
     },
-    "/api/v1/documentos": {
+    "/api/v1/documents": {
       "get": {
         "tags": [
-          "Cuentas, cursos y documentos"
+          "documents"
         ],
-        "summary": "Documentos",
-        "operationId": "documentos_api_v1_documentos_get",
+        "summary": "List my documents",
+        "description": "Documents of every unit of the teacher, with their processing status.",
+        "operationId": "list_documents_api_v1_documents_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Documents Api V1 Documents Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
         },
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
           }
         ]
       },
       "post": {
         "tags": [
-          "Cuentas, cursos y documentos"
+          "documents"
         ],
-        "summary": "Cargar",
-        "operationId": "cargar_api_v1_documentos_post",
+        "summary": "Upload a document",
+        "description": "Saves the file in the database with status `registrado`. Call POST /documents/{id}/process next.",
+        "operationId": "upload_document_api_v1_documents_post",
         "requestBody": {
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_cargar_api_v1_documentos_post"
+                "$ref": "#/components/schemas/Body_upload_document_api_v1_documents_post"
               }
             }
           },
@@ -327,16 +520,68 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request breaks a business rule (the code says which one).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state (duplicate or blocked approval).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The file is larger than the limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "Invalid parameters (type, range or unknown field).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -344,40 +589,152 @@
         },
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
           }
         ]
       }
     },
-    "/api/v1/documentos/{id}/archivo": {
-      "get": {
+    "/api/v1/documents/from-topic": {
+      "post": {
         "tags": [
-          "Cuentas, cursos y documentos"
+          "documents"
         ],
-        "summary": "Descargar",
-        "operationId": "descargar_api_v1_documentos__id__archivo_get",
+        "summary": "Add material from an open source",
+        "description": "Searches the topic in Spanish Wikipedia (CC BY-SA 4.0) and saves each article as processed material.\n\nArticles already in the unit are skipped. 503 when the topic search is disabled or the source does not answer.",
+        "operationId": "create_documents_from_topic_api_v1_documents_from_topic_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TopicSearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Create Documents From Topic Api V1 Documents From Topic Post"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request breaks a business rule (the code says which one).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters (type, range or unknown field).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database or an external source is not available.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/documents/{document_id}/file": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Download the original file",
+        "description": "Returns the file as it was uploaded, with its name in Content-Disposition.",
+        "operationId": "download_document_api_v1_documents__document_id__file_get",
+        "security": [
+          {
+            "TeacherSession": []
           }
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "document_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Id"
+              "title": "Document Id"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "The original file.",
+            "content": {
+              "text/plain; charset=utf-8": {},
+              "application/pdf": {},
+              "application/vnd.openxmlformats-officedocument.presentationml.presentation": {}
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -394,26 +751,27 @@
         }
       }
     },
-    "/api/v1/documentos/{id}": {
+    "/api/v1/documents/{document_id}": {
       "delete": {
         "tags": [
-          "Cuentas, cursos y documentos"
+          "documents"
         ],
-        "summary": "Borrar",
-        "operationId": "borrar_api_v1_documentos__id__delete",
+        "summary": "Delete a document",
+        "description": "Deletes the file and its chunks. Generated resources keep their own copy of the evidence.",
+        "operationId": "delete_document_api_v1_documents__document_id__delete",
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
           }
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "document_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Id"
+              "title": "Document Id"
             }
           }
         ],
@@ -421,96 +779,23 @@
           "204": {
             "description": "Successful Response"
           },
-          "422": {
-            "description": "Validation Error",
+          "401": {
+            "description": "Missing, invalid or expired session token.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/api/v1/solicitudes": {
-      "get": {
-        "tags": [
-          "Cuentas, cursos y documentos"
-        ],
-        "summary": "Historial",
-        "operationId": "historial_api_v1_solicitudes_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
             "content": {
               "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "SesionDocente": []
-          }
-        ]
-      }
-    },
-    "/api/v1/resumen": {
-      "get": {
-        "tags": [
-          "Revisión y descargas"
-        ],
-        "summary": "Recursos aprobados y por revisar de cada unidad del docente",
-        "operationId": "resumen_api_v1_resumen_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "SesionDocente": []
-          }
-        ]
-      }
-    },
-    "/api/v1/unidades/{unidad_id}/recursos": {
-      "get": {
-        "tags": [
-          "Revisión y descargas"
-        ],
-        "summary": "Recursos generados para la unidad, con su revisión",
-        "operationId": "recursos_api_v1_unidades__unidad_id__recursos_get",
-        "security": [
-          {
-            "SesionDocente": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "unidad_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Unidad Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -527,35 +812,505 @@
         }
       }
     },
-    "/api/v1/unidades/{unidad_id}/recursos/{recurso_id}": {
+    "/api/v1/documents/{document_id}/process": {
+      "post": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "Extract the text and split it into chunks",
+        "description": "Extracts the text (PDF, PPTX or TXT) and splits it into chunks of about 220 words with their location.\n\nA file without text ends with status `error` and an explanation in `errorMessage`; it does not fail the request.",
+        "operationId": "process_document_api_v1_documents__document_id__process_post",
+        "security": [
+          {
+            "TeacherSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/documents/{document_id}/chunks": {
+      "get": {
+        "tags": [
+          "documents"
+        ],
+        "summary": "List the chunks of a document",
+        "description": "Chunks in document order. They are the evidence that generated resources cite.",
+        "operationId": "list_document_chunks_api_v1_documents__document_id__chunks_get",
+        "security": [
+          {
+            "TeacherSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "document_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Document Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ChunkResponse"
+                  },
+                  "title": "Response List Document Chunks Api V1 Documents  Document Id  Chunks Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/generations": {
+      "get": {
+        "tags": [
+          "generations"
+        ],
+        "summary": "List my generation requests",
+        "description": "History of the teacher's requests, newest first.",
+        "operationId": "list_generation_requests_api_v1_generations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GenerationRequestRecord"
+                  },
+                  "type": "array",
+                  "title": "Response List Generation Requests Api V1 Generations Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "TeacherSession": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "generations"
+        ],
+        "summary": "Generate resources from the unit material",
+        "description": "Retrieves the most relevant chunks of the unit (BM25) and drafts the resources with the active generator.\n\nOnly resources whose claims cite valid chunks are kept; they are saved as `pendiente` for the teacher's review.\nIf the AI fails, the rule-based generator answers and `generator.fallback` is true. Without material the\nrequest is rejected (400 NO_PROCESSED_MATERIAL) instead of inventing content.",
+        "operationId": "generate_resources_api_v1_generations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request breaks a business rule (the code says which one).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters (type, range or unknown field).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "The database or an external source is not available.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "TeacherSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/generations/{generation_id}": {
+      "get": {
+        "tags": [
+          "generations"
+        ],
+        "summary": "Get a generation",
+        "description": "Returns a saved generation exactly as it was answered. Generations of other teachers give 404.",
+        "operationId": "get_generation_api_v1_generations__generation_id__get",
+        "security": [
+          {
+            "TeacherSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "generation_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Generation Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerationResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/generator": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Get the active generator",
+        "description": "Says whether resources are drafted by a language model (and which one) or by the rule-based generator.",
+        "operationId": "get_generator_api_v1_generator_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeneratorInfo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/review-summary": {
+      "get": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "Count approved and pending resources per unit",
+        "description": "One row per unit of the teacher's courses.",
+        "operationId": "get_review_summary_api_v1_review_summary_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/UnitSummaryResponse"
+                  },
+                  "type": "array",
+                  "title": "Response Get Review Summary Api V1 Review Summary Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "TeacherSession": []
+          }
+        ]
+      }
+    },
+    "/api/v1/units/{unit_id}/resources": {
+      "get": {
+        "tags": [
+          "resources"
+        ],
+        "summary": "List the resources of a unit",
+        "description": "Generated resources of the unit with their review, newest first.",
+        "operationId": "list_unit_resources_api_v1_units__unit_id__resources_get",
+        "security": [
+          {
+            "TeacherSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Unit Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceResponse"
+                  },
+                  "title": "Response List Unit Resources Api V1 Units  Unit Id  Resources Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/units/{unit_id}/resources/{resource_id}": {
       "put": {
         "tags": [
-          "Revisión y descargas"
+          "resources"
         ],
-        "summary": "Guardar la revisión de un recurso",
-        "operationId": "revisar_api_v1_unidades__unidad_id__recursos__recurso_id__put",
+        "summary": "Save the review of a resource",
+        "description": "Saves edits and decisions. `aprobado` needs a key, no pending distractors and at least two accepted\n(409 APPROVAL_BLOCKED otherwise): the same rule the review screen shows.",
+        "operationId": "update_resource_api_v1_units__unit_id__resources__resource_id__put",
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
           }
         ],
         "parameters": [
           {
-            "name": "unidad_id",
+            "name": "unit_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Unidad Id"
+              "title": "Unit Id"
             }
           },
           {
-            "name": "recurso_id",
+            "name": "resource_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Recurso Id"
+              "title": "Resource Id"
             }
           }
         ],
@@ -564,7 +1319,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RecursoRevisado"
+                "$ref": "#/components/schemas/ReviewedResourceInput"
               }
             }
           }
@@ -574,16 +1329,58 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ResourceResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The request breaks a business rule (the code says which one).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict with the current state (duplicate or blocked approval).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "Invalid parameters (type, range or unknown field).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -592,38 +1389,59 @@
       },
       "delete": {
         "tags": [
-          "Revisión y descargas"
+          "resources"
         ],
-        "summary": "Borrar un recurso",
-        "operationId": "borrar_api_v1_unidades__unidad_id__recursos__recurso_id__delete",
+        "summary": "Delete a resource",
+        "description": "Deletes the resource from the unit.",
+        "operationId": "delete_resource_api_v1_units__unit_id__resources__resource_id__delete",
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
           }
         ],
         "parameters": [
           {
-            "name": "unidad_id",
+            "name": "unit_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Unidad Id"
+              "title": "Unit Id"
             }
           },
           {
-            "name": "recurso_id",
+            "name": "resource_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Recurso Id"
+              "title": "Resource Id"
             }
           }
         ],
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -638,26 +1456,27 @@
         }
       }
     },
-    "/api/v1/unidades/{unidad_id}/descargas": {
+    "/api/v1/units/{unit_id}/downloads": {
       "get": {
         "tags": [
-          "Revisión y descargas"
+          "downloads"
         ],
-        "summary": "Historial de descargas de la unidad",
-        "operationId": "descargas_api_v1_unidades__unidad_id__descargas_get",
+        "summary": "List the downloads of a unit",
+        "description": "The last 50 downloads, newest first.",
+        "operationId": "list_downloads_api_v1_units__unit_id__downloads_get",
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
           }
         ],
         "parameters": [
           {
-            "name": "unidad_id",
+            "name": "unit_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Unidad Id"
+              "title": "Unit Id"
             }
           }
         ],
@@ -666,7 +1485,33 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DownloadResponse"
+                  },
+                  "title": "Response List Downloads Api V1 Units  Unit Id  Downloads Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
@@ -684,23 +1529,24 @@
       },
       "post": {
         "tags": [
-          "Revisión y descargas"
+          "downloads"
         ],
-        "summary": "Registrar una descarga",
-        "operationId": "registrar_api_v1_unidades__unidad_id__descargas_post",
+        "summary": "Record a download",
+        "description": "Records a file built in the browser (the unit document). Exports built by the backend record themselves.",
+        "operationId": "register_download_api_v1_units__unit_id__downloads_post",
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
           }
         ],
         "parameters": [
           {
-            "name": "unidad_id",
+            "name": "unit_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Unidad Id"
+              "title": "Unit Id"
             }
           }
         ],
@@ -709,7 +1555,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DescargaEntrada"
+                "$ref": "#/components/schemas/DownloadInput"
               }
             }
           }
@@ -719,16 +1565,38 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "Invalid parameters (type, range or unknown field).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -737,23 +1605,24 @@
       },
       "delete": {
         "tags": [
-          "Revisión y descargas"
+          "downloads"
         ],
-        "summary": "Borrar el historial de descargas de la unidad",
-        "operationId": "borrar_historial_api_v1_unidades__unidad_id__descargas_delete",
+        "summary": "Clear the download history",
+        "description": "Deletes the history of the unit. The files already downloaded are not affected.",
+        "operationId": "clear_downloads_api_v1_units__unit_id__downloads_delete",
         "security": [
           {
-            "SesionDocente": []
+            "TeacherSession": []
           }
         ],
         "parameters": [
           {
-            "name": "unidad_id",
+            "name": "unit_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Unidad Id"
+              "title": "Unit Id"
             }
           }
         ],
@@ -761,6 +1630,26 @@
           "204": {
             "description": "Successful Response"
           },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Validation Error",
             "content": {
@@ -774,364 +1663,27 @@
         }
       }
     },
-    "/api/v1/documentos/desde-tema": {
+    "/api/v1/units/{unit_id}/exports": {
       "post": {
         "tags": [
-          "Ingesta y RAG"
+          "exports"
         ],
-        "summary": "Buscar un tema en fuentes abiertas y guardarlo como material procesado",
-        "operationId": "desde_tema_api_v1_documentos_desde_tema_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/TemaEntrada"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
+        "summary": "Export the approved resources of a unit",
+        "description": "Builds the file in the backend from the approved resources (fixed templates, never written by the AI),\nrecords the download in the unit history and returns the file.\n\n- `scorm_zip`: SCORM 1.2 package for Chamilo, one page per resource in 5E order; questions are graded.\n- `moodle_xml`: Moodle question bank with the multiple-choice items.",
+        "operationId": "export_unit_api_v1_units__unit_id__exports_post",
         "security": [
           {
-            "SesionDocente": []
-          }
-        ]
-      }
-    },
-    "/api/v1/documentos/{id}/procesar": {
-      "post": {
-        "tags": [
-          "Ingesta y RAG"
-        ],
-        "summary": "Extraer el texto del documento y partirlo en fragmentos",
-        "operationId": "procesar_api_v1_documentos__id__procesar_post",
-        "security": [
-          {
-            "SesionDocente": []
+            "TeacherSession": []
           }
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "unit_id",
             "in": "path",
             "required": true,
             "schema": {
               "type": "string",
-              "title": "Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/documentos/{id}/fragmentos": {
-      "get": {
-        "tags": [
-          "Ingesta y RAG"
-        ],
-        "summary": "Ver los fragmentos de un documento procesado",
-        "operationId": "fragmentos_api_v1_documentos__id__fragmentos_get",
-        "security": [
-          {
-            "SesionDocente": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/ia": {
-      "get": {
-        "tags": [
-          "Ingesta y RAG"
-        ],
-        "summary": "Generador activo: modelo de IA o reglas",
-        "operationId": "ia_api_v1_ia_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/generaciones": {
-      "post": {
-        "tags": [
-          "EP-003 Generación de recursos"
-        ],
-        "summary": "Generar",
-        "operationId": "generar_api_v1_generaciones_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/SolicitudIntegrada"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GeneracionRespuesta"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "SesionDocente": []
-          }
-        ]
-      }
-    },
-    "/api/v1/generaciones/{generacion_id}": {
-      "get": {
-        "tags": [
-          "EP-003 Generación de recursos"
-        ],
-        "summary": "Obtener",
-        "operationId": "obtener_api_v1_generaciones__generacion_id__get",
-        "security": [
-          {
-            "SesionDocente": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "generacion_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Generacion Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/GeneracionRespuesta"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/salud": {
-      "get": {
-        "summary": "Salud",
-        "operationId": "salud_salud_get",
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/recursos/generar": {
-      "post": {
-        "summary": "Generar Recursos",
-        "operationId": "generar_recursos_api_v1_recursos_generar_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "additionalProperties": true,
-                "type": "object",
-                "title": "Payload"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/recursos/{recurso_id}": {
-      "get": {
-        "summary": "Obtener Recurso",
-        "operationId": "obtener_recurso_api_v1_recursos__recurso_id__get",
-        "parameters": [
-          {
-            "name": "recurso_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Recurso Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/recursos/{recurso_id}/alternativas/{letra}/decision": {
-      "post": {
-        "summary": "Tomar Decision",
-        "operationId": "tomar_decision_api_v1_recursos__recurso_id__alternativas__letra__decision_post",
-        "parameters": [
-          {
-            "name": "recurso_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Recurso Id"
-            }
-          },
-          {
-            "name": "letra",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Letra"
+              "title": "Unit Id"
             }
           }
         ],
@@ -1140,26 +1692,45 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/DecisionRequest"
+                "$ref": "#/components/schemas/ExportRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Successful Response",
+            "description": "The file to download; its name comes in Content-Disposition.",
+            "content": {
+              "application/zip": {},
+              "application/xml": {}
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
           "422": {
-            "description": "Validation Error",
+            "description": "Invalid parameters (type, range or unknown field).",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1167,72 +1738,21 @@
         }
       }
     },
-    "/api/v1/recursos/{recurso_id}/aprobar": {
-      "post": {
-        "summary": "Aprobar Recurso",
-        "operationId": "aprobar_recurso_api_v1_recursos__recurso_id__aprobar_post",
-        "parameters": [
-          {
-            "name": "recurso_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Recurso Id"
-            }
-          }
+    "/health": {
+      "get": {
+        "tags": [
+          "system"
         ],
+        "summary": "Check that the API is up",
+        "description": "Answers without touching the database, so Render can wake the service up quickly.",
+        "operationId": "check_health_health_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/exportaciones": {
-      "post": {
-        "summary": "Exportar Recursos",
-        "operationId": "exportar_recursos_api_v1_exportaciones_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ExportacionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {}
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/HealthResponse"
                 }
               }
             }
@@ -1243,46 +1763,118 @@
   },
   "components": {
     "schemas": {
-      "Body_cargar_api_v1_documentos_post": {
+      "Body_upload_document_api_v1_documents_post": {
         "properties": {
           "file": {
             "type": "string",
             "contentMediaType": "application/octet-stream",
-            "title": "File"
+            "title": "File",
+            "description": "PDF, PPTX or TXT up to 25 MB."
           },
-          "contexto": {
+          "context": {
             "type": "string",
-            "title": "Contexto"
+            "title": "Context",
+            "description": "JSON with the unit and the use permission.",
+            "examples": [
+              "{\"unitId\": \"unidad-1\", \"outcomeIds\": [], \"documentType\": \"Separata o apuntes de clase\", \"usePermission\": true}"
+            ]
           }
         },
         "type": "object",
         "required": [
           "file",
-          "contexto"
+          "context"
         ],
-        "title": "Body_cargar_api_v1_documentos_post"
+        "title": "Body_upload_document_api_v1_documents_post"
       },
-      "CursoEntrada": {
+      "ChunkResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "order": {
+            "type": "integer",
+            "title": "Order",
+            "description": "Position of the chunk in the document, from 0."
+          },
+          "location": {
+            "type": "string",
+            "title": "Location",
+            "examples": [
+              "p. 3"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "order",
+          "location",
+          "text"
+        ],
+        "title": "ChunkResponse"
+      },
+      "CitationResponse": {
+        "properties": {
+          "claim": {
+            "type": "string",
+            "title": "Claim",
+            "description": "Sentence of the resource that needs support."
+          },
+          "fragmentIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Fragmentids",
+            "description": "Chunks of the teacher's material that support it."
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "claim",
+          "fragmentIds"
+        ],
+        "title": "CitationResponse"
+      },
+      "CourseInput": {
         "properties": {
           "code": {
             "type": "string",
             "maxLength": 30,
             "minLength": 1,
-            "title": "Code"
+            "title": "Code",
+            "description": "Unique per teacher.",
+            "examples": [
+              "RED-301"
+            ]
           },
           "name": {
             "type": "string",
             "maxLength": 150,
             "minLength": 1,
-            "title": "Name"
+            "title": "Name",
+            "examples": [
+              "Redes de computadoras"
+            ]
           },
           "term": {
             "type": "string",
             "maxLength": 30,
             "minLength": 1,
-            "title": "Term"
+            "title": "Term",
+            "examples": [
+              "2026-II"
+            ]
           },
-          "sumilla": {
+          "summary": {
             "anyOf": [
               {
                 "type": "string",
@@ -1292,9 +1884,10 @@
                 "type": "null"
               }
             ],
-            "title": "Sumilla"
+            "title": "Summary",
+            "description": "Official course summary (sumilla)."
           },
-          "logro": {
+          "learningGoal": {
             "anyOf": [
               {
                 "type": "string",
@@ -1304,16 +1897,18 @@
                 "type": "null"
               }
             ],
-            "title": "Logro"
+            "title": "Learninggoal",
+            "description": "Course learning goal (logro)."
           },
           "units": {
             "items": {
-              "$ref": "#/components/schemas/UnidadEntrada"
+              "$ref": "#/components/schemas/CourseUnitInput"
             },
             "type": "array",
             "maxItems": 50,
             "minItems": 1,
-            "title": "Units"
+            "title": "Units",
+            "description": "Existing units must be sent back with their id."
           }
         },
         "additionalProperties": false,
@@ -1324,15 +1919,27 @@
           "term",
           "units"
         ],
-        "title": "CursoEntrada"
+        "title": "CourseInput"
       },
-      "DecisionRequest": {
+      "CourseResponse": {
         "properties": {
-          "decision": {
+          "id": {
             "type": "string",
-            "title": "Decision"
+            "title": "Id"
           },
-          "texto": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "term": {
+            "type": "string",
+            "title": "Term"
+          },
+          "summary": {
             "anyOf": [
               {
                 "type": "string"
@@ -1341,22 +1948,238 @@
                 "type": "null"
               }
             ],
-            "title": "Texto"
+            "title": "Summary"
+          },
+          "learningGoal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Learninggoal"
+          },
+          "units": {
+            "items": {
+              "$ref": "#/components/schemas/UnitResponse"
+            },
+            "type": "array",
+            "title": "Units"
           }
         },
+        "additionalProperties": true,
         "type": "object",
         "required": [
-          "decision"
+          "id",
+          "code",
+          "name",
+          "term",
+          "units"
         ],
-        "title": "DecisionRequest"
+        "title": "CourseResponse"
       },
-      "DescargaEntrada": {
+      "CourseUnitInput": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Keep it when editing; omit it for a new unit."
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 150,
+            "minLength": 1,
+            "title": "Title",
+            "examples": [
+              "Capa de transporte"
+            ]
+          },
+          "outcomes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/LearningOutcomeInput"
+                },
+                "type": "array",
+                "maxItems": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcomes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "title"
+        ],
+        "title": "CourseUnitInput"
+      },
+      "DocumentOrigin": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "examples": [
+              "Wikipedia"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "license": {
+            "type": "string",
+            "title": "License",
+            "examples": [
+              "CC BY-SA 4.0"
+            ]
+          },
+          "topic": {
+            "type": "string",
+            "title": "Topic"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "source",
+          "url",
+          "license",
+          "topic"
+        ],
+        "title": "DocumentOrigin",
+        "description": "Open source the document came from (POST /documents/from-topic)."
+      },
+      "DocumentResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "fileName": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "pptx",
+              "txt"
+            ],
+            "title": "Kind"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "title": "Sizebytes"
+          },
+          "unitId": {
+            "type": "string",
+            "title": "Unitid"
+          },
+          "outcomeIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Outcomeids",
+            "default": []
+          },
+          "documentType": {
+            "type": "string",
+            "title": "Documenttype"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "`registrado`, `procesando`, `procesado` or `error` (values migrate in Sprint 2)."
+          },
+          "registeredAt": {
+            "type": "string",
+            "title": "Registeredat"
+          },
+          "processedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processedat"
+          },
+          "fragmentCount": {
+            "type": "integer",
+            "title": "Fragmentcount",
+            "default": 0
+          },
+          "pageCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pagecount"
+          },
+          "errorMessage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errormessage"
+          },
+          "origin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DocumentOrigin"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "fileName",
+          "kind",
+          "sizeBytes",
+          "unitId",
+          "documentType",
+          "status",
+          "registeredAt"
+        ],
+        "title": "DocumentResponse"
+      },
+      "DownloadInput": {
         "properties": {
           "format": {
             "type": "string",
             "enum": [
               "moodle_xml",
-              "qti21",
+              "scorm_zip",
               "documento"
             ],
             "title": "Format"
@@ -1365,7 +2188,10 @@
             "type": "string",
             "maxLength": 200,
             "minLength": 1,
-            "title": "Filename"
+            "title": "Filename",
+            "examples": [
+              "red-301-unidad-1-documento.html"
+            ]
           },
           "resourceCount": {
             "type": "integer",
@@ -1381,22 +2207,431 @@
           "fileName",
           "resourceCount"
         ],
-        "title": "DescargaEntrada"
+        "title": "DownloadInput",
+        "description": "A file built in the browser (the unit document) and saved by the teacher."
       },
-      "ExportacionRequest": {
+      "DownloadResponse": {
         "properties": {
-          "formato": {
+          "id": {
             "type": "string",
-            "title": "Formato"
+            "title": "Id"
+          },
+          "unitId": {
+            "type": "string",
+            "title": "Unitid"
+          },
+          "format": {
+            "type": "string",
+            "title": "Format"
+          },
+          "fileName": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "resourceCount": {
+            "type": "integer",
+            "title": "Resourcecount"
+          },
+          "createdAt": {
+            "type": "string",
+            "title": "Createdat"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "unitId",
+          "format",
+          "fileName",
+          "resourceCount",
+          "createdAt"
+        ],
+        "title": "DownloadResponse"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "Stable machine-readable code.",
+            "examples": [
+              "UNIT_NOT_FOUND"
+            ]
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Message for the teacher, in Spanish.",
+            "examples": [
+              "La unidad no pertenece a tus cursos."
+            ]
+          },
+          "details": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Details",
+            "description": "Validation problems (422 only): location and reason of each one."
           }
         },
         "type": "object",
         "required": [
-          "formato"
+          "code",
+          "message"
         ],
-        "title": "ExportacionRequest"
+        "title": "ErrorBody"
       },
-      "GeneracionRespuesta": {
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse",
+        "description": "Every error has the same shape: `{\"error\": {\"code\", \"message\"}}`."
+      },
+      "EvidenceResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "location": {
+            "type": "string",
+            "title": "Location"
+          },
+          "documentId": {
+            "type": "string",
+            "title": "Documentid"
+          },
+          "documentName": {
+            "type": "string",
+            "title": "Documentname"
+          },
+          "sourceUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceurl"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "text",
+          "location",
+          "documentId",
+          "documentName"
+        ],
+        "title": "EvidenceResponse",
+        "description": "Copy of a cited chunk, saved with the resource when it was generated."
+      },
+      "ExportRequest": {
+        "properties": {
+          "format": {
+            "type": "string",
+            "enum": [
+              "scorm_zip",
+              "moodle_xml"
+            ],
+            "title": "Format",
+            "description": "`scorm_zip`: SCORM 1.2 package for Chamilo. `moodle_xml`: Moodle question bank (multiple choice)."
+          },
+          "resourceIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Resourceids",
+            "description": "Approved resources to export; empty exports every approved resource that fits the format."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "format"
+        ],
+        "title": "ExportRequest"
+      },
+      "GeneratedChunk": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "relevance": {
+            "type": "number",
+            "title": "Relevance",
+            "default": 0.0
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "title": "GeneratedChunk"
+      },
+      "GenerationGenerator": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "usesAi": {
+            "type": "boolean",
+            "title": "Usesai"
+          },
+          "fallback": {
+            "type": "boolean",
+            "title": "Fallback",
+            "description": "True when the AI failed and the rule-based generator answered."
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "description",
+          "usesAi",
+          "fallback"
+        ],
+        "title": "GenerationGenerator"
+      },
+      "GenerationRequest": {
+        "properties": {
+          "unitId": {
+            "type": "string",
+            "title": "Unitid",
+            "description": "Unit whose processed material is used.",
+            "examples": [
+              "unidad-1"
+            ]
+          },
+          "outcomeId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcomeid",
+            "description": "Learning outcome of the unit, optional."
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "engage",
+              "explore",
+              "explain",
+              "elaborate",
+              "evaluate"
+            ],
+            "title": "Stage",
+            "description": "5E stage of the requested resource.",
+            "examples": [
+              "evaluate"
+            ]
+          },
+          "resourceType": {
+            "type": "string",
+            "enum": [
+              "pregunta_detonante",
+              "sondeo_diagnostico",
+              "guia_exploracion",
+              "caso_indagacion",
+              "explicacion",
+              "glosario",
+              "ejercicio_aplicacion",
+              "item_opcion_multiple"
+            ],
+            "title": "Resourcetype",
+            "examples": [
+              "item_opcion_multiple"
+            ]
+          },
+          "quantity": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "default": 1
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": [
+              "basica",
+              "intermedia",
+              "avanzada"
+            ],
+            "title": "Difficulty",
+            "default": "intermedia"
+          },
+          "optionCount": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 2.0,
+            "title": "Optioncount",
+            "description": "Options per multiple-choice item.",
+            "default": 4
+          },
+          "topK": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Topk",
+            "description": "Chunks retrieved from the material (BM25).",
+            "default": 10
+          },
+          "evidenceThreshold": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Evidencethreshold",
+            "default": 0.6
+          },
+          "instructions": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Instructions",
+            "description": "Free text from the teacher.",
+            "default": ""
+          },
+          "audience": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Audience",
+            "default": "",
+            "examples": [
+              "Tercer ciclo"
+            ]
+          },
+          "competency": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Competency",
+            "default": ""
+          },
+          "modalities": {
+            "items": {
+              "type": "string",
+              "const": "Textual"
+            },
+            "type": "array",
+            "maxItems": 1,
+            "title": "Modalities",
+            "description": "Sprint 1 generates text only."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "unitId",
+          "stage",
+          "resourceType"
+        ],
+        "title": "GenerationRequest"
+      },
+      "GenerationRequestRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "unitId": {
+            "type": "string",
+            "title": "Unitid"
+          },
+          "createdAt": {
+            "type": "string",
+            "title": "Createdat"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "resourceType": {
+            "type": "string",
+            "title": "Resourcetype"
+          },
+          "quantity": {
+            "type": "integer",
+            "title": "Quantity"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "unitId",
+          "createdAt",
+          "stage",
+          "resourceType",
+          "quantity"
+        ],
+        "title": "GenerationRequestRecord",
+        "description": "The request as it was saved: GET /generations lists them, newest first."
+      },
+      "GenerationResult": {
         "properties": {
           "mode": {
             "type": "string",
@@ -1404,36 +2639,37 @@
               "api_demo",
               "rag"
             ],
-            "title": "Mode"
+            "title": "Mode",
+            "description": "`rag`: the teacher's material; `api_demo`: test catalog."
           },
           "notice": {
             "type": "string",
-            "title": "Notice"
+            "title": "Notice",
+            "description": "Message shown to the teacher."
           },
           "generator": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/GenerationGenerator"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Generator"
+            ]
           },
           "request": {
             "additionalProperties": true,
             "type": "object",
-            "title": "Request"
+            "title": "Request",
+            "description": "The saved request, with its id."
           },
           "resources": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "$ref": "#/components/schemas/ResourceResponse"
             },
             "type": "array",
-            "title": "Resources"
+            "title": "Resources",
+            "description": "Generated resources, saved as `pendiente` for review."
           },
           "available": {
             "type": "integer",
@@ -1445,7 +2681,8 @@
               "type": "object"
             },
             "type": "array",
-            "title": "Fragments"
+            "title": "Fragments",
+            "description": "Chunks cited by the resources."
           },
           "documents": {
             "items": {
@@ -1453,9 +2690,20 @@
               "type": "object"
             },
             "type": "array",
-            "title": "Documents"
+            "title": "Documents",
+            "description": "Documents those chunks come from."
+          },
+          "retrievedChunks": {
+            "items": {
+              "$ref": "#/components/schemas/GeneratedChunk"
+            },
+            "type": "array",
+            "title": "Retrievedchunks",
+            "description": "Everything retrieved, not only what was cited. Used by the Ragas evaluation.",
+            "default": []
           }
         },
+        "additionalProperties": true,
         "type": "object",
         "required": [
           "mode",
@@ -1466,7 +2714,50 @@
           "fragments",
           "documents"
         ],
-        "title": "GeneracionRespuesta"
+        "title": "GenerationResult"
+      },
+      "GeneratorInfo": {
+        "properties": {
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "examples": [
+              "Gemini (gemini-2.5-flash)"
+            ]
+          },
+          "usesAi": {
+            "type": "boolean",
+            "title": "Usesai",
+            "description": "False when the rule-based generator is active."
+          },
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "examples": [
+              "gemini",
+              "rules"
+            ]
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "description",
+          "usesAi",
+          "provider"
+        ],
+        "title": "GeneratorInfo"
       },
       "HTTPValidationError": {
         "properties": {
@@ -1481,19 +2772,116 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
-      "Login": {
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "HealthResponse"
+      },
+      "LearningOutcomeInput": {
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id",
+            "description": "Keep it when editing; omit it for a new outcome."
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code",
+            "examples": [
+              "RA1"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 400,
+            "minLength": 1,
+            "title": "Text",
+            "examples": [
+              "Distingue los protocolos TCP y UDP."
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text"
+        ],
+        "title": "LearningOutcomeInput"
+      },
+      "LearningOutcomeResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "title": "LearningOutcomeResponse"
+      },
+      "LoginRequest": {
         "properties": {
           "email": {
             "type": "string",
             "maxLength": 254,
             "minLength": 3,
-            "title": "Email"
+            "title": "Email",
+            "examples": [
+              "ana.perez@upao.edu.pe"
+            ]
           },
           "password": {
             "type": "string",
             "maxLength": 200,
             "minLength": 1,
-            "title": "Password"
+            "title": "Password",
+            "examples": [
+              "clave-segura-1"
+            ]
           }
         },
         "additionalProperties": false,
@@ -1502,9 +2890,280 @@
           "email",
           "password"
         ],
-        "title": "Login"
+        "title": "LoginRequest"
       },
-      "OpcionRevisada": {
+      "ProfileResponse": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "examples": [
+              "ana.perez@upao.edu.pe"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "title": "Name",
+            "examples": [
+              "Ana Pérez"
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "email",
+          "name"
+        ],
+        "title": "ProfileResponse"
+      },
+      "RegistrationRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 2,
+            "title": "Name",
+            "description": "Teacher full name.",
+            "examples": [
+              "Ana Pérez"
+            ]
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "minLength": 3,
+            "title": "Email",
+            "description": "Unique e-mail.",
+            "examples": [
+              "ana.perez@upao.edu.pe"
+            ]
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 200,
+            "minLength": 8,
+            "title": "Password",
+            "description": "At least 8 characters.",
+            "examples": [
+              "clave-segura-1"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "email",
+          "password"
+        ],
+        "title": "RegistrationRequest"
+      },
+      "ResourceOptionResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "isCorrect": {
+            "type": "boolean",
+            "title": "Iscorrect"
+          },
+          "feedback": {
+            "type": "string",
+            "title": "Feedback",
+            "default": ""
+          },
+          "sourceFragmentIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sourcefragmentids",
+            "default": []
+          },
+          "decision": {
+            "type": "string",
+            "title": "Decision",
+            "description": "Only distractors are decided: `pendiente`, `aceptado` or `descartado`."
+          },
+          "discardReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discardreason"
+          },
+          "edited": {
+            "type": "boolean",
+            "title": "Edited",
+            "default": false
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "text",
+          "isCorrect",
+          "decision"
+        ],
+        "title": "ResourceOptionResponse"
+      },
+      "ResourceResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "unitId": {
+            "type": "string",
+            "title": "Unitid"
+          },
+          "outcomeId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcomeid"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage",
+            "description": "5E stage: engage, explore, explain, elaborate or evaluate."
+          },
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "description": "Resource type, e.g. `item_opcion_multiple`."
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "body": {
+            "type": "string",
+            "title": "Body",
+            "description": "Content. In questions it is the prompt; paragraphs separated by a blank line."
+          },
+          "options": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceOptionResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Options"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/CitationResponse"
+            },
+            "type": "array",
+            "title": "Citations",
+            "default": []
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "`pendiente`, `aprobado` or `descartado`."
+          },
+          "edited": {
+            "type": "boolean",
+            "title": "Edited",
+            "default": false
+          },
+          "discardReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discardreason"
+          },
+          "createdAt": {
+            "type": "string",
+            "title": "Createdat"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          },
+          "decidedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decidedat"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceResponse"
+            },
+            "type": "array",
+            "title": "Evidence",
+            "default": []
+          },
+          "params": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Params",
+            "description": "Request parameters, reused by «Regenerar»."
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "unitId",
+          "stage",
+          "type",
+          "title",
+          "body",
+          "status",
+          "createdAt"
+        ],
+        "title": "ResourceResponse"
+      },
+      "ReviewedOptionInput": {
         "properties": {
           "id": {
             "type": "string",
@@ -1565,9 +3224,9 @@
           "text",
           "decision"
         ],
-        "title": "OpcionRevisada"
+        "title": "ReviewedOptionInput"
       },
-      "RecursoRevisado": {
+      "ReviewedResourceInput": {
         "properties": {
           "title": {
             "type": "string",
@@ -1618,7 +3277,7 @@
             "anyOf": [
               {
                 "items": {
-                  "$ref": "#/components/schemas/OpcionRevisada"
+                  "$ref": "#/components/schemas/ReviewedOptionInput"
                 },
                 "type": "array",
                 "maxItems": 10
@@ -1637,225 +3296,73 @@
           "body",
           "status"
         ],
-        "title": "RecursoRevisado"
+        "title": "ReviewedResourceInput",
+        "description": "The teacher's review. Approval is blocked while distractors are pending (409 APPROVAL_BLOCKED)."
       },
-      "Registro": {
+      "SessionResponse": {
         "properties": {
-          "name": {
-            "type": "string",
-            "maxLength": 100,
-            "minLength": 2,
-            "title": "Name"
-          },
           "email": {
             "type": "string",
-            "maxLength": 254,
-            "minLength": 3,
-            "title": "Email"
+            "title": "Email",
+            "examples": [
+              "ana.perez@upao.edu.pe"
+            ]
           },
-          "password": {
+          "name": {
             "type": "string",
-            "maxLength": 200,
-            "minLength": 8,
-            "title": "Password"
+            "title": "Name",
+            "examples": [
+              "Ana Pérez"
+            ]
+          },
+          "token": {
+            "type": "string",
+            "title": "Token",
+            "description": "Bearer token. Send it as `Authorization: Bearer <token>`."
+          },
+          "expiresIn": {
+            "type": "integer",
+            "title": "Expiresin",
+            "description": "Seconds until the session expires (8 hours).",
+            "examples": [
+              28800
+            ]
           }
         },
-        "additionalProperties": false,
+        "additionalProperties": true,
         "type": "object",
         "required": [
-          "name",
           "email",
-          "password"
+          "name",
+          "token",
+          "expiresIn"
         ],
-        "title": "Registro"
+        "title": "SessionResponse"
       },
-      "ResultadoEntrada": {
-        "properties": {
-          "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Id"
-          },
-          "code": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 20
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Code"
-          },
-          "text": {
-            "type": "string",
-            "maxLength": 400,
-            "minLength": 1,
-            "title": "Text"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "text"
-        ],
-        "title": "ResultadoEntrada"
-      },
-      "SolicitudIntegrada": {
-        "properties": {
-          "unidad_id": {
-            "type": "string",
-            "title": "Unidad Id",
-            "description": "Identificador de la unidad académica curricular (ej. u2)."
-          },
-          "resultado_aprendizaje_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Resultado Aprendizaje Id",
-            "description": "Código del resultado de aprendizaje específico a cubrir (ej. ra-2-1)."
-          },
-          "etapa_5e": {
-            "type": "string",
-            "enum": [
-              "engage",
-              "explore",
-              "explain",
-              "elaborate",
-              "evaluate"
-            ],
-            "title": "Etapa 5E",
-            "description": "Etapa instruccional del modelo pedagógico 5E solicitada."
-          },
-          "tipo_recurso": {
-            "type": "string",
-            "title": "Tipo Recurso",
-            "description": "Subtipo de recurso didáctico a producir (ej. item_opcion_multiple, pregunta_detonante)."
-          },
-          "cantidad": {
-            "type": "integer",
-            "maximum": 5.0,
-            "minimum": 1.0,
-            "title": "Cantidad",
-            "description": "Número de variantes o instancias de recursos a generar.",
-            "default": 1
-          },
-          "dificultad": {
-            "type": "string",
-            "enum": [
-              "basica",
-              "intermedia",
-              "avanzada"
-            ],
-            "title": "Dificultad",
-            "description": "Nivel de complejidad cognitiva estimada para el recurso.",
-            "default": "intermedia"
-          },
-          "alternativas": {
-            "type": "integer",
-            "maximum": 5.0,
-            "minimum": 3.0,
-            "title": "Alternativas",
-            "description": "Cantidad de opciones de respuesta a generar en recursos de evaluación.",
-            "default": 4
-          },
-          "top_k": {
-            "type": "integer",
-            "maximum": 20.0,
-            "minimum": 1.0,
-            "title": "Top K",
-            "description": "Cantidad máxima de fragmentos contextuales a recuperar de la base vectorial.",
-            "default": 10
-          },
-          "umbral_evidencia": {
-            "type": "number",
-            "maximum": 1.0,
-            "minimum": 0.0,
-            "title": "Umbral Evidencia",
-            "description": "Umbral mínimo de similitud semántica requerido para admitir un fragmento.",
-            "default": 0.6
-          },
-          "indicaciones": {
-            "anyOf": [
-              {
-                "type": "string",
-                "maxLength": 500
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Indicaciones",
-            "description": "Instrucciones docentes complementarias para guiar el enfoque pedagógico.",
-            "default": ""
-          },
-          "publico_objetivo": {
-            "type": "string",
-            "maxLength": 200,
-            "title": "Publico Objetivo",
-            "default": ""
-          },
-          "competencia": {
-            "type": "string",
-            "maxLength": 200,
-            "title": "Competencia",
-            "default": ""
-          },
-          "modalidades": {
-            "items": {
-              "type": "string",
-              "enum": [
-                "Textual",
-                "Gamificado",
-                "Multimedia",
-                "Kinestésico"
-              ]
-            },
-            "type": "array",
-            "maxItems": 4,
-            "title": "Modalidades"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "unidad_id",
-          "etapa_5e",
-          "tipo_recurso"
-        ],
-        "title": "SolicitudIntegrada"
-      },
-      "TemaEntrada": {
+      "TopicSearchRequest": {
         "properties": {
           "unitId": {
             "type": "string",
-            "maxLength": 120,
-            "minLength": 1,
-            "title": "Unitid"
+            "title": "Unitid",
+            "examples": [
+              "unidad-1"
+            ]
           },
-          "tema": {
+          "topic": {
             "type": "string",
             "maxLength": 120,
             "minLength": 3,
-            "title": "Tema"
+            "title": "Topic",
+            "examples": [
+              "Protocolo de control de transmisión"
+            ]
           },
-          "maximo": {
+          "maxResults": {
             "type": "integer",
             "maximum": 5.0,
             "minimum": 1.0,
-            "title": "Maximo",
+            "title": "Maxresults",
+            "description": "Maximum number of articles to add.",
             "default": 3
           }
         },
@@ -1863,51 +3370,78 @@
         "type": "object",
         "required": [
           "unitId",
-          "tema"
+          "topic"
         ],
-        "title": "TemaEntrada"
+        "title": "TopicSearchRequest"
       },
-      "UnidadEntrada": {
+      "UnitResponse": {
         "properties": {
           "id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "string",
             "title": "Id"
+          },
+          "courseId": {
+            "type": "string",
+            "title": "Courseid"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number",
+            "description": "Position of the unit in the course, from 1."
           },
           "title": {
             "type": "string",
-            "maxLength": 150,
-            "minLength": 1,
             "title": "Title"
           },
           "outcomes": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/ResultadoEntrada"
-                },
-                "type": "array",
-                "maxItems": 20
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Outcomes"
+            "items": {
+              "$ref": "#/components/schemas/LearningOutcomeResponse"
+            },
+            "type": "array",
+            "title": "Outcomes",
+            "default": []
           }
         },
-        "additionalProperties": false,
+        "additionalProperties": true,
         "type": "object",
         "required": [
+          "id",
+          "courseId",
+          "number",
           "title"
         ],
-        "title": "UnidadEntrada"
+        "title": "UnitResponse"
+      },
+      "UnitSummaryResponse": {
+        "properties": {
+          "courseId": {
+            "type": "string",
+            "title": "Courseid"
+          },
+          "unitId": {
+            "type": "string",
+            "title": "Unitid"
+          },
+          "approved": {
+            "type": "integer",
+            "title": "Approved",
+            "description": "Approved resources of the unit."
+          },
+          "pending": {
+            "type": "integer",
+            "title": "Pending",
+            "description": "Resources waiting for review."
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "courseId",
+          "unitId",
+          "approved",
+          "pending"
+        ],
+        "title": "UnitSummaryResponse"
       },
       "ValidationError": {
         "properties": {
@@ -1951,11 +3485,49 @@
       }
     },
     "securitySchemes": {
-      "SesionDocente": {
+      "TeacherSession": {
         "type": "http",
-        "description": "Obtén el token con POST /api/v1/sesiones. En Authorize pega solamente el token, sin escribir Bearer.",
+        "description": "Get the token with POST /api/v1/sessions (or POST /api/v1/accounts). In Authorize paste only the token.",
         "scheme": "bearer"
       }
     }
-  }
+  },
+  "tags": [
+    {
+      "name": "accounts",
+      "description": "Teacher registration."
+    },
+    {
+      "name": "sessions",
+      "description": "Sign in, current teacher and sign out."
+    },
+    {
+      "name": "courses",
+      "description": "Courses with their units and learning outcomes."
+    },
+    {
+      "name": "documents",
+      "description": "Unit material: upload, text extraction, chunks and open sources."
+    },
+    {
+      "name": "generations",
+      "description": "Resource generation from the unit material (RAG) and its history."
+    },
+    {
+      "name": "resources",
+      "description": "Teacher review of the generated resources."
+    },
+    {
+      "name": "downloads",
+      "description": "Download history of each unit."
+    },
+    {
+      "name": "exports",
+      "description": "Moodle XML and SCORM 1.2 files built in the backend."
+    },
+    {
+      "name": "system",
+      "description": "Health check and active generator."
+    }
+  ]
 }

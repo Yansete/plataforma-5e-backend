@@ -15,6 +15,18 @@ from platform5e.infrastructure.persistence.database import Base, SessionLocal, e
 from platform5e.infrastructure.persistence.error_translation import translate_persistence_errors
 
 
+# Generaciones guardadas antes del contrato en inglés: su bloque «generator» tenía claves en español.
+_LEGACY_GENERATOR_KEYS = {"descripcion": "description", "usaIA": "usesAi"}
+
+
+def adapt_legacy_generation(result: dict[str, Any]) -> dict[str, Any]:
+    generator = result.get("generator")
+    if isinstance(generator, dict):
+        generator = {_LEGACY_GENERATOR_KEYS.get(key, key): value for key, value in generator.items()}
+        return {**result, "generator": generator}
+    return result
+
+
 class GenerationORM(Base):
     """Modelo relacional para registrar la generación completa de propuestas."""
 
@@ -63,4 +75,4 @@ class SQLAlchemyGenerationRepository(GenerationRepositoryPort):
         """Recupera el resultado de generación según su identificador único."""
         with SessionLocal() as session:
             entity = session.get(GenerationORM, generation_id)
-            return entity.result if entity else None
+            return adapt_legacy_generation(entity.result) if entity else None

@@ -15,11 +15,11 @@ describe('servidor', () => {
     await deleteCourse('c 1');
     expect((await listSummary())[0].pending).toBe(2);
     expect(calls.map((x) => `${x.method} ${x.url}`)).toEqual([
-      'GET /api/v1/cursos',
-      'POST /api/v1/cursos',
-      'PUT /api/v1/cursos/c1',
-      'DELETE /api/v1/cursos/c%201',
-      'GET /api/v1/resumen',
+      'GET /api/v1/courses',
+      'POST /api/v1/courses',
+      'PUT /api/v1/courses/c1',
+      'DELETE /api/v1/courses/c%201',
+      'GET /api/v1/review-summary',
     ]);
   });
 });

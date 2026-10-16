@@ -68,7 +68,7 @@ class ResourceReviewService:
         courses = self._teacher_repository.get_courses(teacher_id)
         if not any(u["id"] == unit_id for course in courses for u in course["units"]):
             raise AccountConfigurationError(
-                "UNIDAD_NO_ENCONTRADA", "La unidad no pertenece a tus cursos.", 404
+                "UNIT_NOT_FOUND", "La unidad no pertenece a tus cursos.", 404
             )
 
     def _get_resource_or_fail(
@@ -79,7 +79,7 @@ class ResourceReviewService:
         resource = self._review_repository.get_resource_by_id(teacher_id, resource_id)
         if resource is None or resource.get("unitId") != unit_id:
             raise AccountConfigurationError(
-                "RECURSO_NO_ENCONTRADO", "El recurso no existe.", 404
+                "RESOURCE_NOT_FOUND", "El recurso no existe.", 404
             )
         return resource
 
@@ -104,12 +104,12 @@ class ResourceReviewService:
         status = changes["status"]
         if status not in ALLOWED_REVIEW_STATUSES:
             raise AccountConfigurationError(
-                "ESTADO_INVALIDO", "El estado del recurso no es válido.", 422
+                "INVALID_STATUS", "El estado del recurso no es válido.", 422
             )
 
         discard_reason = changes.get("discardReason")
         if discard_reason is not None and discard_reason not in ALLOWED_DISCARD_REASONS:
-            raise AccountConfigurationError("MOTIVO_INVALIDO", "Elige un motivo de la lista.", 422)
+            raise AccountConfigurationError("INVALID_REASON", "Elige un motivo de la lista.", 422)
 
         updated_resource: dict[str, Any] = {
             **existing,
@@ -125,7 +125,7 @@ class ResourceReviewService:
                 o["id"] for o in options
             ):
                 raise AccountConfigurationError(
-                    "ALTERNATIVAS_INVALIDAS", "Las alternativas no coinciden con el recurso.", 422
+                    "INVALID_OPTIONS", "Las alternativas no coinciden con el recurso.", 422
                 )
 
             options_by_id = {opt["id"]: opt for opt in incoming_options}
@@ -137,7 +137,7 @@ class ResourceReviewService:
                     and target["discardReason"] not in ALLOWED_DISCARD_REASONS
                 ):
                     raise AccountConfigurationError(
-                        "DECISION_INVALIDA",
+                        "INVALID_DECISION",
                         "La decisión sobre la alternativa no es válida.",
                         422,
                     )
@@ -160,7 +160,7 @@ class ResourceReviewService:
         if status == "aprobado":
             blockers = validate_approval_blockers(updated_resource)
             if blockers:
-                raise AccountConfigurationError("APROBACION_BLOQUEADA", blockers[0], 409)
+                raise AccountConfigurationError("APPROVAL_BLOCKED", blockers[0], 409)
 
         current_time = datetime.now(timezone.utc).isoformat()
         if status != existing.get("status"):
@@ -210,7 +210,7 @@ class ResourceReviewService:
         self._verify_unit_access(teacher_id, unit_id)
         if payload["format"] not in ALLOWED_EXPORT_FORMATS:
             raise AccountConfigurationError(
-                "FORMATO_INVALIDO", "El formato de descarga no es válido.", 422
+                "INVALID_FORMAT", "El formato de descarga no es válido.", 422
             )
 
         download_record: dict[str, Any] = {

@@ -47,11 +47,11 @@ class ExportUnitResourcesUseCase:
             (None, None),
         )
         if unit is None:
-            raise AccountConfigurationError("UNIDAD_NO_ENCONTRADA", "La unidad no pertenece a tus cursos.", 404)
+            raise AccountConfigurationError("UNIT_NOT_FOUND", "La unidad no pertenece a tus cursos.", 404)
 
         exporter = self._exporters.get(export_format)
         if exporter is None:
-            raise AccountConfigurationError("FORMATO_INVALIDO", "El formato de exportación no es válido.", 422)
+            raise AccountConfigurationError("INVALID_FORMAT", "El formato de exportación no es válido.", 422)
 
         wanted = set(resource_ids)
         approved = [
@@ -63,7 +63,7 @@ class ExportUnitResourcesUseCase:
         ]
         if not approved:
             raise AccountConfigurationError(
-                "SIN_RECURSOS_APROBADOS", "Elige al menos un recurso aprobado que admita este formato.", 422
+                "NO_APPROVED_RESOURCES", "Elige al menos un recurso aprobado que admita este formato.", 422
             )
 
         exported = exporter.export(approved, course, unit)

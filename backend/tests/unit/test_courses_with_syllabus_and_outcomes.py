@@ -40,8 +40,8 @@ def make_course_payload(**overrides) -> dict[str, Any]:
         "code": "red-101",
         "name": "Redes",
         "term": "2026-II",
-        "sumilla": " Curso de redes. ",
-        "logro": "Explica redes.",
+        "summary": " Curso de redes. ",
+        "learningGoal": "Explica redes.",
         "units": [
             {
                 "title": "Protocolos",
@@ -59,7 +59,7 @@ def make_course_payload(**overrides) -> dict[str, Any]:
 def test_create_course_saves_summary_goal_and_coded_outcomes():
     service = AccountService(MockCoursesRepository(), "docente@5e.demo", "clave")
     created = service.save_course("d", make_course_payload())
-    assert created["code"] == "RED-101" and created["sumilla"] == "Curso de redes." and created["logro"] == "Explica redes."
+    assert created["code"] == "RED-101" and created["summary"] == "Curso de redes." and created["learningGoal"] == "Explica redes."
     outcomes = created["units"][0]["outcomes"]
     assert [(r["code"], r["text"]) for r in outcomes] == [("RA1.1", "Distingue TCP y UDP"), ("RA-X", "Compara OSI")]
     assert all(r["id"].startswith("ra-") for r in outcomes)
@@ -74,8 +74,8 @@ def test_edit_keeps_outcome_ids_and_unsent_data():
     edited = service.save_course(
         "d",
         make_course_payload(
-            sumilla=None,
-            logro=None,
+            summary=None,
+            learningGoal=None,
             units=[
                 {
                     "id": unit["id"],
@@ -93,7 +93,7 @@ def test_edit_keeps_outcome_ids_and_unsent_data():
         ),
         created["id"],
     )
-    assert edited["sumilla"] == "Curso de redes."
+    assert edited["summary"] == "Curso de redes."
     assert edited["units"][0]["outcomes"] == [
         {"id": first_outcome["id"], "code": "RA1.1", "text": "Distingue TCP, UDP e IP"}
     ]

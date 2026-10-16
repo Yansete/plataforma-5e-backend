@@ -1,12 +1,15 @@
 {
-  "description": "Especificación de entrada para el servicio de generación de secuencias didácticas.",
+  "additionalProperties": false,
   "properties": {
-    "unidad_id": {
-      "description": "Identificador de la unidad académica curricular (ej. u2).",
-      "title": "Unidad Id",
+    "unitId": {
+      "description": "Unit whose processed material is used.",
+      "examples": [
+        "unidad-1"
+      ],
+      "title": "Unitid",
       "type": "string"
     },
-    "resultado_aprendizaje_id": {
+    "outcomeId": {
       "anyOf": [
         {
           "type": "string"
@@ -16,11 +19,11 @@
         }
       ],
       "default": null,
-      "description": "Código del resultado de aprendizaje específico a cubrir (ej. ra-2-1).",
-      "title": "Resultado Aprendizaje Id"
+      "description": "Learning outcome of the unit, optional.",
+      "title": "Outcomeid"
     },
-    "etapa_5e": {
-      "description": "Etapa instruccional del modelo pedagógico 5E solicitada.",
+    "stage": {
+      "description": "5E stage of the requested resource.",
       "enum": [
         "engage",
         "explore",
@@ -28,77 +31,107 @@
         "elaborate",
         "evaluate"
       ],
-      "title": "Etapa 5E",
+      "examples": [
+        "evaluate"
+      ],
+      "title": "Stage",
       "type": "string"
     },
-    "tipo_recurso": {
-      "description": "Subtipo de recurso didáctico a producir (ej. item_opcion_multiple, pregunta_detonante).",
-      "title": "Tipo Recurso",
+    "resourceType": {
+      "enum": [
+        "pregunta_detonante",
+        "sondeo_diagnostico",
+        "guia_exploracion",
+        "caso_indagacion",
+        "explicacion",
+        "glosario",
+        "ejercicio_aplicacion",
+        "item_opcion_multiple"
+      ],
+      "examples": [
+        "item_opcion_multiple"
+      ],
+      "title": "Resourcetype",
       "type": "string"
     },
-    "cantidad": {
+    "quantity": {
       "default": 1,
-      "description": "Número de variantes o instancias de recursos a generar.",
       "maximum": 5,
       "minimum": 1,
-      "title": "Cantidad",
+      "title": "Quantity",
       "type": "integer"
     },
-    "dificultad": {
+    "difficulty": {
       "default": "intermedia",
-      "description": "Nivel de complejidad cognitiva estimada para el recurso.",
       "enum": [
         "basica",
         "intermedia",
         "avanzada"
       ],
-      "title": "Dificultad",
+      "title": "Difficulty",
       "type": "string"
     },
-    "alternativas": {
+    "optionCount": {
       "default": 4,
-      "description": "Cantidad de opciones de respuesta a generar en recursos de evaluación.",
+      "description": "Options per multiple-choice item.",
       "maximum": 5,
-      "minimum": 3,
-      "title": "Alternativas",
+      "minimum": 2,
+      "title": "Optioncount",
       "type": "integer"
     },
-    "top_k": {
+    "topK": {
       "default": 10,
-      "description": "Cantidad máxima de fragmentos contextuales a recuperar de la base vectorial.",
-      "maximum": 20,
+      "description": "Chunks retrieved from the material (BM25).",
+      "maximum": 50,
       "minimum": 1,
-      "title": "Top K",
+      "title": "Topk",
       "type": "integer"
     },
-    "umbral_evidencia": {
+    "evidenceThreshold": {
       "default": 0.6,
-      "description": "Umbral mínimo de similitud semántica requerido para admitir un fragmento.",
       "maximum": 1.0,
       "minimum": 0.0,
-      "title": "Umbral Evidencia",
+      "title": "Evidencethreshold",
       "type": "number"
     },
-    "indicaciones": {
-      "anyOf": [
-        {
-          "maxLength": 500,
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
+    "instructions": {
       "default": "",
-      "description": "Instrucciones docentes complementarias para guiar el enfoque pedagógico.",
-      "title": "Indicaciones"
+      "description": "Free text from the teacher.",
+      "maxLength": 500,
+      "title": "Instructions",
+      "type": "string"
+    },
+    "audience": {
+      "default": "",
+      "examples": [
+        "Tercer ciclo"
+      ],
+      "maxLength": 200,
+      "title": "Audience",
+      "type": "string"
+    },
+    "competency": {
+      "default": "",
+      "maxLength": 200,
+      "title": "Competency",
+      "type": "string"
+    },
+    "modalities": {
+      "description": "Sprint 1 generates text only.",
+      "items": {
+        "const": "Textual",
+        "type": "string"
+      },
+      "maxItems": 1,
+      "title": "Modalities",
+      "type": "array"
     }
   },
   "required": [
-    "unidad_id",
-    "etapa_5e",
-    "tipo_recurso"
+    "unitId",
+    "stage",
+    "resourceType"
   ],
-  "title": "GenerationRequestModel",
+  "title": "GenerationRequest",
   "type": "object"
 }

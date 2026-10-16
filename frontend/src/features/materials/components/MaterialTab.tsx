@@ -261,7 +261,7 @@ function DocumentRow({ document: d, outcomeCodes }: { document: MaterialDocument
           <Icon name={fromTopic ? 'search' : 'file'} />
         </span>
         <div className="doc__info">
-          <span className="doc__name">{fromTopic ? d.origin?.tema || d.fileName.replace(/\.txt$/, '') : d.fileName}</span>
+          <span className="doc__name">{fromTopic ? d.origin?.topic || d.fileName.replace(/\.txt$/, '') : d.fileName}</span>
           <span className="caption">
             {fromTopic ? (
               <>

@@ -87,8 +87,8 @@ function CourseFormView({ course }: { course?: Course }) {
           <TextField label="Nombre del curso" value={form.name} onChange={(v) => set('name', v)} maxLength={150} placeholder="Redes de Computadoras" />
           <TextField label="Periodo" value={form.term} onChange={(v) => set('term', v)} maxLength={30} placeholder="2026-II" />
         </div>
-        <TextField label="Sumilla" multiline rows={4} value={form.sumilla} onChange={(v) => set('sumilla', v)} maxLength={3000} hint="Opcional. Cópiala de tu sílabo." />
-        <TextField label="Logro del curso" multiline rows={3} value={form.logro} onChange={(v) => set('logro', v)} maxLength={1000} hint="Opcional." />
+        <TextField label="Sumilla" multiline rows={4} value={form.summary} onChange={(v) => set('summary', v)} maxLength={3000} hint="Opcional. Cópiala de tu sílabo." />
+        <TextField label="Logro del curso" multiline rows={3} value={form.learningGoal} onChange={(v) => set('learningGoal', v)} maxLength={1000} hint="Opcional." />
       </Card>
 
       <Card>

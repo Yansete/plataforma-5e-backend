@@ -81,10 +81,10 @@ def test_pdf_pptx_extractor_and_errors():
     assert "Capa de transporte" in pages[0][1] and "Notas: Explicar" in pages[0][1] and pages[1] == ("diapositiva 2", "")
 
     error_cases = [
-        ("pdf", b"%PDF-1.4 roto", "ARCHIVO_ILEGIBLE"),
-        ("pptx", b"no es zip", "ARCHIVO_ILEGIBLE"),
-        ("txt", b"\xff\xfe\x00", "FORMATO_INVALIDO"),
-        ("doc", b"x", "FORMATO_INVALIDO"),
+        ("pdf", b"%PDF-1.4 roto", "UNREADABLE_FILE"),
+        ("pptx", b"no es zip", "UNREADABLE_FILE"),
+        ("txt", b"\xff\xfe\x00", "INVALID_FORMAT"),
+        ("doc", b"x", "INVALID_FORMAT"),
     ]
     for file_type, content, expected_code in error_cases:
         with pytest.raises(MaterialError) as err:
@@ -223,10 +223,10 @@ def test_configuration_from_the_environment():
     primary, fallback = create_generators({})
     assert primary is fallback and primary.uses_ai is False
     assert describe_generator(primary) == {
-        "descripcion": "Generador por reglas (sin IA)",
-        "usaIA": False,
-        "proveedor": "reglas",
-        "modelo": None,
+        "description": "Generador por reglas (sin IA)",
+        "usesAi": False,
+        "provider": "rules",
+        "model": None,
     }
 
     primary_with_key, fallback_with_key = create_generators({"LLM_API_KEY": "k"})
@@ -235,7 +235,7 @@ def test_configuration_from_the_environment():
     primary_anthropic, _ = create_generators(
         {"LLM_API_KEY": "k", "LLM_PROVIDER": "Anthropic", "LLM_MODEL": "claude-haiku-5-5", "LLM_TIMEOUT_SECONDS": "30"}
     )
-    assert describe_generator(primary_anthropic)["modelo"] == "claude-haiku-5-5"
+    assert describe_generator(primary_anthropic)["model"] == "claude-haiku-5-5"
     assert create_generators({"LLM_API_KEY": "k", "LLM_PROVIDER": "rules"})[0].uses_ai is False
 
 

@@ -42,7 +42,7 @@ export async function apiFetch<T>(path: string, { method = 'GET', json, form, ti
     response = await fetch(apiUrl(path), { method, headers, body, signal: controller.signal });
   } catch (error) {
     const aborted = (error as Error)?.name === 'AbortError';
-    throw new ApiError(0, aborted ? 'TIEMPO_AGOTADO' : 'SIN_CONEXION', aborted ? TIMEOUT_ERROR_MESSAGE : CONNECTION_ERROR_MESSAGE);
+    throw new ApiError(0, aborted ? 'TIMEOUT' : 'NO_CONNECTION', aborted ? TIMEOUT_ERROR_MESSAGE : CONNECTION_ERROR_MESSAGE);
   } finally {
     clearTimeout(timer);
   }
@@ -54,9 +54,9 @@ export async function apiFetch<T>(path: string, { method = 'GET', json, form, ti
     data = null;
   }
   if (!response.ok) {
-    const error = (data as { error?: { codigo?: string; mensaje?: string } } | null)?.error;
+    const error = (data as { error?: { code?: string; message?: string } } | null)?.error;
     if (response.status === 401 && session) setSession(null);
-    throw new ApiError(response.status, error?.codigo ?? `HTTP_${response.status}`, error?.mensaje ?? 'El servidor no pudo completar la operación. Vuelve a intentar.');
+    throw new ApiError(response.status, error?.code ?? `HTTP_${response.status}`, error?.message ?? 'El servidor no pudo completar la operación. Vuelve a intentar.');
   }
   return data as T;
 }
@@ -76,13 +76,13 @@ export async function apiDownload(path: string, json: unknown): Promise<{ blob: 
   try {
     response = await fetch(apiUrl(path), { method: 'POST', headers, body: JSON.stringify(json) });
   } catch {
-    throw new ApiError(0, 'SIN_CONEXION', CONNECTION_ERROR_MESSAGE);
+    throw new ApiError(0, 'NO_CONNECTION', CONNECTION_ERROR_MESSAGE);
   }
   if (!response.ok) {
     const data = (await response.json().catch(() => null)) as { error?: Record<string, string> } | null;
     if (response.status === 401 && session) setSession(null);
-    const error = data?.error ?? {}; // mientras convivan los dos formatos: code/message y codigo/mensaje
-    throw new ApiError(response.status, error.code ?? error.codigo ?? `HTTP_${response.status}`, error.message ?? error.mensaje ?? 'No se pudo generar el archivo.');
+    const error = data?.error ?? {};
+    throw new ApiError(response.status, error.code ?? `HTTP_${response.status}`, error.message ?? 'No se pudo generar el archivo.');
   }
   const fileName = /filename="([^"]+)"/.exec(response.headers.get('Content-Disposition') ?? '')?.[1] ?? 'exportacion.zip';
   return { blob: await response.blob(), fileName };

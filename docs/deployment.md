@@ -34,7 +34,7 @@ no hace falta correr migraciones para este despliegue.
 | Build Command | `pip install .` |
 | Start Command | `uvicorn platform5e.main:app --host 0.0.0.0 --port $PORT` |
 | Instance Type | Free |
-| Health Check Path | `/salud` |
+| Health Check Path | `/health` |
 
 3. Variables de entorno (*Environment*):
 
@@ -61,8 +61,9 @@ cuanto antes; el Sprint 2 quita la compatibilidad.
 La clave de Gemini se crea en Google AI Studio (https://aistudio.google.com, opción *Get API key*). La clave solo
 se escribe en *Environment* de Render: nunca en el código, en `vercel.json` ni en un commit.
 
-4. **Create Web Service**. Al terminar, probar `https://<servicio>.onrender.com/salud` y
-   `https://<servicio>.onrender.com/api/v1/ia` (dice qué generador está activo). Swagger queda en `/docs`.
+4. **Create Web Service**. Al terminar, probar `https://<servicio>.onrender.com/health` y
+   `https://<servicio>.onrender.com/api/v1/generator` (dice qué generador está activo). Swagger queda en `/docs` y
+   ReDoc en `/redoc`.
 
 Con «Public Git Repository» Render no se actualiza solo: después de cada cambio en la rama, usar
 **Manual Deploy → Deploy latest commit**. El plan gratuito se apaga tras 15 minutos sin uso; la primera

@@ -9,8 +9,8 @@ describe('apiFetch', () => {
   it('envía la sesión y el cuerpo JSON y devuelve la respuesta', async () => {
     setSession({ email: 'a@b.pe', name: 'Ana', token: 'tok' });
     const calls = mockFetch({ body: { ok: true } });
-    await expect(apiFetch('/api/v1/cursos', { method: 'POST', json: { a: 1 } })).resolves.toEqual({ ok: true });
-    expect(calls[0]).toMatchObject({ url: '/api/v1/cursos', method: 'POST', body: { a: 1 } });
+    await expect(apiFetch('/api/v1/courses', { method: 'POST', json: { a: 1 } })).resolves.toEqual({ ok: true });
+    expect(calls[0]).toMatchObject({ url: '/api/v1/courses', method: 'POST', body: { a: 1 } });
     expect(calls[0].headers).toMatchObject({ Authorization: 'Bearer tok', 'Content-Type': 'application/json' });
   });
 
@@ -25,10 +25,10 @@ describe('apiFetch', () => {
 
   it('traduce el error del servidor y cierra la sesión vencida', async () => {
     setSession({ email: 'a@b.pe', name: 'Ana', token: 'tok' });
-    mockFetch({ status: 401, body: { error: { codigo: 'SESION_VENCIDA', mensaje: 'La sesión venció.' } } });
+    mockFetch({ status: 401, body: { error: { code: 'SESSION_EXPIRED', message: 'La sesión venció.' } } });
     const error = await apiFetch('/x').catch((e) => e);
     expect(error).toBeInstanceOf(ApiError);
-    expect(error).toMatchObject({ status: 401, code: 'SESION_VENCIDA', message: 'La sesión venció.' });
+    expect(error).toMatchObject({ status: 401, code: 'SESSION_EXPIRED', message: 'La sesión venció.' });
     expect(getSession()).toBeNull();
   });
 
@@ -41,13 +41,13 @@ describe('apiFetch', () => {
 
   it('distingue sin conexión de tiempo agotado', async () => {
     mockFetch(new TypeError('Failed to fetch'));
-    await expect(apiFetch('/x')).rejects.toMatchObject({ status: 0, code: 'SIN_CONEXION', message: CONNECTION_ERROR_MESSAGE });
+    await expect(apiFetch('/x')).rejects.toMatchObject({ status: 0, code: 'NO_CONNECTION', message: CONNECTION_ERROR_MESSAGE });
     vi.stubGlobal(
       'fetch',
       (_url: string, init: RequestInit) =>
         new Promise((_resolve, reject) => init.signal?.addEventListener('abort', () => reject(Object.assign(new Error('abortado'), { name: 'AbortError' })))),
     );
-    await expect(apiFetch('/x', { timeoutMs: 5 })).rejects.toMatchObject({ code: 'TIEMPO_AGOTADO', message: TIMEOUT_ERROR_MESSAGE });
+    await expect(apiFetch('/x', { timeoutMs: 5 })).rejects.toMatchObject({ code: 'TIMEOUT', message: TIMEOUT_ERROR_MESSAGE });
   });
 
   it('errorMessage muestra el mensaje de la API o uno general', () => {

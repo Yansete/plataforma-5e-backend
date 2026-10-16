@@ -1,33 +1,33 @@
 {
   "$defs": {
-    "CriterioEvaluacionModel": {
+    "EvaluationCriterionModel": {
       "description": "Criterio o dimensión para valorar la resolución del problema.",
       "properties": {
-        "rubro": {
+        "dimension": {
           "description": "Dimensión técnica o analítica evaluada (ej. Eficiencia, Modularidad).",
           "minLength": 3,
-          "title": "Rubro",
+          "title": "Dimension",
           "type": "string"
         },
-        "descripcion": {
+        "description": {
           "description": "Expectativa concreta de desempeño para superar satisfactoriamente el rubro.",
           "minLength": 5,
-          "title": "Descripcion",
+          "title": "Description",
           "type": "string"
         }
       },
       "required": [
-        "rubro",
-        "descripcion"
+        "dimension",
+        "description"
       ],
-      "title": "CriterioEvaluacionModel",
+      "title": "EvaluationCriterionModel",
       "type": "object"
     },
     "FragmentCitationModel": {
       "description": "Representa una referencia explícita a un fragmento del material de estudio.",
       "properties": {
         "fragment_id": {
-          "description": "Identificador persistente del fragmento en la tabla fragmento (ej. f-u2-01).",
+          "description": "Identificador persistente del fragmento en la base de datos (ej. f-u2-01).",
           "title": "Fragment Id",
           "type": "string"
         },
@@ -81,57 +81,57 @@
       "title": "Id",
       "type": "string"
     },
-    "etapa_5e": {
+    "stage_5e": {
       "const": "elaborate",
       "default": "elaborate",
       "description": "Etapa instruccional fija correspondiente al modelo 5E.",
-      "title": "Etapa 5E",
+      "title": "Stage 5E",
       "type": "string"
     },
-    "tipo": {
+    "resource_type": {
       "const": "caso_transferencia",
       "default": "caso_transferencia",
       "description": "Clasificación estructural del recurso generado.",
-      "title": "Tipo",
+      "title": "Resource Type",
       "type": "string"
     },
-    "titulo": {
+    "title": {
       "description": "Título descriptivo del desafío de aplicación.",
       "minLength": 5,
-      "title": "Titulo",
+      "title": "Title",
       "type": "string"
     },
-    "contexto_nuevo": {
+    "new_context": {
       "description": "Descripción del escenario o sistema donde se sitúa el nuevo problema.",
       "minLength": 20,
-      "title": "Contexto Nuevo",
+      "title": "New Context",
       "type": "string"
     },
-    "reto_planteado": {
+    "proposed_challenge": {
       "description": "Formulación explícita del problema o requerimiento complejo a resolver.",
       "minLength": 10,
-      "title": "Reto Planteado",
+      "title": "Proposed Challenge",
       "type": "string"
     },
-    "criterios_evaluacion": {
+    "evaluation_criteria": {
       "description": "Pautas o rúbricas para guiar y verificar la calidad de la solución.",
       "items": {
-        "$ref": "#/$defs/CriterioEvaluacionModel"
+        "$ref": "#/$defs/EvaluationCriterionModel"
       },
       "minItems": 2,
-      "title": "Criterios Evaluacion",
+      "title": "Evaluation Criteria",
       "type": "array"
     },
-    "citas": {
+    "citations": {
       "description": "Referencias documentales que fundamentan los conceptos base aplicados.",
       "items": {
         "$ref": "#/$defs/FragmentCitationModel"
       },
       "minItems": 1,
-      "title": "Citas",
+      "title": "Citations",
       "type": "array"
     },
-    "estado": {
+    "status": {
       "default": "pendiente",
       "description": "Estado del recurso dentro del flujo de revisión docente.",
       "enum": [
@@ -139,17 +139,17 @@
         "aprobado",
         "descartado"
       ],
-      "title": "Estado",
+      "title": "Status",
       "type": "string"
     }
   },
   "required": [
     "id",
-    "titulo",
-    "contexto_nuevo",
-    "reto_planteado",
-    "criterios_evaluacion",
-    "citas"
+    "title",
+    "new_context",
+    "proposed_challenge",
+    "evaluation_criteria",
+    "citations"
   ],
   "title": "ResourceElaborateItemModel",
   "type": "object"

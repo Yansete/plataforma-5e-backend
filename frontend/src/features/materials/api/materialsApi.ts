@@ -3,7 +3,7 @@ import { apiFetch } from '@/shared/api/httpClient';
 import { MAX_FILE_MB } from '@/features/generation/model/resourceCatalog';
 import type { Fragment, MaterialDocument } from '@/shared/types/domain';
 
-export const listDocuments = () => apiFetch<MaterialDocument[]>('/api/v1/documentos');
+export const listDocuments = () => apiFetch<MaterialDocument[]>('/api/v1/documents');
 
 export function unitDocuments(documents: MaterialDocument[], unitId: string): MaterialDocument[] {
   return documents.filter((d) => d.unitId === unitId);
@@ -28,23 +28,23 @@ export interface UploadContext {
 export async function uploadAndProcess(file: File, context: UploadContext, onStep?: (step: 'subiendo' | 'procesando') => void): Promise<MaterialDocument> {
   const form = new FormData();
   form.append('file', file);
-  form.append('contexto', JSON.stringify({ ...context, suggestedStage: null, usePermission: true }));
+  form.append('context', JSON.stringify({ ...context, suggestedStage: null, usePermission: true }));
   onStep?.('subiendo');
-  const saved = await apiFetch<MaterialDocument>('/api/v1/documentos', { method: 'POST', form, timeoutMs: 120000 });
+  const saved = await apiFetch<MaterialDocument>('/api/v1/documents', { method: 'POST', form, timeoutMs: 120000 });
   onStep?.('procesando');
   return processDocument(saved.id);
 }
 
 export const processDocument = (id: string) =>
-  apiFetch<MaterialDocument>(`/api/v1/documentos/${encodeURIComponent(id)}/procesar`, { method: 'POST', timeoutMs: 180000 });
+  apiFetch<MaterialDocument>(`/api/v1/documents/${encodeURIComponent(id)}/process`, { method: 'POST', timeoutMs: 180000 });
 
-export const listFragments = (id: string) => apiFetch<Fragment[]>(`/api/v1/documentos/${encodeURIComponent(id)}/fragmentos`);
+export const listFragments = (id: string) => apiFetch<Fragment[]>(`/api/v1/documents/${encodeURIComponent(id)}/chunks`);
 
-export const deleteDocument = (id: string) => apiFetch<void>(`/api/v1/documentos/${encodeURIComponent(id)}`, { method: 'DELETE' });
+export const deleteDocument = (id: string) => apiFetch<void>(`/api/v1/documents/${encodeURIComponent(id)}`, { method: 'DELETE' });
 
 /** Busca el tema en fuentes abiertas y deja cada documento encontrado procesado en la unidad. */
-export const searchTopic = (unitId: string, tema: string, maximo: number) =>
-  apiFetch<MaterialDocument[]>('/api/v1/documentos/desde-tema', { method: 'POST', json: { unitId, tema: tema.trim(), maximo }, timeoutMs: 180000 });
+export const searchTopic = (unitId: string, topic: string, maxResults: number) =>
+  apiFetch<MaterialDocument[]>('/api/v1/documents/from-topic', { method: 'POST', json: { unitId, topic: topic.trim(), maxResults }, timeoutMs: 180000 });
 
 export function materialSummary(documents: MaterialDocument[]): { processed: number; withError: number } {
   const processed = documents.filter((d) => d.status === 'procesado');

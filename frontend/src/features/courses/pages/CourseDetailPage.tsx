@@ -33,18 +33,18 @@ export function CourseDetailPage() {
           </ButtonLink>
         }
       />
-      {(course.sumilla || course.logro) && (
+      {(course.summary || course.learningGoal) && (
         <Card className="course-info">
-          {course.sumilla && (
+          {course.summary && (
             <div>
               <h2 className="overline">Sumilla</h2>
-              <p>{course.sumilla}</p>
+              <p>{course.summary}</p>
             </div>
           )}
-          {course.logro && (
+          {course.learningGoal && (
             <div>
               <h2 className="overline">Logro del curso</h2>
-              <p>{course.logro}</p>
+              <p>{course.learningGoal}</p>
             </div>
           )}
         </Card>

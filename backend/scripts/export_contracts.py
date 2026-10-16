@@ -5,12 +5,12 @@ Script de exportación y compilación de esquemas JSON Schema.
 import json
 from pathlib import Path
 
-from plataforma5e.adapters.inbound.contratos.request_body import GenerationRequestModel
-from plataforma5e.adapters.inbound.contratos.engage import ResourceEngageItemModel
-from plataforma5e.adapters.inbound.contratos.explore import ResourceExploreItemModel
-from plataforma5e.adapters.inbound.contratos.explain import ResourceExplainItemModel
-from plataforma5e.adapters.inbound.contratos.elaborate import ResourceElaborateItemModel
-from plataforma5e.adapters.inbound.contratos.evaluate import ResourceEvaluateItemModel
+from platform5e.infrastructure.http.schemas.elaborate import ResourceElaborateItemModel
+from platform5e.infrastructure.http.schemas.engage import ResourceEngageItemModel
+from platform5e.infrastructure.http.schemas.evaluate import ResourceEvaluateItemModel
+from platform5e.infrastructure.http.schemas.explain import ResourceExplainItemModel
+from platform5e.infrastructure.http.schemas.explore import ResourceExploreItemModel
+from platform5e.infrastructure.http.schemas.generations import GenerationRequest
 
 # Determina la raíz del repositorio y el directorio de documentación compartido
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -22,7 +22,7 @@ def export_all_contracts() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     
     contract_catalog = {
-        "generation-request.v1.json": GenerationRequestModel.model_json_schema(),
+        "generation-request.v1.json": GenerationRequest.model_json_schema(by_alias=True),
         "resource-engage.v1.json": ResourceEngageItemModel.model_json_schema(),
         "resource-explore.v1.json": ResourceExploreItemModel.model_json_schema(),
         "resource-explain.v1.json": ResourceExplainItemModel.model_json_schema(),

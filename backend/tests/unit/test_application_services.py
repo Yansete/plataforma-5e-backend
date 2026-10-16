@@ -122,10 +122,10 @@ def test_generates_an_item_with_undecided_options():
 def test_rejects_requests_without_support():
     service = GenerationService(MockGenerationRepository())
     test_cases = [
-        (_make_request_payload(unitId="u9"), "SIN_MATERIAL_PROCESADO"),
-        (_make_request_payload(outcomeId="ra-otra"), "RESULTADO_INVALIDO"),
-        (_make_request_payload(resourceType="glosario"), "EVIDENCIA_INSUFICIENTE"),
-        (_make_request_payload(stage="evaluate", resourceType="item_opcion_multiple", optionCount=5), "EVIDENCIA_INSUFICIENTE"),
+        (_make_request_payload(unitId="u9"), "NO_PROCESSED_MATERIAL"),
+        (_make_request_payload(outcomeId="ra-otra"), "INVALID_OUTCOME"),
+        (_make_request_payload(resourceType="glosario"), "INSUFFICIENT_EVIDENCE"),
+        (_make_request_payload(stage="evaluate", resourceType="item_opcion_multiple", optionCount=5), "INSUFFICIENT_EVIDENCE"),
     ]
     for payload, error_code in test_cases:
         with pytest.raises(GenerationError) as err:
@@ -148,7 +148,7 @@ def test_does_not_generate_if_a_chunk_or_its_document_is_missing():
 def test_get_missing_generation():
     with pytest.raises(GenerationError) as err:
         GenerationService(MockGenerationRepository()).get_by_id("sol-no-existe")
-    assert err.value.code == "GENERACION_NO_ENCONTRADA"
+    assert err.value.code == "GENERATION_NOT_FOUND"
 
 
 # --------------------------------------------------------------------------- configuración (EP-002)
@@ -268,25 +268,25 @@ def test_login_authenticates_and_logs_out(account_service: AccountService):
     authorization = _get_bearer_header(account_service)
     assert account_service.authenticate_token(authorization) == SEED_EMAIL
     account_service.logout(authorization)
-    assert _get_account_error_code(account_service.authenticate_token, authorization) == "SESION_VENCIDA"
+    assert _get_account_error_code(account_service.authenticate_token, authorization) == "SESSION_EXPIRED"
 
 
 def test_invalid_credentials_and_sessions(account_service: AccountService):
-    assert _get_account_error_code(account_service.login, SEED_EMAIL, "otra") == "CREDENCIALES_INVALIDAS"
-    assert _get_account_error_code(account_service.login, "otro@5e.demo", SEED_PASSWORD) == "CREDENCIALES_INVALIDAS"
-    assert _get_account_error_code(account_service.authenticate_token, None) == "SESION_REQUERIDA"
-    assert _get_account_error_code(account_service.authenticate_token, "Token abc") == "SESION_REQUERIDA"
+    assert _get_account_error_code(account_service.login, SEED_EMAIL, "otra") == "INVALID_CREDENTIALS"
+    assert _get_account_error_code(account_service.login, "otro@5e.demo", SEED_PASSWORD) == "INVALID_CREDENTIALS"
+    assert _get_account_error_code(account_service.authenticate_token, None) == "SESSION_REQUIRED"
+    assert _get_account_error_code(account_service.authenticate_token, "Token abc") == "SESSION_REQUIRED"
 
     authorization = _get_bearer_header(account_service)
     fingerprint = next(iter(account_service.repository.sessions))
     account_service.repository.sessions[fingerprint] = (SEED_EMAIL, time.time() - 1)
-    assert _get_account_error_code(account_service.authenticate_token, authorization) == "SESION_VENCIDA"
+    assert _get_account_error_code(account_service.authenticate_token, authorization) == "SESSION_EXPIRED"
 
 
 def test_unit_only_from_the_teachers_courses(account_service: AccountService):
     account_service.login(SEED_EMAIL, SEED_PASSWORD)
     assert account_service.get_unit(SEED_EMAIL, "unidad-1")["title"] == "Pilas"
-    assert _get_account_error_code(account_service.get_unit, SEED_EMAIL, "unidad-ajena") == "UNIDAD_NO_ENCONTRADA"
+    assert _get_account_error_code(account_service.get_unit, SEED_EMAIL, "unidad-ajena") == "UNIT_NOT_FOUND"
 
 
 def test_create_and_edit_course(account_service: AccountService):
@@ -319,13 +319,13 @@ def test_create_and_edit_course(account_service: AccountService):
 def test_catalog_rules(account_service: AccountService):
     account_service.login(SEED_EMAIL, SEED_PASSWORD)
     data = {"code": "ED-201", "name": "Copia", "term": "2026-II", "units": []}
-    assert _get_account_error_code(account_service.save_course, SEED_EMAIL, data) == "CODIGO_DUPLICADO"
+    assert _get_account_error_code(account_service.save_course, SEED_EMAIL, data) == "DUPLICATE_CODE"
     assert (
         _get_account_error_code(account_service.save_course, SEED_EMAIL, {**data, "code": "X-1"}, "curso-no-existe")
-        == "CURSO_NO_ENCONTRADO"
+        == "COURSE_NOT_FOUND"
     )
     without_units = {"code": "ED-201", "name": "Estructuras", "term": "2026-II", "units": []}
-    assert _get_account_error_code(account_service.save_course, SEED_EMAIL, without_units, "curso-1") == "UNIDADES_INVALIDAS"
+    assert _get_account_error_code(account_service.save_course, SEED_EMAIL, without_units, "curso-1") == "INVALID_UNITS"
 
 
 def test_registers_valid_material(account_service: AccountService):
@@ -350,23 +350,23 @@ def test_registers_valid_material(account_service: AccountService):
         _get_account_error_code(
             account_service.register_document, SEED_EMAIL, "SEPARATA.pdf", b"%PDF-1.7", _make_doc_context()
         )
-        == "DOCUMENTO_DUPLICADO"
+        == "DUPLICATE_DOCUMENT"
     )
 
 
 def test_rejects_invalid_material(account_service: AccountService):
     account_service.login(SEED_EMAIL, SEED_PASSWORD)
     test_cases = [
-        ("a.pdf", b"%PDF-1", _make_doc_context(usePermission=False), "PERMISO_REQUERIDO"),
-        ("a.pdf", b"%PDF-1", _make_doc_context(documentType="Otro"), "TIPO_INVALIDO"),
-        ("a.pdf", b"%PDF-1", _make_doc_context(outcomeIds=["ra-ajeno"]), "RESULTADO_INVALIDO"),
-        ("a.pdf", b"%PDF-1", _make_doc_context(outcomeIds=[]), "RESULTADO_INVALIDO"),
-        ("../a.pdf", b"%PDF-1", _make_doc_context(), "NOMBRE_INVALIDO"),
-        ("a.docx", b"datos", _make_doc_context(), "FORMATO_INVALIDO"),
-        ("a.pdf", b"", _make_doc_context(), "TAMANO_INVALIDO"),
-        ("a.pdf", b"no es pdf", _make_doc_context(), "FORMATO_INVALIDO"),
-        ("a.pptx", b"no es zip", _make_doc_context(), "FORMATO_INVALIDO"),
-        ("a.txt", b"\xff\xfe\x00", _make_doc_context(), "FORMATO_INVALIDO"),
+        ("a.pdf", b"%PDF-1", _make_doc_context(usePermission=False), "PERMISSION_REQUIRED"),
+        ("a.pdf", b"%PDF-1", _make_doc_context(documentType="Otro"), "INVALID_TYPE"),
+        ("a.pdf", b"%PDF-1", _make_doc_context(outcomeIds=["ra-ajeno"]), "INVALID_OUTCOME"),
+        ("a.pdf", b"%PDF-1", _make_doc_context(outcomeIds=[]), "INVALID_OUTCOME"),
+        ("../a.pdf", b"%PDF-1", _make_doc_context(), "INVALID_NAME"),
+        ("a.docx", b"datos", _make_doc_context(), "INVALID_FORMAT"),
+        ("a.pdf", b"", _make_doc_context(), "INVALID_SIZE"),
+        ("a.pdf", b"no es pdf", _make_doc_context(), "INVALID_FORMAT"),
+        ("a.pptx", b"no es zip", _make_doc_context(), "INVALID_FORMAT"),
+        ("a.txt", b"\xff\xfe\x00", _make_doc_context(), "INVALID_FORMAT"),
     ]
     for filename, content, context, error_code in test_cases:
         assert (
@@ -380,7 +380,7 @@ def test_another_teachers_generation_is_not_exposed(account_service: AccountServ
     account_service.repository.owners["sol-1"] = "otro@5e.demo"
     assert (
         _get_account_error_code(account_service.verify_generation_ownership, "sol-1", authorization)
-        == "GENERACION_NO_ENCONTRADA"
+        == "GENERATION_NOT_FOUND"
     )
     account_service.repository.owners["sol-2"] = SEED_EMAIL
     assert account_service.verify_generation_ownership("sol-2", authorization) is None

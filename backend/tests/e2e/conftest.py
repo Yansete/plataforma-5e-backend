@@ -54,7 +54,6 @@ def server(tmp_path: Path) -> Iterator[str]:
         **os.environ,
         "PYTHONPATH": pythonpath,
         "DATABASE_URL": database_url,
-        "CARGAR_DATOS_DEMO": "true",
         "DEMO_CATALOG": "true",
         "LLM_PROVIDER": "rules",
         "TOPIC_SEARCH_ENABLED": "false",
@@ -90,7 +89,7 @@ def server(tmp_path: Path) -> Iterator[str]:
                 error_log = (tmp_path / "uvicorn.log").read_text(encoding="utf-8", errors="replace")
                 pytest.fail("El servidor terminó al arrancar:\n" + error_log)
             try:
-                if httpx.get(f"{base}/salud", timeout=1).status_code == 200:
+                if httpx.get(f"{base}/health", timeout=1).status_code == 200:
                     break
             except httpx.HTTPError:
                 pass
