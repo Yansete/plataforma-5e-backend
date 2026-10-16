@@ -64,13 +64,25 @@ petición después tarda cerca de un minuto (el inicio de sesión ya espera hast
 
 ## 3. Frontend (Vercel)
 
-`frontend/vercel.json` compila con la dirección del backend (sin `/` al final):
+La dirección del backend no está en el código: es una variable de entorno del proyecto en Vercel
+(*Settings → Environment Variables*), marcada para *Production* y *Preview*, sin `/` al final:
 
-```json
-"buildCommand": "VITE_API_URL=https://plataforma5e-api.onrender.com npm run build"
+```
+VITE_API_URL=https://plataforma5e-api.onrender.com
 ```
 
-Cada cambio integrado en `main` vuelve a publicar el mismo enlace. El frontend siempre trabaja con el backend: no hay
+`frontend/vercel.json` solo ejecuta `npm run build`; Vite lee la variable al compilar. Si cambia la dirección
+del backend, se edita la variable y se vuelve a desplegar (*Redeploy*). El *Root Directory* del proyecto es `frontend`.
+
+Para no gastar despliegues cuando un cambio solo toca el backend o la documentación, *Settings → Git →
+Ignored Build Step* usa la opción *Custom* con este comando (sale con código 0 y cancela el despliegue si nada
+cambió dentro de `frontend/`):
+
+```
+git diff HEAD^ HEAD --quiet -- .
+```
+
+Cada cambio integrado en `main` que toque `frontend/` vuelve a publicar el mismo enlace. El frontend siempre trabaja con el backend: no hay
 modo local ni datos de demostración.
 
 ## 4. Comprobación
