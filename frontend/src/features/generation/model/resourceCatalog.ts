@@ -50,7 +50,8 @@ export const DIFFICULTIES: { value: Difficulty; label: string }[] = [
   { value: 'avanzada', label: 'Avanzada' },
 ];
 
-export const MODALITIES = ['Textual', 'Gamificado', 'Multimedia', 'Kinestésico'];
+// Sprint 1: solo texto. Imágenes, video y otras modalidades llegan en el Sprint 2.
+export const MODALITIES = ['Textual'];
 
 export const DISCARD_REASONS: { value: DiscardReason; label: string }[] = [
   { value: 'sin_sentido', label: 'No tiene sentido o es confuso' },

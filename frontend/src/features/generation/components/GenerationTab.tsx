@@ -1,9 +1,9 @@
 /** Pestaña 2: generar recursos con el material de la unidad, eligiendo opciones o escribiendo el pedido. */
 import { useMemo, useState, type FormEvent } from 'react';
-import { Alert, Button, ButtonLink, Card, Checkbox, EmptyState, SelectField, Spinner, TextField } from '@/shared/components/ui';
+import { Alert, Button, ButtonLink, Card, EmptyState, SelectField, Spinner, TextField } from '@/shared/components/ui';
 import { Icon } from '@/shared/components/Icon';
 import { errorMessage } from '@/shared/api/httpClient';
-import { DIFFICULTIES, GROUPS, MODALITIES, RESOURCE_TYPES, countLabel, hasOptions, typeInfo } from '@/features/generation/model/resourceCatalog';
+import { DIFFICULTIES, GROUPS, RESOURCE_TYPES, countLabel, hasOptions, typeInfo } from '@/features/generation/model/resourceCatalog';
 import { defaultInput, generate } from '@/features/generation/api/generationApi';
 import { materialSummary } from '@/features/materials/api/materialsApi';
 import { MAX_REQUEST_LENGTH, interpretRequest, suggestions, type Interpretation } from '@/features/generation/model/requestInterpreter';
@@ -161,23 +161,11 @@ export function GenerationTab({ unit, base, documents, upsertResources }: UnitTa
                 placeholder="Por ejemplo: plantea situaciones cotidianas, como una videollamada o un juego en línea."
               />
               <details className="more-options">
-                <summary>Más opciones: público, competencia y modalidad</summary>
+                <summary>Más opciones: público y competencia</summary>
                 <div className="stack">
                   <TextField label="Público" value={input.audience} onChange={(v) => set('audience', v)} maxLength={200} placeholder="Estudiantes de quinto ciclo de Ingeniería de Sistemas" />
                   <TextField label="Competencia" value={input.competency} onChange={(v) => set('competency', v)} maxLength={200} placeholder="Resuelve problemas de conectividad en redes" />
-                  <fieldset className="fieldset">
-                    <legend className="fieldset__legend">Modalidad</legend>
-                    <div className="cluster">
-                      {MODALITIES.map((m) => (
-                        <Checkbox
-                          key={m}
-                          label={m}
-                          checked={input.modalities.includes(m)}
-                          onChange={(checked) => set('modalities', checked ? [...input.modalities, m] : input.modalities.filter((x) => x !== m))}
-                        />
-                      ))}
-                    </div>
-                  </fieldset>
+                  <p className="caption">Formato: texto. Imágenes y video llegan en el Sprint 2.</p>
                 </div>
               </details>
               {feedback}

@@ -302,13 +302,13 @@ def test_instrucciones_incluyen_curso_pedido_y_fragmentos():
     )
     system_inst, user_prompt = build_prompt_instructions(context)
     assert "Evaluar" in system_inst and "JSON" in system_inst
+    assert "Genera solo texto" in system_inst  # Sprint 1: sin multimedia
     for text_sample in (
         "SUMILLA: Curso de redes.",
         "RA1.1: Distingue TCP y UDP",
         "exactamente 3 alternativas",
         "Tercer ciclo",
         "Pensamiento crítico",
-        "Textual",
         "contexto peruano",
         "[F1] (apuntes.pdf, p. 1)",
     ):

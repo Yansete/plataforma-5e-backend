@@ -145,6 +145,13 @@ def test_validaciones_del_servidor_no_guardan_datos_invalidos(servidor: str):
         assert api.get("/api/v1/solicitudes", headers=h).json() == []
 
 
+@pytest.mark.parametrize("modalidades", [["Multimedia"], ["Textual", "Gamificado"]])
+def test_solo_texto_rechaza_otras_modalidades(servidor: str, modalidades: list[str]):
+    response = httpx.post(f"{servidor}/api/v1/generaciones", json={**SOLICITUD, "modalidades": modalidades})
+    assert response.status_code == 422
+    assert response.json()["error"]["codigo"] == "PARAMETROS_INVALIDOS"
+
+
 def test_archivo_excede_limite_y_no_se_guarda(servidor: str):
     with httpx.Client(base_url=servidor, timeout=30) as api:
         h = login(api)

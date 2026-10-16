@@ -24,9 +24,8 @@ class IntegratedGenerationRequest(GenerationRequestModel):
     model_config = ConfigDict(extra="forbid")
     publico_objetivo: str = Field(default="", max_length=200)
     competencia: str = Field(default="", max_length=200)
-    modalidades: list[Literal["Textual", "Gamificado", "Multimedia", "Kinestésico"]] = (
-        Field(default_factory=list, max_length=4)
-    )
+    # Sprint 1: solo texto. Otra modalidad responde 422 (HU-053, alcance acordado con el docente).
+    modalidades: list[Literal["Textual"]] = Field(default_factory=lambda: ["Textual"], max_length=1)
 
     def to_domain_payload(self) -> dict[str, Any]:
         """Transforma el esquema HTTP al diccionario esperado por los servicios de generación."""
