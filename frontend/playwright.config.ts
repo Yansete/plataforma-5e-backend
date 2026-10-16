@@ -29,7 +29,7 @@ export default defineConfig({
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
     {
-      command: `${process.env.PYTHON ?? 'python'} -m uvicorn plataforma5e.bootstrap.app:crear_aplicacion --factory --port ${BACK}`,
+      command: `${process.env.PYTHON ?? 'python'} -m uvicorn platform5e.main:app --port ${BACK}`,
       cwd: '../backend',
       url: `http://127.0.0.1:${BACK}/salud`,
       env: { DATABASE_URL: `sqlite:///${DB}`, IA_PROVEEDOR: 'reglas', BUSQUEDA_POR_TEMA: 'false', CATALOGO_DEMO: 'false' },
