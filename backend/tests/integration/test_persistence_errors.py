@@ -66,19 +66,14 @@ def test_generation_with_database_down_keeps_503_response(monkeypatch):
     monkeypatch.setattr(generation_repo_module, "SessionLocal", raise_db_error)
 
     app = FastAPI()
-    app.include_router(create_generations_router(GenerationService(repo)))
+    app.include_router(create_generations_router(GenerationService(repo), account_service=None, generator_info={}))
 
     client = TestClient(app)
     response = client.post(
-        "/api/v1/generaciones",
-        json={
-            "unit_id": "u2",
-            "stage_5e": "explore",
-            "resource_type": "guia_exploracion",
-            "quantity": 1,
-        },
+        "/api/v1/generations",
+        json={"unitId": "u2", "stage": "explore", "resourceType": "guia_exploracion", "quantity": 1},
     )
 
     assert response.status_code == 503
-    assert response.json()["error"]["codigo"] == "PERSISTENCIA_NO_DISPONIBLE"
+    assert response.json()["error"]["code"] == "PERSISTENCE_UNAVAILABLE"
     assert "no debe filtrarse" not in response.text

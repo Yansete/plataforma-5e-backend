@@ -13,18 +13,18 @@ MATERIAL = ('El protocolo TCP es orientado a la conexión y garantiza una entreg
 
 def test_exports_approved_resources_as_scorm_and_moodle_xml(server):
     with httpx.Client(base_url=server, timeout=60) as api:
-        token = api.post('/api/v1/cuentas', json={'name': 'Eva Ruiz', 'email': 'eva@correo.pe', 'password': 'clave-segura-1'}).json()['token']
+        token = api.post('/api/v1/accounts', json={'name': 'Eva Ruiz', 'email': 'eva@correo.pe', 'password': 'clave-segura-1'}).json()['token']
         h = {'Authorization': f'Bearer {token}'}
-        unit = api.post('/api/v1/cursos', headers=h, json={'code': 'RED-301', 'name': 'Redes', 'term': '2026-II',
+        unit = api.post('/api/v1/courses', headers=h, json={'code': 'RED-301', 'name': 'Redes', 'term': '2026-II',
                           'units': [{'title': 'Transporte', 'outcomes': [{'text': 'Distingue TCP y UDP'}]}]}).json()['units'][0]
         context = {'unitId': unit['id'], 'outcomeIds': [unit['outcomes'][0]['id']],
                     'documentType': 'Separata o apuntes de clase', 'usePermission': True}
-        document = api.post('/api/v1/documentos', headers=h, files={'file': ('tcp.txt', MATERIAL)},
-                             data={'contexto': json.dumps(context)}).json()
-        api.post(f"/api/v1/documentos/{document['id']}/procesar", headers=h)
-        resource = api.post('/api/v1/generaciones', headers=h, json={
-            'unidad_id': unit['id'], 'etapa_5e': 'evaluate', 'tipo_recurso': 'item_opcion_multiple', 'cantidad': 1,
-            'alternativas': 4, 'modalidades': ['Textual']}).json()['resources'][0]
+        document = api.post('/api/v1/documents', headers=h, files={'file': ('tcp.txt', MATERIAL)},
+                             data={'context': json.dumps(context)}).json()
+        api.post(f"/api/v1/documents/{document['id']}/process", headers=h)
+        resource = api.post('/api/v1/generations', headers=h, json={
+            'unitId': unit['id'], 'stage': 'evaluate', 'resourceType': 'item_opcion_multiple', 'quantity': 1,
+            'optionCount': 4, 'modalities': ['Textual']}).json()['resources'][0]
         export_url = f"/api/v1/units/{unit['id']}/exports"
 
         assert api.post(export_url, json={'format': 'scorm_zip'}).status_code == 401
@@ -32,7 +32,7 @@ def test_exports_approved_resources_as_scorm_and_moodle_xml(server):
 
         options = [{'id': o['id'], 'text': o['text'], 'feedback': o['feedback'],
                      'decision': 'pendiente' if o['isCorrect'] else 'aceptado'} for o in resource['options']]
-        approved = api.put(f"/api/v1/unidades/{unit['id']}/recursos/{resource['id']}", headers=h,
+        approved = api.put(f"/api/v1/units/{unit['id']}/resources/{resource['id']}", headers=h,
                            json={'title': resource['title'], 'body': resource['body'], 'status': 'aprobado', 'options': options})
         assert approved.status_code == 200
 
@@ -44,5 +44,5 @@ def test_exports_approved_resources_as_scorm_and_moodle_xml(server):
         assert moodle.status_code == 200 and moodle.headers['content-type'].startswith('application/xml')
         assert 'red-301-unidad-1-moodle.xml' in moodle.headers['content-disposition']
         assert validate(moodle.content) == []
-        history = api.get(f"/api/v1/unidades/{unit['id']}/descargas", headers=h).json()
+        history = api.get(f"/api/v1/units/{unit['id']}/downloads", headers=h).json()
         assert sorted(d['format'] for d in history) == ['moodle_xml', 'scorm_zip']

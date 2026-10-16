@@ -85,8 +85,8 @@ def build_generation_context(
     return {
         "curso": {
             "nombre": course.get("name", ""),
-            "sumilla": course.get("sumilla", ""),
-            "logro": course.get("logro", ""),
+            "sumilla": course.get("summary", ""),
+            "logro": course.get("learningGoal", ""),
         },
         "unidad": {
             "numero": unit.get("number"),

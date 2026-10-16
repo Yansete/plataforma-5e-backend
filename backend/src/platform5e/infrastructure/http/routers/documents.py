@@ -1,132 +1,135 @@
 """
-API de ingesta y RAG: procesamiento de documentos, consulta de fragmentos y búsqueda en fuentes abiertas.
+Adaptador HTTP del material de la unidad: subir, procesar, consultar y buscar por tema (EP-002, HU-011).
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any
+from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, status
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi import APIRouter, Depends, File, Form, Response, UploadFile, status
+from pydantic import ValidationError
 
-from platform5e.application.services.accounts.account_service import AccountService
+from platform5e.application.services.accounts.account_service import MAX_FILE_SIZE, AccountService
 from platform5e.application.services.materials.material_service import MaterialService
-from platform5e.infrastructure.http.dependencies import extract_authorization_header
+from platform5e.domain.accounts.teacher_account import AccountConfigurationError
+from platform5e.infrastructure.http.dependencies import current_teacher_dependency
+from platform5e.infrastructure.http.schemas.common import error_responses
+from platform5e.infrastructure.http.schemas.documents import (
+    ChunkResponse,
+    DocumentContextInput,
+    DocumentResponse,
+    TopicSearchRequest,
+)
+
+MEDIA_TYPES: dict[str, str] = {
+    "txt": "text/plain; charset=utf-8",
+    "pdf": "application/pdf",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+}
+CONTEXT_EXAMPLE = (
+    '{"unitId": "unidad-1", "outcomeIds": [], "documentType": "Separata o apuntes de clase", "usePermission": true}'
+)
 
 
-class TopicSearchInput(BaseModel):
-    """Esquema para solicitar la búsqueda y creación de material a partir de un tema."""
+def create_documents_router(account_service: AccountService, material_service: MaterialService) -> APIRouter:
+    router = APIRouter(prefix="/api/v1/documents", tags=["documents"])
+    current_teacher = current_teacher_dependency(account_service)
 
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-
-    unitId: str = Field(
-        min_length=1,
-        max_length=120,
-        description="Identificador de la unidad temática que recibirá el material generado.",
-        examples=["u2"],
-    )
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    topic: str = Field(
-        alias="tema",
-        min_length=3,
-        max_length=120,
-        description="Tópico o concepto a consultar en fuentes académicas abiertas (ej. Wikipedia).",
-        examples=["Arquitectura Hexagonal en Software"],
-    )
-    max_results: int = Field(
-        alias="maximo",
-        default=3,
-        ge=1,
-        le=5,
-        description="Número máximo de artículos o secciones a extraer e indexar.",
-    )
-
-
-def create_materials_router(
-    material_service: MaterialService,
-    account_service: AccountService,
-    active_generator_info: dict[str, Any],
-) -> APIRouter:
-    """Construye el router HTTP para la ingesta y consulta de fragmentos de material."""
-    router = APIRouter(prefix="/api/v1", tags=["Ingesta y RAG"])
-
-    def get_current_teacher(
-        authorization: str | None = Depends(extract_authorization_header),
-    ) -> str:
-        return account_service.authenticate_token(authorization)
+    @router.get("", response_model=list[DocumentResponse], summary="List my documents", responses=error_responses(401))
+    def list_documents(teacher_id: str = Depends(current_teacher)) -> list[dict[str, Any]]:
+        """Documents of every unit of the teacher, with their processing status."""
+        return account_service.list_documents(teacher_id)
 
     @router.post(
-        "/documentos/desde-tema",
+        "",
         status_code=status.HTTP_201_CREATED,
-        summary="Buscar un tema en fuentes abiertas y guardarlo como material procesado",
-        description=(
-            "Consulta el tema especificado en fuentes abiertas autorizadas (Wikipedia), "
-            "extrae el contenido relevante, lo limpia, lo fragmenta semánticamente y lo guarda "
-            "directamente como material disponible para la unidad académica."
-        ),
+        response_model=DocumentResponse,
+        summary="Upload a document",
+        responses=error_responses(400, 401, 404, 409, 413, 422),
+    )
+    async def upload_document(
+        file: UploadFile = File(description="PDF, PPTX or TXT up to 25 MB."),
+        context: str = Form(description="JSON with the unit and the use permission.", examples=[CONTEXT_EXAMPLE]),
+        teacher_id: str = Depends(current_teacher),
+    ) -> dict[str, Any]:
+        """Saves the file in the database with status `registrado`. Call POST /documents/{id}/process next."""
+        try:
+            try:
+                parsed_context = DocumentContextInput.model_validate(json.loads(context)).model_dump(by_alias=True)
+            except (ValueError, TypeError, ValidationError):
+                raise AccountConfigurationError("INVALID_CONTEXT", "Revisa los datos del documento.", 422)
+            content = await file.read(MAX_FILE_SIZE + 1)
+            return account_service.register_document(teacher_id, file.filename or "archivo", content, parsed_context)
+        finally:
+            await file.close()
+
+    @router.post(
+        "/from-topic",
+        status_code=status.HTTP_201_CREATED,
+        response_model=list[DocumentResponse],
+        summary="Add material from an open source",
+        responses=error_responses(400, 401, 404, 422, 503),
+    )
+    def create_documents_from_topic(body: TopicSearchRequest, teacher_id: str = Depends(current_teacher)) -> list[dict[str, Any]]:
+        """Searches the topic in Spanish Wikipedia (CC BY-SA 4.0) and saves each article as processed material.
+
+        Articles already in the unit are skipped. 503 when the topic search is disabled or the source does not answer.
+        """
+        return material_service.create_from_topic(teacher_id, body.unit_id, body.topic, body.max_results)
+
+    @router.get(
+        "/{document_id}/file",
+        summary="Download the original file",
+        response_class=Response,
         responses={
-            201: {"description": "Material temático extraído, fragmentado e indexado con éxito."},
-            400: {"description": "No se encontraron resultados relevantes o parámetros inválidos."},
-            401: {"description": "No autorizado."},
+            200: {"content": {media: {} for media in MEDIA_TYPES.values()}, "description": "The original file."},
+            **error_responses(401, 404),
         },
     )
-    def create_material_from_topic(
-        request: TopicSearchInput,
-        teacher_email: str = Depends(get_current_teacher),
-    ) -> list[dict[str, Any]]:
-        return material_service.create_from_topic(
-            teacher_email, request.unitId, request.topic, request.max_results
+    def download_document(document_id: str, teacher_id: str = Depends(current_teacher)) -> Response:
+        """Returns the file as it was uploaded, with its name in Content-Disposition."""
+        metadata, content = account_service.get_document(teacher_id, document_id)
+        file_name = quote(metadata["fileName"], safe="")
+        return Response(
+            content,
+            media_type=MEDIA_TYPES.get(metadata["kind"], "application/octet-stream"),
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{file_name}"},
         )
 
+    @router.delete(
+        "/{document_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        summary="Delete a document",
+        responses=error_responses(401, 404),
+    )
+    def delete_document(document_id: str, teacher_id: str = Depends(current_teacher)) -> Response:
+        """Deletes the file and its chunks. Generated resources keep their own copy of the evidence."""
+        account_service.delete_document(teacher_id, document_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
     @router.post(
-        "/documentos/{document_id}/procesar",
-        summary="Extraer el texto del documento y partirlo en fragmentos",
-        description=(
-            "Inicia el pipeline de extracción de texto y fragmentación semántica (chunking) "
-            "sobre un documento previamente cargado por el docente, dejándolo listo para la búsqueda por similitud."
-        ),
-        responses={
-            200: {"description": "Documento procesado correctamente. Retorna fragmentos generados."},
-            404: {"description": "Documento no encontrado o no pertenece al docente."},
-            401: {"description": "No autorizado."},
-        },
+        "/{document_id}/process",
+        response_model=DocumentResponse,
+        summary="Extract the text and split it into chunks",
+        responses=error_responses(401, 404),
     )
-    def process_document(
-        document_id: str, teacher_email: str = Depends(get_current_teacher)
-    ) -> dict[str, Any]:
-        return material_service.process_material(teacher_email, document_id)
+    def process_document(document_id: str, teacher_id: str = Depends(current_teacher)) -> dict[str, Any]:
+        """Extracts the text (PDF, PPTX or TXT) and splits it into chunks of about 220 words with their location.
+
+        A file without text ends with status `error` and an explanation in `errorMessage`; it does not fail the request.
+        """
+        return material_service.process_material(teacher_id, document_id)
 
     @router.get(
-        "/documentos/{document_id}/fragmentos",
-        summary="Ver los fragmentos de un documento procesado",
-        description=(
-            "Recupera la lista ordenada de fragmentos semánticos (chunks) indexados para el documento especificado, "
-            "permitiendo al docente verificar el contenido textual que utilizará la IA como evidencia RAG."
-        ),
-        responses={
-            200: {"description": "Listado de fragmentos recuperado con su orden y texto."},
-            404: {"description": "Documento no encontrado o aún sin procesar."},
-            401: {"description": "No autorizado."},
-        },
+        "/{document_id}/chunks",
+        response_model=list[ChunkResponse],
+        summary="List the chunks of a document",
+        responses=error_responses(401, 404),
     )
-    def get_document_chunks(
-        document_id: str, teacher_email: str = Depends(get_current_teacher)
-    ) -> list[dict[str, Any]]:
-        return material_service.get_document_chunks(teacher_email, document_id)
-
-    @router.get(
-        "/ia",
-        summary="Obtener metadatos del generador activo (IA o reglas)",
-        description=(
-            "Consulta la configuración activa del motor de generación didáctica: "
-            "indica si está operando mediante un modelo LLM (Gemini) o por el motor determinístico de reglas, "
-            "así como los parámetros del modelo en ejecución."
-        ),
-        responses={
-            200: {"description": "Metadatos informativos del proveedor activo de generación."},
-        },
-    )
-    def get_generator_info() -> dict[str, Any]:
-        return active_generator_info
+    def list_document_chunks(document_id: str, teacher_id: str = Depends(current_teacher)) -> list[dict[str, Any]]:
+        """Chunks in document order. They are the evidence that generated resources cite."""
+        return material_service.get_document_chunks(teacher_id, document_id)
 
     return router

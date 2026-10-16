@@ -44,8 +44,8 @@ def create_generators(
 def describe_generator(generator: ResourceGeneratorPort) -> dict[str, Any]:
     """Retorna los metadatos de configuración del generador activo para la UI."""
     return {
-        "descripcion": generator.description,
-        "usaIA": bool(getattr(generator, "uses_ai", getattr(generator, "usa_ia", False))),
-        "proveedor": getattr(generator, "provider", getattr(generator, "proveedor", "reglas")),
-        "modelo": getattr(generator, "model", getattr(generator, "modelo", None)),
+        "description": generator.description,
+        "usesAi": bool(getattr(generator, "uses_ai", False)),
+        "provider": getattr(generator, "provider", "rules"),
+        "model": getattr(generator, "model", None),
     }

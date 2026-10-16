@@ -1,133 +1,102 @@
 """
-Contrato HTTP HU-053 / EN-006: orquestación de generación RAG o catálogo demo.
+Adaptador HTTP de la generación de recursos (HU-053, EN-006): RAG sobre el material de la unidad.
 """
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel, ConfigDict, Field
 
 from platform5e.application.services.accounts.account_service import AccountService
 from platform5e.application.services.generation.generation_service import GenerationService
 from platform5e.domain.generation.errors import GenerationError
 from platform5e.domain.shared.errors import PersistenceUnavailableError
-from platform5e.infrastructure.http.dependencies import extract_authorization_header
-from platform5e.infrastructure.http.schemas.generation_request import GenerationRequestModel
-
-
-class IntegratedGenerationRequest(GenerationRequestModel):
-    """Solicitud unificada que extiende el esquema de entrada con parámetros pedagógicos complementarios."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    audience: str = Field(default="", alias="publico_objetivo", max_length=200)
-    competency: str = Field(default="", alias="competencia", max_length=200)
-    # Sprint 1: solo texto. Otra modalidad responde 422 (HU-053, alcance acordado con el docente).
-    modalities: list[Literal["Textual"]] = Field(
-        default_factory=lambda: ["Textual"], alias="modalidades", max_length=1
-    )
-
-    def to_domain_payload(self) -> dict[str, Any]:
-        """Transforma el esquema HTTP al diccionario esperado por los servicios de generación."""
-        return {
-            "unitId": self.unit_id,
-            "outcomeId": self.learning_outcome_id,
-            "stage": self.stage_5e,
-            "resourceType": self.resource_type,
-            "quantity": self.quantity,
-            "difficulty": self.difficulty,
-            "optionCount": self.options_count,
-            "topK": self.top_k,
-            "evidenceThreshold": self.evidence_threshold,
-            "instructions": self.instructions or "",
-            "audience": self.audience,
-            "competency": self.competency,
-            "modalities": self.modalities,
-        }
-
-
-class GenerationResponseSchema(BaseModel):
-    """Estructura de respuesta HTTP para los recursos generados."""
-
-    mode: Literal["api_demo", "rag"]
-    notice: str
-    generator: dict[str, Any] | None = None
-    request: dict[str, Any]
-    resources: list[dict[str, Any]]
-    available: int
-    fragments: list[dict[str, Any]]
-    documents: list[dict[str, Any]]
-    retrievedChunks: list[dict[str, Any]] = []  # todo lo recuperado; lo usa la evaluación RAG
+from platform5e.infrastructure.http.dependencies import current_teacher_dependency, extract_authorization_header
+from platform5e.infrastructure.http.error_handlers import error_json
+from platform5e.infrastructure.http.schemas.common import error_responses
+from platform5e.infrastructure.http.schemas.generations import (
+    GenerationRequest,
+    GenerationRequestRecord,
+    GenerationResult,
+    GeneratorInfo,
+)
 
 
 def create_generations_router(
     generation_service: GenerationService,
-    account_service: AccountService | None = None,
+    account_service: AccountService,
+    generator_info: dict[str, Any],
 ) -> APIRouter:
-    """Construye el router HTTP para solicitudes y consulta de generaciones 5E."""
-    router = APIRouter(
-        prefix="/api/v1/generaciones", tags=["EP-003 Generación de recursos"]
+    router = APIRouter(prefix="/api/v1")
+    current_teacher = current_teacher_dependency(account_service)
+
+    @router.post(
+        "/generations",
+        tags=["generations"],
+        response_model=GenerationResult,
+        summary="Generate resources from the unit material",
+        responses=error_responses(400, 401, 404, 422, 503),
     )
-
-    @router.post("", response_model=GenerationResponseSchema)
     def generate_resources(
-        request: IntegratedGenerationRequest,
-        authorization: str | None = Depends(extract_authorization_header),
+        body: GenerationRequest, authorization: str | None = Depends(extract_authorization_header)
     ) -> Any:
+        """Retrieves the most relevant chunks of the unit (BM25) and drafts the resources with the active generator.
+
+        Only resources whose claims cite valid chunks are kept; they are saved as `pendiente` for the teacher's review.
+        If the AI fails, the rule-based generator answers and `generator.fallback` is true. Without material the
+        request is rejected (400 NO_PROCESSED_MATERIAL) instead of inventing content.
+        """
         try:
-            teacher_email = (
-                account_service.authenticate_token(authorization)
-                if authorization and account_service
-                else None
-            )
-            if teacher_email and account_service:
-                account_service.get_unit(teacher_email, request.unit_id)
-            return generation_service.generate(
-                request.to_domain_payload(), teacher_email
-            )
-        except GenerationError as exc:
-            return JSONResponse(
-                status_code=400,
-                content={
-                    "error": {
-                        "codigo": exc.code,
-                        "mensaje": exc.message,
-                    }
-                },
-            )
+            teacher_id = account_service.authenticate_token(authorization) if authorization else None
+            if teacher_id:
+                account_service.get_unit(teacher_id, body.unit_id)
+            return generation_service.generate(body.to_domain(), teacher_id)
+        except GenerationError as error:
+            return error_json(400, error.code, error.message)
         except PersistenceUnavailableError:
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "error": {
-                        "codigo": "PERSISTENCIA_NO_DISPONIBLE",
-                        "mensaje": "No se pudo guardar la solicitud. Comprueba la conexión de la base de datos.",
-                    }
-                },
+            return error_json(
+                503,
+                "PERSISTENCE_UNAVAILABLE",
+                "No se pudo guardar la solicitud. Comprueba la conexión de la base de datos.",
             )
 
-    @router.get("/{generation_id}", response_model=GenerationResponseSchema)
-    def get_generation_by_id(
-        generation_id: str,
-        authorization: str | None = Depends(extract_authorization_header),
+    @router.get(
+        "/generations",
+        tags=["generations"],
+        response_model=list[GenerationRequestRecord],
+        summary="List my generation requests",
+        responses=error_responses(401),
+    )
+    def list_generation_requests(teacher_id: str = Depends(current_teacher)) -> list[dict[str, Any]]:
+        """History of the teacher's requests, newest first."""
+        return account_service.list_generation_requests(teacher_id)
+
+    @router.get(
+        "/generations/{generation_id}",
+        tags=["generations"],
+        response_model=GenerationResult,
+        summary="Get a generation",
+        responses=error_responses(401, 404),
+    )
+    def get_generation(
+        generation_id: str, authorization: str | None = Depends(extract_authorization_header)
     ) -> Any:
+        """Returns a saved generation exactly as it was answered. Generations of other teachers give 404."""
         try:
-            if account_service:
-                account_service.verify_generation_ownership(
-                    generation_id, authorization
-                )
+            account_service.verify_generation_ownership(generation_id, authorization)
             return generation_service.get_by_id(generation_id)
-        except GenerationError as exc:
-            return JSONResponse(
-                status_code=404,
-                content={
-                    "error": {
-                        "codigo": exc.code,
-                        "mensaje": exc.message,
-                    }
-                },
-            )
+        except GenerationError as error:
+            return error_json(404, error.code, error.message)
+
+    @router.get(
+        "/generator",
+        response_model=GeneratorInfo,
+        summary="Get the active generator",
+        tags=["system"],
+    )
+    def get_generator() -> dict[str, Any]:
+        """Says whether resources are drafted by a language model (and which one) or by the rule-based generator."""
+        return generator_info
 
     return router

@@ -32,9 +32,9 @@ describe('formulario del curso', () => {
   });
 
   it('convierte un curso en formulario y de vuelta en la petición', () => {
-    const c = course({ sumilla: undefined, logro: undefined });
+    const c = course({ summary: undefined, learningGoal: undefined });
     const form = courseToForm(c);
-    expect(form).toMatchObject({ code: 'RED-301', sumilla: '', logro: '', units: [{ id: 'u1', title: c.units[0].title }] });
+    expect(form).toMatchObject({ code: 'RED-301', summary: '', learningGoal: '', units: [{ id: 'u1', title: c.units[0].title }] });
     const request = courseRequest({ ...form, name: '  Redes  ', units: [...form.units, { title: ' Nueva ', outcomes: 'Calcula subredes' }] }, c);
     expect(request.name).toBe('Redes');
     expect(request.units[0]).toMatchObject({ id: 'u1', outcomes: [{ id: 'ra1', code: 'RA1.1' }, { id: 'ra2', code: 'RA1.2' }] });

@@ -67,9 +67,9 @@ def test_exports_only_approved_supported_resources_and_records_the_download():
 @pytest.mark.parametrize(
     "teacher,unit,export_format,resources,code",
     [
-        ("otra", "u1", "fake", [resource("a", "aprobado", [{}])], "UNIDAD_NO_ENCONTRADA"),
-        ("ana", "u1", "pdf", [resource("a", "aprobado", [{}])], "FORMATO_INVALIDO"),
-        ("ana", "u1", "fake", [resource("a", "pendiente", [{}])], "SIN_RECURSOS_APROBADOS"),
+        ("otra", "u1", "fake", [resource("a", "aprobado", [{}])], "UNIT_NOT_FOUND"),
+        ("ana", "u1", "pdf", [resource("a", "aprobado", [{}])], "INVALID_FORMAT"),
+        ("ana", "u1", "fake", [resource("a", "pendiente", [{}])], "NO_APPROVED_RESOURCES"),
     ],
 )
 def test_rejects_foreign_units_unknown_formats_and_nothing_approved(teacher, unit, export_format, resources, code):

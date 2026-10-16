@@ -19,16 +19,16 @@ function open(response: SessionResponse): Session {
 }
 
 export async function login(email: string, password: string): Promise<Session> {
-  return open(await apiFetch<SessionResponse>('/api/v1/sesiones', { method: 'POST', json: { email, password }, auth: false, timeoutMs: WAKE_UP_TIMEOUT_MS }));
+  return open(await apiFetch<SessionResponse>('/api/v1/sessions', { method: 'POST', json: { email, password }, auth: false, timeoutMs: WAKE_UP_TIMEOUT_MS }));
 }
 
 export async function register(name: string, email: string, password: string): Promise<Session> {
-  return open(await apiFetch<SessionResponse>('/api/v1/cuentas', { method: 'POST', json: { name, email, password }, auth: false, timeoutMs: WAKE_UP_TIMEOUT_MS }));
+  return open(await apiFetch<SessionResponse>('/api/v1/accounts', { method: 'POST', json: { name, email, password }, auth: false, timeoutMs: WAKE_UP_TIMEOUT_MS }));
 }
 
 export async function logout(): Promise<void> {
   try {
-    await apiFetch<void>('/api/v1/sesiones/actual', { method: 'DELETE' });
+    await apiFetch<void>('/api/v1/sessions/current', { method: 'DELETE' });
   } catch {
     /* aunque el servidor no responda, la sesión se cierra en este navegador */
   } finally {

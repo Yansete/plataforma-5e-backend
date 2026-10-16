@@ -8,19 +8,19 @@ export const GENERATION_TIMEOUT_MS = 150000;
 
 export function generationBody(input: GenerationInput) {
   return {
-    unidad_id: input.unitId,
-    resultado_aprendizaje_id: input.outcomeId,
-    etapa_5e: typeInfo(input.resourceType).stage,
-    tipo_recurso: input.resourceType,
-    cantidad: Math.min(5, Math.max(1, Math.round(input.quantity))),
-    dificultad: input.difficulty,
-    alternativas: hasOptions(input.resourceType) ? input.optionCount : 4,
-    top_k: 8,
-    umbral_evidencia: 0.6,
-    indicaciones: input.instructions.trim().slice(0, 500),
-    publico_objetivo: input.audience.trim().slice(0, 200),
-    competencia: input.competency.trim().slice(0, 200),
-    modalidades: input.modalities,
+    unitId: input.unitId,
+    outcomeId: input.outcomeId,
+    stage: typeInfo(input.resourceType).stage,
+    resourceType: input.resourceType,
+    quantity: Math.min(5, Math.max(1, Math.round(input.quantity))),
+    difficulty: input.difficulty,
+    optionCount: hasOptions(input.resourceType) ? input.optionCount : 4,
+    topK: 8,
+    evidenceThreshold: 0.6,
+    instructions: input.instructions.trim().slice(0, 500),
+    audience: input.audience.trim().slice(0, 200),
+    competency: input.competency.trim().slice(0, 200),
+    modalities: input.modalities,
   };
 }
 
@@ -36,7 +36,7 @@ interface GenerationResponse {
 }
 
 export async function generate(input: GenerationInput): Promise<GenerationResult> {
-  const response = await apiFetch<GenerationResponse>('/api/v1/generaciones', { method: 'POST', json: generationBody(input), timeoutMs: GENERATION_TIMEOUT_MS });
+  const response = await apiFetch<GenerationResponse>('/api/v1/generations', { method: 'POST', json: generationBody(input), timeoutMs: GENERATION_TIMEOUT_MS });
   return { resources: response.resources ?? [], usedFallback: Boolean(response.generator?.fallback) };
 }
 

@@ -31,8 +31,8 @@ MOCK_UNIT = {
 MOCK_COURSE = {
     "id": "c1",
     "name": "Redes",
-    "sumilla": "Curso de redes.",
-    "logro": "Explica cómo se comunican los equipos.",
+    "summary": "Curso de redes.",
+    "learningGoal": "Explica cómo se comunican los equipos.",
     "units": [MOCK_UNIT],
 }
 MOCK_FRAGMENTS = [
@@ -185,8 +185,8 @@ def test_generates_from_material_cites_chunks_and_saves_history():
     service, repo = build_service_setup(ai_gen)
     result = service.generate(make_request_dict(), "docente")
     assert result["mode"] == "rag" and result["generator"] == {
-        "descripcion": "IA falsa",
-        "usaIA": True,
+        "description": "IA falsa",
+        "usesAi": True,
         "fallback": False,
     }
     resource = result["resources"][0]
@@ -241,7 +241,7 @@ def test_if_the_ai_fails_the_fallback_is_used_and_reported(caplog):
     rules_gen = MockGenerator({"recursos": [MOCK_ITEM]}, description="Reglas", uses_ai=False)
     service, _ = build_service_setup(MockGenerator(error=RuntimeError("429 límite")), rules_gen)
     result = service.generate(make_request_dict(), "docente")
-    assert result["generator"]["descripcion"] == "Reglas" and result["generator"]["fallback"] is True
+    assert result["generator"]["description"] == "Reglas" and result["generator"]["fallback"] is True
     assert result["resources"][0]["generatorKind"] == "respaldo"
     assert "429 límite" in caplog.text
     assert "no respondió" in result["notice"] and "generador por reglas" in result["notice"]
@@ -268,28 +268,28 @@ def test_without_valid_resources_rejects_without_inventing():
     service, repo = build_service_setup(MockGenerator({"recursos": []}), fallback=None)
     with pytest.raises(GenerationError) as err:
         service.generate(make_request_dict(), "docente")
-    assert err.value.code == "EVIDENCIA_INSUFICIENTE" and repo.saved_results == []
+    assert err.value.code == "INSUFFICIENT_EVIDENCE" and repo.saved_results == []
 
 
 def test_outcome_from_another_unit_is_rejected():
     service, _ = build_service_setup(MockGenerator({"recursos": [MOCK_ITEM]}))
     with pytest.raises(GenerationError) as err:
         service.generate(make_request_dict(outcomeId="ra-otro"), "docente")
-    assert err.value.code == "RESULTADO_INVALIDO"
+    assert err.value.code == "INVALID_OUTCOME"
 
 
 def test_unit_without_material_or_demo_asks_for_upload():
     service, _ = build_service_setup(MockGenerator({"recursos": [MOCK_ITEM]}), chunk_repo=MockMaterialChunkRepository([]))
     with pytest.raises(GenerationError) as err:
         service.generate(make_request_dict(), "docente")
-    assert err.value.code == "SIN_MATERIAL_PROCESADO" and "pestaña Material" in err.value.message
+    assert err.value.code == "NO_PROCESSED_MATERIAL" and "pestaña Material" in err.value.message
 
 
 def test_without_teacher_uses_the_demo():
     service, _ = build_service_setup(MockGenerator({"recursos": [MOCK_ITEM]}))
     with pytest.raises(GenerationError) as err:
         service.generate(make_request_dict(unitId="u2"))
-    assert err.value.code == "SIN_MATERIAL_PROCESADO"
+    assert err.value.code == "NO_PROCESSED_MATERIAL"
 
 
 def test_instructions_include_course_request_and_chunks():
@@ -412,6 +412,6 @@ def test_without_demo_examples_a_unit_without_material_asks_for_upload():
     )
     with pytest.raises(GenerationError) as err:
         service.generate(make_request_dict(), "docente")
-    assert err.value.code == "SIN_MATERIAL_PROCESADO" and "pestaña Material" in err.value.message
+    assert err.value.code == "NO_PROCESSED_MATERIAL" and "pestaña Material" in err.value.message
     with pytest.raises(GenerationError):
         service.generate(make_request_dict(), None)

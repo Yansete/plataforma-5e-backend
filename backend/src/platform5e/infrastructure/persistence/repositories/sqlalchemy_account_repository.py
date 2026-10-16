@@ -29,6 +29,27 @@ from platform5e.infrastructure.persistence.repositories.sqlalchemy_generation_re
 )
 
 
+# Cursos y documentos guardados antes del contrato en inglés (octubre de 2026) traen claves en español.
+# Se adaptan al leer, sin migrar la base; el Sprint 2 los migra y quita esta adaptación.
+_LEGACY_COURSE_KEYS = {"sumilla": "summary", "logro": "learningGoal"}
+_LEGACY_ORIGIN_KEYS = {"fuente": "source", "licencia": "license", "tema": "topic"}
+
+
+def _rename_keys(data: dict[str, Any], names: dict[str, str]) -> dict[str, Any]:
+    return {names.get(key, key): value for key, value in data.items()}
+
+
+def adapt_legacy_course(data: dict[str, Any]) -> dict[str, Any]:
+    return _rename_keys(data, _LEGACY_COURSE_KEYS)
+
+
+def adapt_legacy_document(metadata: dict[str, Any]) -> dict[str, Any]:
+    origin = metadata.get("origin")
+    if isinstance(origin, dict):
+        return {**metadata, "origin": _rename_keys(origin, _LEGACY_ORIGIN_KEYS)}
+    return metadata
+
+
 class UserORM(Base):
     """Cuentas de docentes (HU-001). Almacena hash PBKDF2 y sal criptográfica."""
 
@@ -211,7 +232,7 @@ class SQLAlchemyAccountRepository(TeacherRepositoryPort):
                 .where(CourseORM.teacher_id == teacher_id)
                 .order_by(CourseORM.id)
             )
-            return [course.data for course in session.scalars(statement)]
+            return [adapt_legacy_course(course.data) for course in session.scalars(statement)]
 
     @translate_persistence_errors
     def save_course(self, teacher_id: str, course_data: dict[str, Any]) -> None:
@@ -250,7 +271,7 @@ class SQLAlchemyAccountRepository(TeacherRepositoryPort):
                 .where(DocumentORM.teacher_id == teacher_id)
                 .order_by(DocumentORM.id.desc())
             )
-            return [doc.metadata_json for doc in session.scalars(statement)]
+            return [adapt_legacy_document(doc.metadata_json) for doc in session.scalars(statement)]
 
     @translate_persistence_errors
     def save_document(
@@ -275,7 +296,9 @@ class SQLAlchemyAccountRepository(TeacherRepositoryPort):
     ) -> tuple[dict[str, Any], bytes] | None:
         with SessionLocal() as session:
             doc = session.get(DocumentORM, document_id)
-            return (doc.metadata_json, doc.content_bytes) if doc and doc.teacher_id == teacher_id else None
+            if doc is None or doc.teacher_id != teacher_id:
+                return None
+            return adapt_legacy_document(doc.metadata_json), doc.content_bytes
 
     @translate_persistence_errors
     def delete_document(self, teacher_id: str, document_id: str) -> None:

@@ -31,7 +31,7 @@ jobs:
       - name: Type check
         run: npm run typecheck
       - name: Unit tests with coverage (TA-008)
-        run: npm run test:cobertura   # Silvana lo renombra a test:coverage el viernes
+        run: npm run test:coverage
       - name: Coverage summary
         if: always() && hashFiles('frontend/coverage/coverage-summary.json') != ''
         run: |

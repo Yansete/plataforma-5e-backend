@@ -6,7 +6,7 @@ import type { Resource } from '@/shared/types/domain';
 
 /* ——— Servidor ——— */
 
-const base = (unitId: string) => `/api/v1/unidades/${encodeURIComponent(unitId)}/recursos`;
+const base = (unitId: string) => `/api/v1/units/${encodeURIComponent(unitId)}/resources`;
 
 export const listResources = (unitId: string) => apiFetch<Resource[]>(base(unitId));
 

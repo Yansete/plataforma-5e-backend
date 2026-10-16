@@ -19,7 +19,7 @@ describe('servidor', () => {
     expect(await listResources('u1')).toHaveLength(1);
     expect((await saveResource(item())).status).toBe('aprobado');
     await deleteResource(item());
-    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual(['GET /api/v1/unidades/u1/recursos', 'PUT /api/v1/unidades/u1/recursos/r1', 'DELETE /api/v1/unidades/u1/recursos/r1']);
+    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual(['GET /api/v1/units/u1/resources', 'PUT /api/v1/units/u1/resources/r1', 'DELETE /api/v1/units/u1/resources/r1']);
   });
 
   it('regenera con los mismos parámetros y descarta la versión anterior', async () => {
@@ -28,14 +28,14 @@ describe('servidor', () => {
     const result = await regenerate(item());
     expect(result.created).toEqual([nuevo]);
     expect(result.replaced.discardReason).toBe('regenerado');
-    expect(calls[0].body).toMatchObject({ tipo_recurso: 'item_opcion_multiple', cantidad: 1, dificultad: 'avanzada', resultado_aprendizaje_id: 'ra1', indicaciones: 'Usa videollamadas' });
+    expect(calls[0].body).toMatchObject({ resourceType: 'item_opcion_multiple', quantity: 1, difficulty: 'avanzada', outcomeId: 'ra1', instructions: 'Usa videollamadas' });
     expect(calls[1].body).toMatchObject({ status: 'descartado', discardReason: 'regenerado' });
   });
 
   it('sin parámetros guardados regenera con los datos del recurso', async () => {
     const calls = mockFetch({ body: { resources: [] } }, { body: text({ status: 'descartado' }) });
     await regenerate(text({ params: undefined, outcomeId: '' }));
-    expect(calls[0].body).toMatchObject({ tipo_recurso: 'explicacion', dificultad: 'intermedia', resultado_aprendizaje_id: null, alternativas: 4 });
+    expect(calls[0].body).toMatchObject({ resourceType: 'explicacion', difficulty: 'intermedia', outcomeId: null, optionCount: 4 });
     mockFetch({ body: { resources: [] } }, { body: item() });
     await regenerate(item({ params: undefined }));
   });

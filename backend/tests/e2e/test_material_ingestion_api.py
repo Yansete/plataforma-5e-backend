@@ -20,23 +20,23 @@ MATERIAL = (
 
 def test_real_material_is_processed_and_generates_cited_resources(server: str):
     with httpx.Client(base_url=server, timeout=30) as api:
-        h = {"Authorization": "Bearer " + api.post("/api/v1/sesiones", json=CREDENTIALS).json()["token"]}
-        assert api.get("/api/v1/ia").json()["usaIA"] is False
+        h = {"Authorization": "Bearer " + api.post("/api/v1/sessions", json=CREDENTIALS).json()["token"]}
+        assert api.get("/api/v1/generator").json()["usesAi"] is False
         course = api.post(
-            "/api/v1/cursos",
+            "/api/v1/courses",
             headers=h,
             json={
                 "code": "RED-E2E",
                 "name": "Redes",
                 "term": "2026-II",
-                "sumilla": "Curso de redes de computadoras.",
-                "logro": "Explica cómo se comunican los equipos.",
+                "summary": "Curso de redes de computadoras.",
+                "learningGoal": "Explica cómo se comunican los equipos.",
                 "units": [{"title": "Protocolos de transporte", "outcomes": [{"text": "Distingue TCP y UDP"}]}],
             },
         )
         assert course.status_code == 201, course.text
         unit = course.json()["units"][0]
-        assert course.json()["sumilla"] == "Curso de redes de computadoras." and unit["outcomes"][0]["code"] == "RA1.1"
+        assert course.json()["summary"] == "Curso de redes de computadoras." and unit["outcomes"][0]["code"] == "RA1.1"
 
         context = {
             "unitId": unit["id"],
@@ -46,37 +46,37 @@ def test_real_material_is_processed_and_generates_cited_resources(server: str):
             "usePermission": True,
         }
         uploaded = api.post(
-            "/api/v1/documentos",
+            "/api/v1/documents",
             headers=h,
             files={"file": ("protocolos.txt", MATERIAL)},
-            data={"contexto": json.dumps(context)},
+            data={"context": json.dumps(context)},
         )
         assert uploaded.status_code == 201 and uploaded.json()["status"] == "registrado"
-        processed = api.post(f"/api/v1/documentos/{uploaded.json()['id']}/procesar", headers=h)
+        processed = api.post(f"/api/v1/documents/{uploaded.json()['id']}/process", headers=h)
         assert processed.status_code == 200, processed.text
         assert processed.json()["status"] == "procesado" and processed.json()["fragmentCount"] >= 1
-        chunks = api.get(f"/api/v1/documentos/{uploaded.json()['id']}/fragmentos", headers=h).json()
+        chunks = api.get(f"/api/v1/documents/{uploaded.json()['id']}/chunks", headers=h).json()
         assert chunks[0]["location"] == "sección 1" and "protocolo TCP" in " ".join(f["text"] for f in chunks)
 
         request_body = {
-            "unidad_id": unit["id"],
-            "resultado_aprendizaje_id": None,
-            "etapa_5e": "evaluate",
-            "tipo_recurso": "item_opcion_multiple",
-            "cantidad": 2,
-            "dificultad": "intermedia",
-            "alternativas": 4,
-            "top_k": 8,
-            "umbral_evidencia": 0.6,
-            "indicaciones": "",
-            "publico_objetivo": "Tercer ciclo",
-            "competencia": "Pensamiento crítico",
-            "modalidades": ["Textual"],
+            "unitId": unit["id"],
+            "outcomeId": None,
+            "stage": "evaluate",
+            "resourceType": "item_opcion_multiple",
+            "quantity": 2,
+            "difficulty": "intermedia",
+            "optionCount": 4,
+            "topK": 8,
+            "evidenceThreshold": 0.6,
+            "instructions": "",
+            "audience": "Tercer ciclo",
+            "competency": "Pensamiento crítico",
+            "modalities": ["Textual"],
         }
-        response = api.post("/api/v1/generaciones", headers=h, json=request_body)
+        response = api.post("/api/v1/generations", headers=h, json=request_body)
         assert response.status_code == 200, response.text
         data = response.json()
-        assert data["mode"] == "rag" and data["generator"]["usaIA"] is False
+        assert data["mode"] == "rag" and data["generator"]["usesAi"] is False
         ids = {f["id"] for f in data["fragments"]}
         # Lo recuperado incluye todo lo citado (la evaluación con Ragas lo usa como contexto).
         retrieved = {f["id"] for f in data["retrievedChunks"]}
@@ -85,28 +85,28 @@ def test_real_material_is_processed_and_generates_cited_resources(server: str):
             assert resource["source"] == "rag" and resource["status"] == "pendiente"
             assert all(set(c["fragmentIds"]) <= ids for c in resource["citations"])
             assert len(resource["options"]) == 4 and sum(o["isCorrect"] for o in resource["options"]) == 1
-        assert api.get(f"/api/v1/generaciones/{data['request']['id']}", headers=h).json()["mode"] == "rag"
+        assert api.get(f"/api/v1/generations/{data['request']['id']}", headers=h).json()["mode"] == "rag"
 
         explanation = api.post(
-            "/api/v1/generaciones",
+            "/api/v1/generations",
             headers=h,
-            json={**request_body, "etapa_5e": "explain", "tipo_recurso": "explicacion", "cantidad": 1},
+            json={**request_body, "stage": "explain", "resourceType": "explicacion", "quantity": 1},
         )
         assert explanation.status_code == 200 and explanation.json()["resources"][0]["options"] is None
 
-        assert api.delete(f"/api/v1/documentos/{uploaded.json()['id']}", headers=h).status_code == 204
-        without_material = api.post("/api/v1/generaciones", headers=h, json=request_body)
-        assert without_material.status_code == 400 and without_material.json()["error"]["codigo"] == "SIN_MATERIAL_PROCESADO"
+        assert api.delete(f"/api/v1/documents/{uploaded.json()['id']}", headers=h).status_code == 204
+        without_material = api.post("/api/v1/generations", headers=h, json=request_body)
+        assert without_material.status_code == 400 and without_material.json()["error"]["code"] == "NO_PROCESSED_MATERIAL"
 
 
 def test_material_routes_validate_session_and_data(server: str):
     with httpx.Client(base_url=server, timeout=30) as api:
-        assert api.post("/api/v1/documentos/x/procesar").status_code == 401
-        h = {"Authorization": "Bearer " + api.post("/api/v1/sesiones", json=CREDENTIALS).json()["token"]}
+        assert api.post("/api/v1/documents/x/process").status_code == 401
+        h = {"Authorization": "Bearer " + api.post("/api/v1/sessions", json=CREDENTIALS).json()["token"]}
         assert (
-            api.post("/api/v1/documentos/no-existe/procesar", headers=h).json()["error"]["codigo"]
-            == "DOCUMENTO_NO_ENCONTRADO"
+            api.post("/api/v1/documents/no-existe/process", headers=h).json()["error"]["code"]
+            == "DOCUMENT_NOT_FOUND"
         )
-        assert api.post("/api/v1/documentos/desde-tema", headers=h, json={"unitId": "u1", "tema": "ab"}).status_code == 422
-        disabled_search = api.post("/api/v1/documentos/desde-tema", headers=h, json={"unitId": "u2", "tema": "redes"})
-        assert disabled_search.status_code == 503 and disabled_search.json()["error"]["codigo"] == "BUSQUEDA_NO_DISPONIBLE"
+        assert api.post("/api/v1/documents/from-topic", headers=h, json={"unitId": "u1", "topic": "ab"}).status_code == 422
+        disabled_search = api.post("/api/v1/documents/from-topic", headers=h, json={"unitId": "u2", "topic": "redes"})
+        assert disabled_search.status_code == 503 and disabled_search.json()["error"]["code"] == "TOPIC_SEARCH_UNAVAILABLE"

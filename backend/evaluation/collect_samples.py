@@ -7,6 +7,13 @@ Uso (desde backend/):
 Crea (o reutiliza) la cuenta de evaluación, un curso con una unidad, sube y procesa el corpus
 y guarda una línea por caso en evaluation/results/samples.jsonl con la pregunta, el contexto
 recuperado (retrievedChunks) y la respuesta generada.
+
+Con el plan gratuito de Gemini, varias generaciones seguidas superan el límite por minuto y el backend
+responde con el generador por reglas (fallback). Para que todas las muestras sean de la IA:
+    python evaluation/collect_samples.py --api https://plataforma5e-api.onrender.com --delay 15
+
+--topic agrega artículos de Wikipedia como material de la unidad (la misma búsqueda por tema de la
+plataforma), para que la recuperación tenga varios fragmentos entre los que elegir.
 """
 from __future__ import annotations
 
@@ -49,23 +56,23 @@ def request(client: httpx.Client, method: str, path: str, retries: int = 3, **kw
 
 
 def login(client: httpx.Client, email: str, password: str) -> dict:
-    created = request(client, 'POST', '/api/v1/cuentas', json={'name': 'Evaluación RAG', 'email': email, 'password': password})
+    created = request(client, 'POST', '/api/v1/accounts', json={'name': 'Evaluación RAG', 'email': email, 'password': password})
     if created.status_code == 201:
         return {'Authorization': f"Bearer {created.json()['token']}"}
-    session = request(client, 'POST', '/api/v1/sesiones', json={'email': email, 'password': password})
+    session = request(client, 'POST', '/api/v1/sessions', json={'email': email, 'password': password})
     if session.status_code != 200:
         fail(f'no se pudo iniciar sesión ({session.status_code}): {session.text}')
     return {'Authorization': f"Bearer {session.json()['token']}"}
 
 
 def ensure_unit(client: httpx.Client, headers: dict) -> dict:
-    courses = request(client, 'GET', '/api/v1/cursos', headers=headers).json()
+    courses = request(client, 'GET', '/api/v1/courses', headers=headers).json()
     course = next((c for c in courses if c.get('code') == COURSE_CODE), None)
     if course is None:
-        response = request(client, 'POST', '/api/v1/cursos', headers=headers, json={
+        response = request(client, 'POST', '/api/v1/courses', headers=headers, json={
             'code': COURSE_CODE, 'name': 'Redes de computadoras (evaluación RAG)', 'term': '2026-II',
-            'sumilla': 'Curso de redes de computadoras: protocolos de transporte y de red.',
-            'logro': 'Explica cómo se comunican los equipos en una red.',
+            'summary': 'Curso de redes de computadoras: protocolos de transporte y de red.',
+            'learningGoal': 'Explica cómo se comunican los equipos en una red.',
             'units': [{'title': 'Protocolos de transporte', 'outcomes': [{'text': 'Distingue TCP, UDP e IP según su función'}]}],
         })
         if response.status_code != 201:
@@ -75,20 +82,35 @@ def ensure_unit(client: httpx.Client, headers: dict) -> dict:
 
 
 def ensure_material(client: httpx.Client, headers: dict, unit: dict, corpus: Path) -> None:
-    documents = request(client, 'GET', '/api/v1/documentos', headers=headers).json()
+    documents = request(client, 'GET', '/api/v1/documents', headers=headers).json()
     document = next((d for d in documents if d.get('unitId') == unit['id'] and d.get('fileName') == corpus.name), None)
     if document is None:
         context = {'unitId': unit['id'], 'outcomeIds': [o['id'] for o in unit.get('outcomes', [])],
                    'documentType': 'Separata o apuntes de clase', 'suggestedStage': None, 'usePermission': True}
-        uploaded = request(client, 'POST', '/api/v1/documentos', headers=headers,
-                           files={'file': (corpus.name, corpus.read_bytes(), 'text/plain')}, data={'contexto': json.dumps(context)})
+        uploaded = request(client, 'POST', '/api/v1/documents', headers=headers,
+                           files={'file': (corpus.name, corpus.read_bytes(), 'text/plain')}, data={'context': json.dumps(context)})
         if uploaded.status_code != 201:
             fail(f'no se pudo subir el corpus ({uploaded.status_code}): {uploaded.text}')
         document = uploaded.json()
     if document.get('status') != 'procesado':
-        processed = request(client, 'POST', f"/api/v1/documentos/{document['id']}/procesar", headers=headers)
+        processed = request(client, 'POST', f"/api/v1/documents/{document['id']}/process", headers=headers)
         if processed.status_code != 200:
             fail(f'no se pudo procesar el corpus ({processed.status_code}): {processed.text}')
+
+
+def ensure_topics(client: httpx.Client, headers: dict, unit: dict, topics: list[str]) -> None:
+    """Agrega cada tema de Wikipedia como material procesado de la unidad, si todavía no está."""
+    documents = request(client, 'GET', '/api/v1/documents', headers=headers).json()
+    present = {((d.get('origin') or {}).get('topic') or '').casefold() for d in documents if d.get('unitId') == unit['id']}
+    for topic in topics:
+        if topic.casefold() in present:
+            continue
+        response = request(client, 'POST', '/api/v1/documents/from-topic', headers=headers,
+                           json={'unitId': unit['id'], 'topic': topic, 'maxResults': 1})
+        if response.status_code != 201:
+            fail(f'no se pudo agregar el tema «{topic}» ({response.status_code}): {response.text[:200]}')
+        print(f"Material desde el tema «{topic}»: {', '.join(d['fileName'] for d in response.json())}")
+        present.add(topic.casefold())
 
 
 def resource_text(resource: dict) -> str:
@@ -112,6 +134,11 @@ def main() -> None:
     parser.add_argument('--cases', type=Path, default=HERE / 'cases.json')
     parser.add_argument('--corpus', type=Path, default=HERE / 'corpus' / 'protocols.txt')
     parser.add_argument('--out', type=Path, default=HERE / 'results' / 'samples.jsonl')
+    parser.add_argument('--topic', action='append', default=[], dest='topics',
+                        help='tema de Wikipedia que se agrega como material (se puede repetir)')
+    parser.add_argument('--delay', type=float, default=0, help='segundos de espera entre casos (plan gratuito de Gemini: 15)')
+    parser.add_argument('--retries', type=int, default=2,
+                        help='reintentos de un caso que la IA no respondió y redactó el generador por reglas')
     args = parser.parse_args()
 
     email, password = os.getenv('EVAL_EMAIL'), os.getenv('EVAL_PASSWORD')
@@ -125,21 +152,31 @@ def main() -> None:
         headers = login(client, email, password)
         unit = ensure_unit(client, headers)
         ensure_material(client, headers, unit, args.corpus)
-        for case in cases:
+        ensure_topics(client, headers, unit, args.topics)
+        for number, case in enumerate(cases):
+            if number and args.delay:
+                time.sleep(args.delay)  # respeta el límite de solicitudes por minuto del proveedor de IA
             body = {
-                'unidad_id': unit['id'], 'resultado_aprendizaje_id': None, 'etapa_5e': case['stage'],
-                'tipo_recurso': case['resourceType'], 'cantidad': case.get('quantity', 1),
-                'dificultad': case.get('difficulty', 'intermedia'), 'alternativas': case.get('optionCount', 4),
-                'top_k': case.get('topK', 8), 'umbral_evidencia': 0.6, 'indicaciones': case['instructions'],
-                'publico_objetivo': '', 'competencia': '', 'modalidades': ['Textual'],
+                'unitId': unit['id'], 'outcomeId': None, 'stage': case['stage'],
+                'resourceType': case['resourceType'], 'quantity': case.get('quantity', 1),
+                'difficulty': case.get('difficulty', 'intermedia'), 'optionCount': case.get('optionCount', 4),
+                'topK': case.get('topK', 8), 'evidenceThreshold': 0.6, 'instructions': case['instructions'],
+                'audience': '', 'competency': '', 'modalities': ['Textual'],
             }
-            started = time.perf_counter()
-            response = request(client, 'POST', '/api/v1/generaciones', headers=headers, json=body)
-            elapsed = round(time.perf_counter() - started, 2)
+            for attempt in range(args.retries + 1):
+                started = time.perf_counter()
+                response = request(client, 'POST', '/api/v1/generations', headers=headers, json=body)
+                elapsed = round(time.perf_counter() - started, 2)
+                data = response.json() if response.status_code == 200 else {}
+                # fallback: la IA no respondió (límite de uso, respuesta ilegible) y redactó el generador por reglas.
+                if not (data.get('generator') or {}).get('fallback') or attempt == args.retries:
+                    break
+                wait = max(args.delay, 30)
+                print(f"{case['id']}: la IA no respondió; reintento {attempt + 1} de {args.retries} en {wait:.0f} s")
+                time.sleep(wait)
             if response.status_code != 200:
                 print(f"{case['id']}: sin muestra ({response.status_code}) {response.text[:200]}")
                 continue
-            data = response.json()
             if 'retrievedChunks' not in data and not warned:
                 print('Aviso: la respuesta no trae retrievedChunks; se usa solo lo citado (fragments) como contexto.')
                 warned = True
@@ -154,17 +191,27 @@ def main() -> None:
                     'response': resource_text(resource),
                     'cited_contexts': [f['text'] for f in data.get('fragments', [])],
                     'cites_material': cites,
-                    'generator': (data.get('generator') or {}).get('descripcion'),
+                    'generator': (data.get('generator') or {}).get('description'),
+                    'uses_ai': bool((data.get('generator') or {}).get('usesAi')),
+                    'fallback': bool((data.get('generator') or {}).get('fallback')),
                     'seconds': elapsed,
                 })
             print(f"{case['id']} · {case['stage']} · {case['resourceType']}: {len(data['resources'])} recurso(s), "
-                  f"{len(contexts)} fragmento(s) recuperado(s), {elapsed} s")
+                  f"{len(contexts)} fragmento(s) recuperado(s), {elapsed} s · {(data.get('generator') or {}).get('description')}")
 
     with args.out.open('w', encoding='utf-8') as file:
         for sample in samples:
             file.write(json.dumps(sample, ensure_ascii=False) + '\n')
     print(f'{len(samples)} muestras en {args.out.relative_to(Path.cwd()) if args.out.is_relative_to(Path.cwd()) else args.out} · '
           f'trazabilidad (I22): {citing}/{len(samples)} recursos citan el material')
+    fallbacks = sum(s['fallback'] for s in samples)
+    if not any(s['uses_ai'] or s['fallback'] for s in samples):
+        print('El backend usa el generador por reglas (sin IA): sirve como ensayo, no como evaluación de la IA.')
+    elif fallbacks:
+        print(f'{fallbacks} muestra(s) las redactó el generador por reglas porque la IA no respondió: '
+              'repite con un --delay mayor para evaluar solo a la IA.')
+    else:
+        print(f'Las {len(samples)} muestras las redactó la IA.')
 
 
 if __name__ == '__main__':

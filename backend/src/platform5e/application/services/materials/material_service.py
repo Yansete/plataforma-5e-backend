@@ -55,7 +55,7 @@ class MaterialService:
         """Recupera los metadatos y bytes del documento validando existencia."""
         found = self._teacher_repository.get_document(teacher_id, document_id)
         if found is None:
-            raise MaterialError("DOCUMENTO_NO_ENCONTRADO", "El documento no existe.", 404)
+            raise MaterialError("DOCUMENT_NOT_FOUND", "El documento no existe.", 404)
         return found
 
     def _get_unit(self, teacher_id: str, unit_id: str) -> dict[str, Any]:
@@ -70,7 +70,7 @@ class MaterialService:
             None,
         )
         if unit is None:
-            raise MaterialError("UNIDAD_NO_ENCONTRADA", "La unidad no pertenece a tus cursos.", 404)
+            raise MaterialError("UNIT_NOT_FOUND", "La unidad no pertenece a tus cursos.", 404)
         return unit
 
     def process_material(self, teacher_id: str, document_id: str) -> dict[str, Any]:
@@ -132,7 +132,7 @@ class MaterialService:
         return [
             {
                 "id": chunk["id"],
-                "orden": chunk.get("order", chunk.get("orden")),
+                "order": chunk.get("order", chunk.get("orden")),
                 "location": chunk.get("location", chunk.get("ubicacion")),
                 "text": chunk.get("text", chunk.get("texto")),
             }
@@ -145,12 +145,12 @@ class MaterialService:
         """Busca artículos en fuentes abiertas sobre el tema indicado y los procesa como documentos."""
         cleaned_topic = " ".join((topic or "").split())
         if not 3 <= len(cleaned_topic) <= 120:
-            raise MaterialError("TEMA_INVALIDO", "Escribe un tema de 3 a 120 caracteres.")
+            raise MaterialError("INVALID_TOPIC", "Escribe un tema de 3 a 120 caracteres.")
 
         unit = self._get_unit(teacher_id, unit_id)
         if self._open_resource_port is None:
             raise MaterialError(
-                "BUSQUEDA_NO_DISPONIBLE",
+                "TOPIC_SEARCH_UNAVAILABLE",
                 "La búsqueda por tema no está activada en el servidor.",
                 503,
             )
@@ -161,14 +161,14 @@ class MaterialService:
             raise
         except Exception as exc:
             raise MaterialError(
-                "FUENTE_NO_DISPONIBLE",
+                "SOURCE_UNAVAILABLE",
                 "No se pudo consultar la fuente abierta. Revisa la conexión del servidor.",
                 503,
             ) from exc
 
         if not articles:
             raise MaterialError(
-                "SIN_RESULTADOS",
+                "NO_RESULTS",
                 f"No se encontraron artículos sobre «{cleaned_topic}». Prueba con otras palabras.",
                 404,
             )
@@ -209,10 +209,10 @@ class MaterialService:
                 "isDemo": False,
                 "source": "backend",
                 "origin": {
-                    "fuente": article.get("fuente", ""),
+                    "source": article.get("fuente", ""),
                     "url": article["url"],
-                    "licencia": article["licencia"],
-                    "tema": cleaned_topic,
+                    "license": article["licencia"],
+                    "topic": cleaned_topic,
                 },
             }
             self._teacher_repository.save_document(teacher_id, doc_data, content_bytes)

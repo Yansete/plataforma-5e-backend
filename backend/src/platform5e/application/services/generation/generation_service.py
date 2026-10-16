@@ -85,7 +85,7 @@ class GenerationService:
                     )
 
         if not self._demo_examples_enabled:
-            raise GenerationError("SIN_MATERIAL_PROCESADO", NO_MATERIAL_NOTICE)
+            raise GenerationError("NO_PROCESSED_MATERIAL", NO_MATERIAL_NOTICE)
 
         return self._generate_demo(request_data, teacher_id)
 
@@ -113,7 +113,7 @@ class GenerationService:
         if request_data["outcomeId"] and not any(
             outcome["id"] == request_data["outcomeId"] for outcome in unit.get("outcomes", [])
         ):
-            raise GenerationError("RESULTADO_INVALIDO", "El resultado de aprendizaje no pertenece a la unidad.")
+            raise GenerationError("INVALID_OUTCOME", "El resultado de aprendizaje no pertenece a la unidad.")
 
         query_text = " ".join(
             filter(
@@ -179,7 +179,7 @@ class GenerationService:
 
         if not resources or active_generator is None:
             raise GenerationError(
-                "EVIDENCIA_INSUFICIENTE",
+                "INSUFFICIENT_EVIDENCE",
                 "No se pudieron redactar recursos que citen el material. "
                 "Prueba con otro tipo de recurso o agrega más material a la unidad.",
             )
@@ -218,7 +218,7 @@ class GenerationService:
             if doc_id in documents_map
         ]
 
-        uses_ai = bool(getattr(active_generator, "uses_ai", getattr(active_generator, "usa_ia", False)))
+        uses_ai = bool(getattr(active_generator, "uses_ai", False))
         self._save_for_review(
             teacher_id,
             unit["id"],
@@ -236,8 +236,8 @@ class GenerationService:
                 f"Generado con {active_generator.description} a partir de tu material.{suffix_notice}"
             ),
             "generator": {
-                "descripcion": active_generator.description,
-                "usaIA": uses_ai,
+                "description": active_generator.description,
+                "usesAi": uses_ai,
                 "fallback": warning_message is not None,
             },
             "request": enriched_request,
@@ -306,7 +306,7 @@ class GenerationService:
                             "documentId": doc_id,
                             "documentName": doc_names.get(doc_id, ""),
                             "sourceUrl": doc_origins.get(doc_id, {}).get("url"),
-                            "license": doc_origins.get(doc_id, {}).get("licencia"),
+                            "license": doc_origins.get(doc_id, {}).get("license"),
                         }
                     )
 
@@ -377,12 +377,12 @@ class GenerationService:
             (u for u in demo_catalog["units"] if u["id"] == request_data["unitId"]), None
         )
         if matched_unit is None:
-            raise GenerationError("SIN_MATERIAL_PROCESADO", NO_MATERIAL_NOTICE)
+            raise GenerationError("NO_PROCESSED_MATERIAL", NO_MATERIAL_NOTICE)
 
         if request_data["outcomeId"] and not any(
             o["id"] == request_data["outcomeId"] for o in matched_unit["outcomes"]
         ):
-            raise GenerationError("RESULTADO_INVALIDO", "El resultado de aprendizaje no pertenece a la unidad.")
+            raise GenerationError("INVALID_OUTCOME", "El resultado de aprendizaje no pertenece a la unidad.")
 
         available_examples = [
             ex
@@ -400,7 +400,7 @@ class GenerationService:
 
         if not available_examples:
             raise GenerationError(
-                "EVIDENCIA_INSUFICIENTE",
+                "INSUFFICIENT_EVIDENCE",
                 "La API de demostración no tiene ejemplos para esta combinación de unidad, etapa y tipo.",
             )
 
@@ -459,7 +459,7 @@ class GenerationService:
         matched_fragments = [f for f in demo_catalog["fragments"] if f["id"] in referenced_fragments]
         if {f["id"] for f in matched_fragments} != referenced_fragments:
             raise GenerationError(
-                "EVIDENCIA_INSUFICIENTE",
+                "INSUFFICIENT_EVIDENCE",
                 "Faltan fragmentos de demostración para sustentar la propuesta.",
             )
 
@@ -467,7 +467,7 @@ class GenerationService:
         matched_documents = [d for d in demo_catalog["documents"] if d["id"] in matched_doc_ids]
         if {d["id"] for d in matched_documents} != matched_doc_ids:
             raise GenerationError(
-                "EVIDENCIA_INSUFICIENTE",
+                "INSUFFICIENT_EVIDENCE",
                 "Falta el documento de origen de la evidencia de demostración.",
             )
 
@@ -495,5 +495,5 @@ class GenerationService:
         """Recupera una generación previamente procesada."""
         result = self._repository.get_by_id(generation_id)
         if result is None:
-            raise GenerationError("GENERACION_NO_ENCONTRADA", "La solicitud de generación no existe.")
+            raise GenerationError("GENERATION_NOT_FOUND", "La solicitud de generación no existe.")
         return result

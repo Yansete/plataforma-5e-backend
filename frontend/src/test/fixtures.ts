@@ -44,7 +44,7 @@ export function unit(overrides: Partial<Unit> = {}): Unit {
 }
 
 export function course(overrides: Partial<Course> = {}): Course {
-  return { id: 'c1', code: 'RED-301', name: 'Redes de Computadoras', term: '2026-II', sumilla: 'Redes.', logro: 'Configura redes.', units: [unit()], ...overrides };
+  return { id: 'c1', code: 'RED-301', name: 'Redes de Computadoras', term: '2026-II', summary: 'Redes.', learningGoal: 'Configura redes.', units: [unit()], ...overrides };
 }
 
 export const EVIDENCE: Evidence[] = [

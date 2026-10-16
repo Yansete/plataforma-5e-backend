@@ -19,29 +19,29 @@ ACCOUNT = {"name": "Ana Pérez", "email": "ana.perez@correo.pe", "password": "cl
 
 def test_new_account_reviews_downloads_and_deletes_its_course(server: str):
     with httpx.Client(base_url=server, timeout=30) as api:
-        created = api.post("/api/v1/cuentas", json=ACCOUNT)
+        created = api.post("/api/v1/accounts", json=ACCOUNT)
         assert created.status_code == 201 and created.json()["name"] == "Ana Pérez"
         h = {"Authorization": "Bearer " + created.json()["token"]}
-        assert api.post("/api/v1/cuentas", json=ACCOUNT).status_code == 409
+        assert api.post("/api/v1/accounts", json=ACCOUNT).status_code == 409
         assert (
-            api.post("/api/v1/cuentas", json={**ACCOUNT, "email": "otra@correo.pe", "password": "corta"}).status_code
+            api.post("/api/v1/accounts", json={**ACCOUNT, "email": "otra@correo.pe", "password": "corta"}).status_code
             == 422
         )
-        assert api.get("/api/v1/sesiones/actual", headers=h).json() == {
+        assert api.get("/api/v1/sessions/current", headers=h).json() == {
             "email": "ana.perez@correo.pe",
             "name": "Ana Pérez",
         }
-        assert api.get("/api/v1/cursos", headers=h).json() == []
+        assert api.get("/api/v1/courses", headers=h).json() == []
         assert (
             api.post(
-                "/api/v1/sesiones",
+                "/api/v1/sessions",
                 json={"email": "ANA.PEREZ@correo.pe", "password": "clave-segura-1"},
             ).status_code
             == 200
         )
 
         course = api.post(
-            "/api/v1/cursos",
+            "/api/v1/courses",
             headers=h,
             json={
                 "code": "RED-301",
@@ -59,36 +59,36 @@ def test_new_account_reviews_downloads_and_deletes_its_course(server: str):
             "usePermission": True,
         }
         document = api.post(
-            "/api/v1/documentos",
+            "/api/v1/documents",
             headers=h,
             files={"file": ("protocolos.txt", MATERIAL)},
-            data={"contexto": json.dumps(context)},
+            data={"context": json.dumps(context)},
         ).json()
         assert (
-            api.post(f"/api/v1/documentos/{document['id']}/procesar", headers=h).json()["status"]
+            api.post(f"/api/v1/documents/{document['id']}/process", headers=h).json()["status"]
             == "procesado"
         )
 
         request_body = {
-            "unidad_id": unit["id"],
-            "resultado_aprendizaje_id": None,
-            "etapa_5e": "evaluate",
-            "tipo_recurso": "item_opcion_multiple",
-            "cantidad": 1,
-            "dificultad": "intermedia",
-            "alternativas": 4,
-            "top_k": 8,
-            "umbral_evidencia": 0.6,
-            "indicaciones": "",
-            "publico_objetivo": "",
-            "competencia": "",
-            "modalidades": ["Textual"],
+            "unitId": unit["id"],
+            "outcomeId": None,
+            "stage": "evaluate",
+            "resourceType": "item_opcion_multiple",
+            "quantity": 1,
+            "difficulty": "intermedia",
+            "optionCount": 4,
+            "topK": 8,
+            "evidenceThreshold": 0.6,
+            "instructions": "",
+            "audience": "",
+            "competency": "",
+            "modalities": ["Textual"],
         }
-        generated = api.post("/api/v1/generaciones", headers=h, json=request_body).json()
+        generated = api.post("/api/v1/generations", headers=h, json=request_body).json()
         assert generated["generator"]["fallback"] is False
 
-        base = f"/api/v1/unidades/{unit['id']}"
-        resources = api.get(base + "/recursos", headers=h).json()
+        base = f"/api/v1/units/{unit['id']}"
+        resources = api.get(base + "/resources", headers=h).json()
         assert [r["id"] for r in resources] == [generated["resources"][0]["id"]]
         resource = resources[0]
         assert resource["evidence"] and resource["evidence"][0]["documentName"] == "protocolos.txt"
@@ -112,48 +112,48 @@ def test_new_account_reviews_downloads_and_deletes_its_course(server: str):
                 for o in resource["options"]
             ],
         }
-        blocked = api.put(f"{base}/recursos/{resource['id']}", headers=h, json=review)
-        assert blocked.status_code == 409 and blocked.json()["error"]["codigo"] == "APROBACION_BLOQUEADA"
+        blocked = api.put(f"{base}/resources/{resource['id']}", headers=h, json=review)
+        assert blocked.status_code == 409 and blocked.json()["error"]["code"] == "APPROVAL_BLOCKED"
         for o in review["options"]:
             o["decision"] = "aceptado"
-        approved = api.put(f"{base}/recursos/{resource['id']}", headers=h, json=review)
+        approved = api.put(f"{base}/resources/{resource['id']}", headers=h, json=review)
         assert approved.status_code == 200 and approved.json()["status"] == "aprobado"
-        assert api.get(base + "/recursos", headers=h).json()[0]["status"] == "aprobado"
-        assert api.get("/api/v1/resumen", headers=h).json() == [
+        assert api.get(base + "/resources", headers=h).json()[0]["status"] == "aprobado"
+        assert api.get("/api/v1/review-summary", headers=h).json() == [
             {"courseId": course["id"], "unitId": unit["id"], "approved": 1, "pending": 0}
         ]
 
         other = {
             "Authorization": "Bearer "
-            + api.post("/api/v1/cuentas", json={**ACCOUNT, "email": "beto@correo.pe"}).json()["token"]
+            + api.post("/api/v1/accounts", json={**ACCOUNT, "email": "beto@correo.pe"}).json()["token"]
         }
-        assert api.get(base + "/recursos", headers=other).status_code == 404
-        assert api.get(base + "/recursos").status_code == 401
+        assert api.get(base + "/resources", headers=other).status_code == 404
+        assert api.get(base + "/resources").status_code == 401
 
         download = api.post(
-            base + "/descargas",
+            base + "/downloads",
             headers=h,
             json={"format": "moodle_xml", "fileName": "red-301-unidad-1-moodle.xml", "resourceCount": 1},
         )
         assert download.status_code == 201
-        assert [d["fileName"] for d in api.get(base + "/descargas", headers=h).json()] == [
+        assert [d["fileName"] for d in api.get(base + "/downloads", headers=h).json()] == [
             "red-301-unidad-1-moodle.xml"
         ]
         assert (
             api.post(
-                base + "/descargas",
+                base + "/downloads",
                 headers=h,
                 json={"format": "pdf", "fileName": "x.pdf", "resourceCount": 1},
             ).status_code
             == 422
         )
-        assert api.delete(base + "/descargas", headers=h).status_code == 204
-        assert api.get(base + "/descargas", headers=h).json() == []
+        assert api.delete(base + "/downloads", headers=h).status_code == 204
+        assert api.get(base + "/downloads", headers=h).json() == []
 
-        assert api.delete(f"{base}/recursos/{resource['id']}", headers=h).status_code == 204
-        assert api.get(base + "/recursos", headers=h).json() == []
+        assert api.delete(f"{base}/resources/{resource['id']}", headers=h).status_code == 204
+        assert api.get(base + "/resources", headers=h).json() == []
 
-        assert api.delete(f"/api/v1/cursos/{course['id']}", headers=h).status_code == 204
-        assert api.get("/api/v1/documentos", headers=h).json() == []
-        assert api.get(base + "/recursos", headers=h).status_code == 404
-        assert api.delete(f"/api/v1/cursos/{course['id']}", headers=h).status_code == 404
+        assert api.delete(f"/api/v1/courses/{course['id']}", headers=h).status_code == 204
+        assert api.get("/api/v1/documents", headers=h).json() == []
+        assert api.get(base + "/resources", headers=h).status_code == 404
+        assert api.delete(f"/api/v1/courses/{course['id']}", headers=h).status_code == 404

@@ -3,22 +3,22 @@
     "CitationBlockModel": {
       "description": "Estructura de trazabilidad agregada para el cuerpo del ítem.",
       "properties": {
-        "afirmacion": {
+        "claim": {
           "description": "Aserción pedagógica o técnica formulada en el contenido del ítem.",
           "minLength": 5,
-          "title": "Afirmacion",
+          "title": "Claim",
           "type": "string"
         },
-        "fragmentos": {
+        "fragment_ids": {
           "description": "Colección de IDs de fragmentos asociados directamente a la afirmación.",
           "items": {
             "type": "string"
           },
           "minItems": 1,
-          "title": "Fragmentos",
+          "title": "Fragment Ids",
           "type": "array"
         },
-        "evidencia_detallada": {
+        "detailed_evidence": {
           "anyOf": [
             {
               "items": {
@@ -32,12 +32,12 @@
           ],
           "default": null,
           "description": "Desglose exhaustivo de citas con texto literal, página y similitud.",
-          "title": "Evidencia Detallada"
+          "title": "Detailed Evidence"
         }
       },
       "required": [
-        "afirmacion",
-        "fragmentos"
+        "claim",
+        "fragment_ids"
       ],
       "title": "CitationBlockModel",
       "type": "object"
@@ -46,7 +46,7 @@
       "description": "Representa una referencia explícita a un fragmento del material de estudio.",
       "properties": {
         "fragment_id": {
-          "description": "Identificador persistente del fragmento en la tabla fragmento (ej. f-u2-01).",
+          "description": "Identificador persistente del fragmento en la base de datos (ej. f-u2-01).",
           "title": "Fragment Id",
           "type": "string"
         },
@@ -107,33 +107,33 @@
           "title": "Id",
           "type": "string"
         },
-        "texto": {
+        "text": {
           "description": "Contenido textual de la alternativa de respuesta.",
           "minLength": 1,
-          "title": "Texto",
+          "title": "Text",
           "type": "string"
         },
-        "correcta": {
+        "is_correct": {
           "description": "Determina si la opción corresponde a la clave válida de la pregunta.",
-          "title": "Correcta",
+          "title": "Is Correct",
           "type": "boolean"
         },
-        "retroalimentacion": {
+        "feedback": {
           "description": "Explicación formativa que orienta al estudiante sobre el acierto o el error.",
           "minLength": 5,
-          "title": "Retroalimentacion",
+          "title": "Feedback",
           "type": "string"
         },
-        "fragmentos_origen": {
+        "source_fragment_ids": {
           "description": "Lista de identificadores de fragmentos documentales que respaldan la alternativa.",
           "items": {
             "type": "string"
           },
           "minItems": 1,
-          "title": "Fragmentos Origen",
+          "title": "Source Fragment Ids",
           "type": "array"
         },
-        "advertencia_fiabilidad": {
+        "reliability_warning": {
           "anyOf": [
             {
               "type": "string"
@@ -144,9 +144,9 @@
           ],
           "default": null,
           "description": "Mensaje del motor de anclaje si el distractor requiere revisión por proximidad léxica.",
-          "title": "Advertencia Fiabilidad"
+          "title": "Reliability Warning"
         },
-        "similitud_con_clave": {
+        "key_similarity": {
           "anyOf": [
             {
               "maximum": 1.0,
@@ -159,15 +159,15 @@
           ],
           "default": null,
           "description": "Similitud semántica calculada frente a la clave para asegurar plausibilidad sin equivalencia.",
-          "title": "Similitud Con Clave"
+          "title": "Key Similarity"
         }
       },
       "required": [
         "id",
-        "texto",
-        "correcta",
-        "retroalimentacion",
-        "fragmentos_origen"
+        "text",
+        "is_correct",
+        "feedback",
+        "source_fragment_ids"
       ],
       "title": "ItemOptionModel",
       "type": "object"
@@ -180,52 +180,52 @@
       "title": "Id",
       "type": "string"
     },
-    "etapa_5e": {
+    "stage_5e": {
       "const": "evaluate",
       "default": "evaluate",
       "description": "Etapa fija correspondiente al modelo instruccional 5E.",
-      "title": "Etapa 5E",
+      "title": "Stage 5E",
       "type": "string"
     },
-    "tipo": {
+    "resource_type": {
       "const": "item_opcion_multiple",
       "default": "item_opcion_multiple",
       "description": "Tipología estructural del recurso didáctico generado.",
-      "title": "Tipo",
+      "title": "Resource Type",
       "type": "string"
     },
-    "titulo": {
+    "title": {
       "description": "Encabezado descriptivo del ítem según el tema evaluado.",
       "minLength": 5,
-      "title": "Titulo",
+      "title": "Title",
       "type": "string"
     },
-    "enunciado": {
+    "prompt": {
       "description": "Cuerpo de la pregunta, caso o problema planteado al estudiante.",
       "minLength": 10,
-      "title": "Enunciado",
+      "title": "Prompt",
       "type": "string"
     },
-    "alternativas": {
+    "options": {
       "description": "Conjunto de opciones que contiene una clave y entre 2 y 4 distractores funcionales.",
       "items": {
         "$ref": "#/$defs/ItemOptionModel"
       },
       "maxItems": 5,
       "minItems": 3,
-      "title": "Alternativas",
+      "title": "Options",
       "type": "array"
     },
-    "citas": {
+    "citations": {
       "description": "Bloques obligatorios de citas que verifican la fidelidad semántica con el material.",
       "items": {
         "$ref": "#/$defs/CitationBlockModel"
       },
       "minItems": 1,
-      "title": "Citas",
+      "title": "Citations",
       "type": "array"
     },
-    "estado": {
+    "status": {
       "default": "pendiente",
       "description": "Estado del recurso en el flujo de decisión del docente.",
       "enum": [
@@ -233,16 +233,16 @@
         "aprobado",
         "descartado"
       ],
-      "title": "Estado",
+      "title": "Status",
       "type": "string"
     }
   },
   "required": [
     "id",
-    "titulo",
-    "enunciado",
-    "alternativas",
-    "citas"
+    "title",
+    "prompt",
+    "options",
+    "citations"
   ],
   "title": "ResourceEvaluateItemModel",
   "type": "object"

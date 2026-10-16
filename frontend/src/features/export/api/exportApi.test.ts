@@ -64,7 +64,7 @@ describe('documento de la unidad', () => {
 
   it('sin fuentes abiertas no agrega la nota de licencias', () => {
     const local = text({ status: 'aprobado', evidence: [{ ...item().evidence[0] }], citations: [{ claim: 'TCP', fragmentIds: ['f1'] }] });
-    const html = buildUnitDocument([local], course({ sumilla: '' }), unit({ outcomes: [] }), new Date(2026, 9, 10));
+    const html = buildUnitDocument([local], course({ summary: '' }), unit({ outcomes: [] }), new Date(2026, 9, 10));
     expect(html).not.toContain('licencia');
     expect(html).toContain('1 recurso aprobado');
     expect(buildUnitDocument([], course(), unit())).toContain('No hay recursos aprobados.');
@@ -79,7 +79,7 @@ describe('historial', () => {
     await listDownloads('u1');
     await registerDownload('u1', { fileName: 'red-301-unidad-1-moodle.xml', resourceCount: 2 }, 'moodle_xml');
     await clearDownloads('u1');
-    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual(['GET /api/v1/unidades/u1/descargas', 'POST /api/v1/unidades/u1/descargas', 'DELETE /api/v1/unidades/u1/descargas']);
+    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual(['GET /api/v1/units/u1/downloads', 'POST /api/v1/units/u1/downloads', 'DELETE /api/v1/units/u1/downloads']);
     expect(calls[1].body).toEqual({ format: 'moodle_xml', fileName: 'red-301-unidad-1-moodle.xml', resourceCount: 2 });
   });
 });

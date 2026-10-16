@@ -5,7 +5,7 @@ import type { Download, DownloadFormat } from '@/shared/types/domain';
 
 /* ——— Historial en el servidor ——— */
 
-const base = (unitId: string) => `/api/v1/unidades/${encodeURIComponent(unitId)}/descargas`;
+const base = (unitId: string) => `/api/v1/units/${encodeURIComponent(unitId)}/downloads`;
 
 export const listDownloads = (unitId: string) => apiFetch<Download[]>(base(unitId));
 

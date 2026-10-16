@@ -4,7 +4,7 @@
       "description": "Representa una referencia explícita a un fragmento del material de estudio.",
       "properties": {
         "fragment_id": {
-          "description": "Identificador persistente del fragmento en la tabla fragmento (ej. f-u2-01).",
+          "description": "Identificador persistente del fragmento en la base de datos (ej. f-u2-01).",
           "title": "Fragment Id",
           "type": "string"
         },
@@ -58,63 +58,63 @@
       "title": "Id",
       "type": "string"
     },
-    "etapa_5e": {
+    "stage_5e": {
       "const": "engage",
       "default": "engage",
       "description": "Etapa fija correspondiente al modelo instruccional 5E.",
-      "title": "Etapa 5E",
+      "title": "Stage 5E",
       "type": "string"
     },
-    "tipo": {
+    "resource_type": {
       "const": "pregunta_detonante",
       "default": "pregunta_detonante",
       "description": "Clasificación del tipo de recurso pedagógico producido.",
-      "title": "Tipo",
+      "title": "Resource Type",
       "type": "string"
     },
-    "titulo": {
+    "title": {
       "description": "Título de la actividad introductoria.",
       "minLength": 5,
-      "title": "Titulo",
+      "title": "Title",
       "type": "string"
     },
-    "situacion_contexto": {
+    "context_situation": {
       "description": "Descripción de un escenario real o dilema técnico que conecta con el tema.",
       "minLength": 15,
-      "title": "Situacion Contexto",
+      "title": "Context Situation",
       "type": "string"
     },
-    "pregunta_detonante": {
+    "trigger_question": {
       "description": "Interrogante abierta diseñada para suscitar el debate en el aula.",
       "minLength": 10,
-      "title": "Pregunta Detonante",
+      "title": "Trigger Question",
       "type": "string"
     },
-    "concepciones_erroneas": {
+    "misconceptions": {
       "description": "Errores conceptuales frecuentes asociados al tema documentados en el corpus.",
       "items": {
         "type": "string"
       },
       "minItems": 1,
-      "title": "Concepciones Erroneas",
+      "title": "Misconceptions",
       "type": "array"
     },
-    "guia_docente": {
+    "teacher_guide": {
       "description": "Orientaciones pedagógicas para que el profesor dirija la discusión grupal.",
       "minLength": 10,
-      "title": "Guia Docente",
+      "title": "Teacher Guide",
       "type": "string"
     },
-    "citas": {
+    "citations": {
       "description": "Referencias documentales que fundamentan el contexto y los conceptos erróneos.",
       "items": {
         "$ref": "#/$defs/FragmentCitationModel"
       },
       "minItems": 1,
-      "title": "Citas",
+      "title": "Citations",
       "type": "array"
     },
-    "estado": {
+    "status": {
       "default": "pendiente",
       "description": "Estado de revisión del recurso antes de ser integrado a la secuencia.",
       "enum": [
@@ -122,18 +122,18 @@
         "aprobado",
         "descartado"
       ],
-      "title": "Estado",
+      "title": "Status",
       "type": "string"
     }
   },
   "required": [
     "id",
-    "titulo",
-    "situacion_contexto",
-    "pregunta_detonante",
-    "concepciones_erroneas",
-    "guia_docente",
-    "citas"
+    "title",
+    "context_situation",
+    "trigger_question",
+    "misconceptions",
+    "teacher_guide",
+    "citations"
   ],
   "title": "ResourceEngageItemModel",
   "type": "object"

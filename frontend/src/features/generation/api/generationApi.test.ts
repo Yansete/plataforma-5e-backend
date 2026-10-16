@@ -34,15 +34,15 @@ describe('catálogo', () => {
 describe('generación', () => {
   it('arma la petición con la etapa interna y límites válidos', () => {
     const body = generationBody({ ...defaultInput('u1'), resourceType: 'glosario', quantity: 9, optionCount: 5, instructions: ` ${'x'.repeat(600)} `, audience: ' 5.º ciclo ', competency: '', modalities: ['Textual'] });
-    expect(body).toMatchObject({ unidad_id: 'u1', etapa_5e: 'explain', tipo_recurso: 'glosario', cantidad: 5, alternativas: 4, publico_objetivo: '5.º ciclo' });
-    expect(body.indicaciones).toHaveLength(500);
-    expect(generationBody({ ...defaultInput('u1'), quantity: 0, optionCount: 3 })).toMatchObject({ cantidad: 1, alternativas: 3, etapa_5e: 'evaluate' });
+    expect(body).toMatchObject({ unitId: 'u1', stage: 'explain', resourceType: 'glosario', quantity: 5, optionCount: 4, audience: '5.º ciclo' });
+    expect(body.instructions).toHaveLength(500);
+    expect(generationBody({ ...defaultInput('u1'), quantity: 0, optionCount: 3 })).toMatchObject({ quantity: 1, optionCount: 3, stage: 'evaluate' });
   });
 
   it('avisa si se usó el generador de respaldo', async () => {
     const calls = mockFetch({ body: { resources: [item()], generator: { fallback: true } } }, { body: { resources: [] } });
     expect(await generate(defaultInput('u1'))).toEqual({ resources: [item()], usedFallback: true });
     expect(await generate(defaultInput('u1'))).toEqual({ resources: [], usedFallback: false });
-    expect(calls[0]).toMatchObject({ url: '/api/v1/generaciones', method: 'POST' });
+    expect(calls[0]).toMatchObject({ url: '/api/v1/generations', method: 'POST' });
   });
 });

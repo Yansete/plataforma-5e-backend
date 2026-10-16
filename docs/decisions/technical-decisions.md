@@ -178,3 +178,33 @@ En el Sprint 1 los recursos se generan solo como texto. El material de entrada t
 el texto de PDF, PPTX y TXT e ignora las imágenes. Imágenes, video y otras modalidades se evalúan en el Sprint 2. La
 interfaz ya no ofrece modalidades, la API responde 422 a cualquier modalidad distinta de «Textual» y el prompt pide no
 incluir material multimedia.
+
+## ADR-009 Hexagonal en tres capas y contrato en inglés (16/10/2026)
+
+El backend vive en `backend/src/platform5e/` con tres capas: `domain`, `application` (puertos en `ports/outbound`,
+servicios y casos de uso) e `infrastructure` (adaptadores HTTP, persistencia, LLM, exportadores, extracción y fuentes).
+`main.py` es el único punto de composición. Reemplaza a «Limpieza hexagonal del Sprint 1» (`adapters/inbound`,
+`bootstrap`). La API HU-043 (`/recursos/generar`, `/exportaciones`) se eliminó: la interfaz nunca la usó y duplicaba
+la revisión real.
+
+Todo el código, las rutas, las claves del JSON, los códigos de error y las variables de entorno están en inglés; los
+textos que lee el docente siguen en español. Se vigila con `tests/architecture/test_english_names.py` y
+`tests/integration/test_openapi_documentation.py`.
+
+Queda en español, como deuda declarada para el Sprint 2 porque exige migrar los datos de Neon:
+
+- Los nombres de tablas y columnas (`ep002_cursos`, `docente`…). Los atributos del ORM ya están en inglés.
+- Los valores guardados: estados (`pendiente`, `aprobado`, `descartado`), tipos de recurso (`item_opcion_multiple`…)
+  y dificultades (`basica`, `intermedia`, `avanzada`).
+- Los nombres anteriores de las variables de entorno (`CORS_ORIGENES`, `IA_API_KEY`…) se siguen leyendo si falta el
+  nombre nuevo, para que Render no se caiga mientras se renombran en el panel.
+- Los cursos, documentos y generaciones guardados antes del contrato se adaptan al leerlos (claves `sumilla`, `logro`,
+  `fuente`, `licencia`, `tema`, `descripcion`, `usaIA`).
+
+## ADR-010 Las exportaciones para LMS se arman en el backend (16/10/2026)
+
+Moodle XML y SCORM 1.2 se arman en el backend con plantillas fijas, como dos adaptadores del mismo puerto
+`UnitExporterPort`, y se piden con `POST /api/v1/units/{unit_id}/exports`. El caso de uso `ExportUnitResourcesUseCase`
+filtra lo aprobado, deja que cada formato elija lo que admite (Moodle solo ítems de opción múltiple) y registra la
+descarga. El navegador solo arma el documento de la unidad (HTML). Actualiza ADR-005: el ZIP QTI 2.1 ya no se usa
+(ver ADR-007). El Moodle XML se valida contra la muestra que Moodle importó en SP-003.

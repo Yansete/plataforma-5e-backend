@@ -12,8 +12,8 @@ export interface CourseForm {
   code: string;
   name: string;
   term: string;
-  sumilla: string;
-  logro: string;
+  summary: string;
+  learningGoal: string;
   units: UnitForm[];
 }
 
@@ -44,7 +44,7 @@ export function outcomeLines(outcomes: LearningOutcome[]): string {
 }
 
 export function emptyCourseForm(): CourseForm {
-  return { code: '', name: '', term: '', sumilla: '', logro: '', units: [{ title: '', outcomes: '' }] };
+  return { code: '', name: '', term: '', summary: '', learningGoal: '', units: [{ title: '', outcomes: '' }] };
 }
 
 export function courseToForm(course: Course): CourseForm {
@@ -52,8 +52,8 @@ export function courseToForm(course: Course): CourseForm {
     code: course.code,
     name: course.name,
     term: course.term,
-    sumilla: course.sumilla ?? '',
-    logro: course.logro ?? '',
+    summary: course.summary ?? '',
+    learningGoal: course.learningGoal ?? '',
     units: course.units.map((u) => ({ id: u.id, title: u.title, outcomes: outcomeLines(u.outcomes) })),
   };
 }
@@ -71,8 +71,8 @@ export function courseRequest(form: CourseForm, previous?: Course) {
     code: form.code.trim(),
     name: form.name.trim(),
     term: form.term.trim(),
-    sumilla: form.sumilla.trim(),
-    logro: form.logro.trim(),
+    summary: form.summary.trim(),
+    learningGoal: form.learningGoal.trim(),
     units: form.units.map((u) => {
       const before = previous?.units.find((p) => p.id === u.id);
       return { ...(u.id ? { id: u.id } : {}), title: u.title.trim(), outcomes: parseOutcomeLines(u.outcomes, before?.outcomes) };

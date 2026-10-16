@@ -65,16 +65,16 @@ class AccountService:
         cleaned_name = " ".join(str(name).split())
 
         if len(cleaned_name) < 2:
-            raise AccountConfigurationError("NOMBRE_INVALIDO", "Escribe tu nombre.", 422)
+            raise AccountConfigurationError("INVALID_NAME", "Escribe tu nombre.", 422)
         if not EMAIL_REGEX.match(normalized_email):
-            raise AccountConfigurationError("CORREO_INVALIDO", "Escribe un correo válido.", 422)
+            raise AccountConfigurationError("INVALID_EMAIL", "Escribe un correo válido.", 422)
         if len(password) < 8:
             raise AccountConfigurationError(
-                "CLAVE_INSEGURA", "La contraseña debe tener al menos 8 caracteres.", 422
+                "WEAK_PASSWORD", "La contraseña debe tener al menos 8 caracteres.", 422
             )
         if normalized_email == self.seed_email or self.repository.get_user_by_email(normalized_email):
             raise AccountConfigurationError(
-                "CUENTA_EXISTENTE", "Ya existe una cuenta con ese correo. Inicia sesión.", 409
+                "ACCOUNT_EXISTS", "Ya existe una cuenta con ese correo. Inicia sesión.", 409
             )
 
         salt = secrets.token_bytes(16)
@@ -112,7 +112,7 @@ class AccountService:
 
         if not is_valid:
             raise AccountConfigurationError(
-                "CREDENCIALES_INVALIDAS", "Correo o contraseña incorrectos.", 401
+                "INVALID_CREDENTIALS", "Correo o contraseña incorrectos.", 401
             )
 
         if self.seed_demo_catalog and normalized_email == self.seed_email:
@@ -141,13 +141,13 @@ class AccountService:
     def authenticate_token(self, authorization_header: str | None) -> str:
         """Verifica la cabecera Bearer y retorna el correo del docente autenticado."""
         if not authorization_header or not authorization_header.startswith("Bearer "):
-            raise AccountConfigurationError("SESION_REQUERIDA", "Inicia sesión con el backend.", 401)
+            raise AccountConfigurationError("SESSION_REQUIRED", "Inicia sesión con el backend.", 401)
         raw_token = authorization_header[7:]
         fingerprint = hashlib.sha256(raw_token.encode()).hexdigest()
         session_info = self.repository.get_session(fingerprint)
         if not session_info or session_info[1] <= time.time():
             raise AccountConfigurationError(
-                "SESION_VENCIDA", "La sesión venció. Vuelve a iniciar sesión.", 401
+                "SESSION_EXPIRED", "La sesión venció. Vuelve a iniciar sesión.", 401
             )
         return session_info[0]
 
@@ -166,7 +166,7 @@ class AccountService:
         )
         if not found_unit:
             raise AccountConfigurationError(
-                "UNIDAD_NO_ENCONTRADA", "La unidad no pertenece a tus cursos.", 404
+                "UNIT_NOT_FOUND", "La unidad no pertenece a tus cursos.", 404
             )
         return found_unit
 
@@ -177,12 +177,12 @@ class AccountService:
         existing_courses = self.repository.get_courses(teacher_id)
         previous_course = next((c for c in existing_courses if c["id"] == course_id), None)
         if course_id and not previous_course:
-            raise AccountConfigurationError("CURSO_NO_ENCONTRADO", "El curso no existe.", 404)
+            raise AccountConfigurationError("COURSE_NOT_FOUND", "El curso no existe.", 404)
 
         code = course_data["code"].strip().upper()
         if any(c["id"] != course_id and c["code"] == code for c in existing_courses):
             raise AccountConfigurationError(
-                "CODIGO_DUPLICADO", "Ya existe un curso con ese código.", 409
+                "DUPLICATE_CODE", "Ya existe un curso con ese código.", 409
             )
 
         previous_units = previous_course["units"] if previous_course else []
@@ -191,7 +191,7 @@ class AccountService:
             u["id"] for u in previous_units
         }:
             raise AccountConfigurationError(
-                "UNIDADES_INVALIDAS", "Conserva las unidades existentes y sus identificadores."
+                "INVALID_UNITS", "Conserva las unidades existentes y sus identificadores."
             )
 
         saved_course: dict[str, Any] = {
@@ -200,7 +200,7 @@ class AccountService:
         }
         saved_course["code"] = code
 
-        for field_name in ("sumilla", "logro"):
+        for field_name in ("summary", "learningGoal"):
             incoming_val = course_data.get(field_name)
             saved_course[field_name] = (
                 incoming_val.strip()
@@ -272,10 +272,10 @@ class AccountService:
         unit = self.get_unit(teacher_id, context_data["unitId"])
         if not context_data["usePermission"]:
             raise AccountConfigurationError(
-                "PERMISO_REQUERIDO", "Confirma el permiso de uso del material."
+                "PERMISSION_REQUIRED", "Confirma el permiso de uso del material."
             )
         if context_data["documentType"] not in ALLOWED_DOCUMENT_TYPES:
-            raise AccountConfigurationError("TIPO_INVALIDO", "Elige un tipo de documento válido.")
+            raise AccountConfigurationError("INVALID_TYPE", "Elige un tipo de documento válido.")
 
         selected_outcome_ids = context_data["outcomeIds"]
         unit_outcome_ids = {o["id"] for o in unit["outcomes"]}
@@ -283,7 +283,7 @@ class AccountService:
             unit["outcomes"] and not selected_outcome_ids
         ):
             raise AccountConfigurationError(
-                "RESULTADO_INVALIDO", "Selecciona resultados de aprendizaje de esta unidad."
+                "INVALID_OUTCOME", "Selecciona resultados de aprendizaje de esta unidad."
             )
 
         if (
@@ -293,20 +293,20 @@ class AccountService:
             or "\\" in file_name
             or any(ord(c) < 32 for c in file_name)
         ):
-            raise AccountConfigurationError("NOMBRE_INVALIDO", "Usa un nombre de archivo válido.")
+            raise AccountConfigurationError("INVALID_NAME", "Usa un nombre de archivo válido.")
 
         file_kind = file_name.rsplit(".", 1)[-1].lower()
         if file_kind not in ("pdf", "pptx", "txt"):
-            raise AccountConfigurationError("FORMATO_INVALIDO", "Usa PDF, PPTX o TXT.")
+            raise AccountConfigurationError("INVALID_FORMAT", "Usa PDF, PPTX o TXT.")
 
         if not file_content or len(file_content) > MAX_FILE_SIZE:
             raise AccountConfigurationError(
-                "TAMANO_INVALIDO", "El archivo debe tener contenido y no superar 25 MB."
+                "INVALID_SIZE", "El archivo debe tener contenido y no superar 25 MB."
             )
 
         if file_kind == "pdf" and not file_content.startswith(b"%PDF-"):
             raise AccountConfigurationError(
-                "FORMATO_INVALIDO", "El archivo no tiene cabecera PDF."
+                "INVALID_FORMAT", "El archivo no tiene cabecera PDF."
             )
 
         if file_kind == "pptx":
@@ -317,7 +317,7 @@ class AccountService:
                         raise ValueError()
             except (zipfile.BadZipFile, ValueError):
                 raise AccountConfigurationError(
-                    "FORMATO_INVALIDO", "El archivo no tiene estructura PPTX."
+                    "INVALID_FORMAT", "El archivo no tiene estructura PPTX."
                 )
 
         if file_kind == "txt":
@@ -325,7 +325,7 @@ class AccountService:
                 file_content.decode("utf-8-sig")
             except UnicodeDecodeError:
                 raise AccountConfigurationError(
-                    "FORMATO_INVALIDO", "Guarda el TXT con codificación UTF-8."
+                    "INVALID_FORMAT", "Guarda el TXT con codificación UTF-8."
                 )
 
         existing_documents = self.repository.get_documents(teacher_id)
@@ -334,7 +334,7 @@ class AccountService:
             for doc in existing_documents
         ):
             raise AccountConfigurationError(
-                "DOCUMENTO_DUPLICADO", "Ya existe un documento con ese nombre en la unidad.", 409
+                "DUPLICATE_DOCUMENT", "Ya existe un documento con ese nombre en la unidad.", 409
             )
 
         created_document: dict[str, Any] = {
@@ -361,7 +361,7 @@ class AccountService:
         owner = self.repository.get_generation_owner(generation_id)
         if owner and self.authenticate_token(authorization_header) != owner:
             raise AccountConfigurationError(
-                "GENERACION_NO_ENCONTRADA", "La solicitud no existe.", 404
+                "GENERATION_NOT_FOUND", "La solicitud no existe.", 404
             )
 
     def list_courses(self, teacher_id: str) -> list[dict[str, Any]]:
@@ -373,7 +373,7 @@ class AccountService:
         courses = self.repository.get_courses(teacher_id)
         target = next((c for c in courses if c["id"] == course_id), None)
         if target is None:
-            raise AccountConfigurationError("CURSO_NO_ENCONTRADO", "El curso no existe.", 404)
+            raise AccountConfigurationError("COURSE_NOT_FOUND", "El curso no existe.", 404)
         self.repository.delete_course(teacher_id, course_id, [u["id"] for u in target["units"]])
 
     def list_documents(self, teacher_id: str) -> list[dict[str, Any]]:
@@ -385,7 +385,7 @@ class AccountService:
         doc = self.repository.get_document(teacher_id, document_id)
         if doc is None:
             raise AccountConfigurationError(
-                "DOCUMENTO_NO_ENCONTRADO", "El documento no existe.", 404
+                "DOCUMENT_NOT_FOUND", "El documento no existe.", 404
             )
         return doc
 

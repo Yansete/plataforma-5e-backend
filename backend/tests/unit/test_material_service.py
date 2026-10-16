@@ -149,7 +149,7 @@ def test_processing_without_text_leaves_an_explained_error():
 
 
 def test_processing_an_unreadable_file_does_not_raise_and_explains():
-    service, _, _ = build_test_environment(error=MaterialError("PDF_PROTEGIDO", "El PDF está protegido."))
+    service, _, _ = build_test_environment(error=MaterialError("PROTECTED_PDF", "El PDF está protegido."))
     data = service.process_material("d", "doc1")
     assert data["status"] == "error" and data["errorMessage"] == "El PDF está protegido."
 
@@ -183,7 +183,7 @@ def test_from_topic_creates_processed_documents_without_duplicates():
     saved_content = config_repo.docs[created[0]["id"]][1].decode()
     assert saved_content.startswith("Protocolo de control de transmisión\n\n")
     assert "wikipedia" not in saved_content.lower()
-    assert created[0]["origin"]["licencia"] == "CC BY-SA 4.0"
+    assert created[0]["origin"]["license"] == "CC BY-SA 4.0"
 
     re_requested = service.create_from_topic("d", "u1", "protocolo TCP")
     assert re_requested[0]["id"] == created[0]["id"]
@@ -192,11 +192,11 @@ def test_from_topic_creates_processed_documents_without_duplicates():
 @pytest.mark.parametrize(
     "topic,unit_id,source_instance,expected_code",
     [
-        ("ab", "u1", MockOpenResource(), "TEMA_INVALIDO"),
-        ("redes", "otra", MockOpenResource(), "UNIDAD_NO_ENCONTRADA"),
-        ("redes", "u1", None, "BUSQUEDA_NO_DISPONIBLE"),
-        ("redes", "u1", MockOpenResource(should_fail=True), "FUENTE_NO_DISPONIBLE"),
-        ("redes", "u1", MockOpenResource([]), "SIN_RESULTADOS"),
+        ("ab", "u1", MockOpenResource(), "INVALID_TOPIC"),
+        ("redes", "otra", MockOpenResource(), "UNIT_NOT_FOUND"),
+        ("redes", "u1", None, "TOPIC_SEARCH_UNAVAILABLE"),
+        ("redes", "u1", MockOpenResource(should_fail=True), "SOURCE_UNAVAILABLE"),
+        ("redes", "u1", MockOpenResource([]), "NO_RESULTS"),
     ],
 )
 def test_from_topic_rejections(topic, unit_id, source_instance, expected_code):

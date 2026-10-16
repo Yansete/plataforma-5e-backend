@@ -121,7 +121,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description='Califica las muestras RAG con Ragas y Gemini como juez.')
     parser.add_argument('--samples', type=Path, default=HERE / 'results' / 'samples.jsonl')
     parser.add_argument('--out', type=Path, default=HERE / 'results')
-    parser.add_argument('--model', default=os.getenv('RAGAS_JUDGE_MODEL', 'gemini-2.5-flash'))
+    parser.add_argument('--model', default=os.getenv('RAGAS_JUDGE_MODEL', 'gemini-3.8-flash'))
     parser.add_argument('--embedding-model', default=os.getenv('RAGAS_EMBEDDING_MODEL', 'gemini-embedding-001'))
     parser.add_argument('--delay', type=float, default=0, help='segundos de espera entre muestras (plan gratuito: 4)')
     parser.add_argument('--check', action='store_true', help='solo valida samples.jsonl, sin llamar al juez')

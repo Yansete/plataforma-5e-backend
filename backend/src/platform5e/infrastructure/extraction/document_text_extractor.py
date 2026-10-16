@@ -28,7 +28,7 @@ class DocumentTextExtractor(TextExtractorPort):
             return self._extract_pptx(content)
         if file_type == "txt":
             return self._extract_txt(content)
-        raise MaterialError("FORMATO_INVALIDO", "Usa PDF, PPTX o TXT.")
+        raise MaterialError("INVALID_FORMAT", "Usa PDF, PPTX o TXT.")
 
     @staticmethod
     def _extract_pdf(content: bytes) -> list[tuple[str, str]]:
@@ -39,7 +39,7 @@ class DocumentTextExtractor(TextExtractorPort):
             reader = PdfReader(io.BytesIO(content))
             if reader.is_encrypted and not reader.decrypt(""):
                 raise MaterialError(
-                    "PDF_PROTEGIDO",
+                    "PROTECTED_PDF",
                     "El PDF está protegido con contraseña. Quita la protección y vuelve a subirlo.",
                 )
             return [
@@ -50,7 +50,7 @@ class DocumentTextExtractor(TextExtractorPort):
             raise
         except Exception as exc:
             raise MaterialError(
-                "ARCHIVO_ILEGIBLE",
+                "UNREADABLE_FILE",
                 "No se pudo leer el PDF. Puede estar dañado; ábrelo, guárdalo de nuevo como PDF y vuelve a subirlo.",
             ) from exc
 
@@ -63,7 +63,7 @@ class DocumentTextExtractor(TextExtractorPort):
             presentation = Presentation(io.BytesIO(content))
         except Exception as exc:
             raise MaterialError(
-                "ARCHIVO_ILEGIBLE",
+                "UNREADABLE_FILE",
                 "No se pudo leer la presentación. Guárdala de nuevo como PPTX y vuelve a subirla.",
             ) from exc
 
@@ -90,7 +90,7 @@ class DocumentTextExtractor(TextExtractorPort):
         try:
             decoded_text = content.decode("utf-8-sig")
         except UnicodeDecodeError as exc:
-            raise MaterialError("FORMATO_INVALIDO", "Guarda el TXT con codificación UTF-8.") from exc
+            raise MaterialError("INVALID_FORMAT", "Guarda el TXT con codificación UTF-8.") from exc
 
         wiki_headings = list(_WIKI_HEADING_REGEX.finditer(decoded_text))
         if wiki_headings:

@@ -15,7 +15,7 @@ describe('sesión', () => {
     const session = await login('ana@correo.pe', 'clave');
     expect(session).toEqual({ email: 'ana@correo.pe', name: 'Ana', token: 't1' });
     expect(getSession()?.token).toBe('t1');
-    expect(calls[0]).toMatchObject({ url: '/api/v1/sesiones', method: 'POST', body: { email: 'ana@correo.pe', password: 'clave' } });
+    expect(calls[0]).toMatchObject({ url: '/api/v1/sessions', method: 'POST', body: { email: 'ana@correo.pe', password: 'clave' } });
     expect(calls[0].headers.Authorization).toBeUndefined();
   });
 
@@ -23,14 +23,14 @@ describe('sesión', () => {
     const calls = mockFetch({ status: 201, body: { email: 'b@c.pe', name: 'Beto', token: 't2', expiresIn: 10 } });
     await register('Beto', 'b@c.pe', 'clave-segura');
     expect(getSession()?.name).toBe('Beto');
-    expect(calls[0]).toMatchObject({ url: '/api/v1/cuentas', body: { name: 'Beto', email: 'b@c.pe', password: 'clave-segura' } });
+    expect(calls[0]).toMatchObject({ url: '/api/v1/accounts', body: { name: 'Beto', email: 'b@c.pe', password: 'clave-segura' } });
   });
 
   it('cierra la sesión aunque el servidor no responda', async () => {
     setSession({ email: 'a@b.pe', name: 'Ana', token: 't' });
     const calls = mockFetch(new TypeError('sin red'));
     await logout();
-    expect(calls[0]).toMatchObject({ url: '/api/v1/sesiones/actual', method: 'DELETE' });
+    expect(calls[0]).toMatchObject({ url: '/api/v1/sessions/current', method: 'DELETE' });
     expect(getSession()).toBeNull();
   });
 

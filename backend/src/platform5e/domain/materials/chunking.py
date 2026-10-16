@@ -138,7 +138,7 @@ def chunk_pages(pages: list[tuple[str, str]], target_words: int | None = None) -
             "order": index,
             "location": chunk["location"],
             "text": chunk["text"],
-            "orden": index,
+            "order": index,
             "ubicacion": chunk["location"],
             "texto": chunk["text"],
         })

@@ -5,7 +5,7 @@
  */
 export const API_BASE_URL = (import.meta.env?.VITE_API_URL ?? '').trim().replace(/\/+$/, '');
 
-/** Dirección completa de una ruta de la API, por ejemplo apiUrl('/api/v1/cursos'). */
+/** Dirección completa de una ruta de la API, por ejemplo apiUrl('/api/v1/courses'). */
 export function apiUrl(path: string): string {
   return `${API_BASE_URL}${path}`;
 }

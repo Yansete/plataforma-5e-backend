@@ -47,7 +47,7 @@ export function CourseListPage() {
                   {course.code} · {course.term}
                 </span>
                 <h2 className="h2">{course.name}</h2>
-                {course.sumilla && <p className="course-card__text">{course.sumilla.length > 170 ? `${course.sumilla.slice(0, 170).trimEnd()}…` : course.sumilla}</p>}
+                {course.summary && <p className="course-card__text">{course.summary.length > 170 ? `${course.summary.slice(0, 170).trimEnd()}…` : course.summary}</p>}
                 <p className="course-card__stats">
                   <span>{plural(course.units.length, 'unidad', 'unidades')}</span>
                   <span>{plural(docs, 'documento', 'documentos')}</span>
