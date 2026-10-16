@@ -8,7 +8,7 @@ Mide, sobre dataset.json:
 Uso:
   python benchmark.py                       # todos los modelos (los de API se omiten si falta su clave)
   python benchmark.py --modelos e5-base bge-m3
-  python benchmark.py --tabla               # solo regenera resultados/tabla.md con los JSON existentes
+  python benchmark.py --tabla               # solo regenera results/summary-table.md con los JSON existentes
 
 Es un experimento aislado: no forma parte del código de producción.
 """
@@ -29,7 +29,7 @@ from typing import Dict, List, Optional
 import numpy as np
 
 RAIZ = Path(__file__).resolve().parent
-RESULTADOS = RAIZ / "resultados"
+RESULTADOS = RAIZ / "results"
 
 # Tamaño de fragmento de referencia para estimar costos de producción (supuesto: segmentación de 300-500 tokens).
 TOKENS_REFERENCIA = 400
@@ -382,7 +382,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--modelos", nargs="+", choices=list(MODELOS), default=list(MODELOS))
     ap.add_argument("--dispositivo", default="cpu", help="cpu (por defecto, comparable con un servidor sin GPU), mps o cuda")
-    ap.add_argument("--tabla", action="store_true", help="solo regenera resultados/tabla.md")
+    ap.add_argument("--tabla", action="store_true", help="solo regenera results/summary-table.md")
     args = ap.parse_args()
 
     RESULTADOS.mkdir(exist_ok=True)
@@ -404,7 +404,7 @@ def main() -> None:
             print(f"[listo] {clave}: MRR={r['calidad_sin_filtro']['mrr']:.3f}")
 
     contenido = tabla()
-    (RESULTADOS / "tabla.md").write_text(contenido, encoding="utf-8")
+    (RESULTADOS / "summary-table.md").write_text(contenido, encoding="utf-8")
     print("\n" + contenido)
 
 

@@ -71,7 +71,7 @@ Los valores de evidencia del dominio empiezan vacíos: no se inventa el fragment
 ## API y contratos
 
 Swagger está en `http://localhost:8000/docs`; OpenAPI está en `/openapi.json` y en
-[openapi.json](openapi.json). El esquema HTTP Bearer `SesionDocente` permite autorizar con el token obtenido
+[openapi.json](../api/openapi.json). El esquema HTTP Bearer `SesionDocente` permite autorizar con el token obtenido
 al iniciar sesión o al crear la cuenta.
 
 | URL con prefijo `/api/v1` | Operación |
@@ -93,7 +93,7 @@ al iniciar sesión o al crear la cuenta.
 | `/ia` | GET generador activo (modelo de IA o reglas) |
 
 Los contratos 5E están en `backend/plataforma5e/adapters/inbound/contratos/`.
-Desde `backend/`, `python scripts/export_contracts.py` regenera sus JSON Schema en `docs/contratos/`.
+Desde `backend/`, `python scripts/export_contracts.py` regenera sus JSON Schema en `docs/api/contracts/`.
 `pytest tests/unit/test_contratos_5e.py` comprueba aceptación y rechazo de evidencia incompleta.
 
 ## Frontend y puntos de integración
@@ -117,26 +117,26 @@ Una edición no aprueba un recurso: solo la acción «Aprobar recurso» lo vuelv
 
 ## Diseño y convenciones
 
-El diseño de referencia está en `documentos/Sistema_de_Diseno_UI.docx`. Se conservan tokens de
+El diseño de referencia está en `docs/design/ui-design-system.docx`. Se conservan tokens de
 `frontend/src/styles/tokens.css`, componentes compartidos en `components/ui.tsx` e iconos de trazo.
 Fraunces se usa para títulos y Public Sans para texto. Hay etiquetas visibles, foco visible y controles de 44 px.
 La barra lateral pasa a menú bajo 960 px. Los textos y comentarios se escriben en español.
 
 Antes de modificar requisitos, consultar el backlog, planificación, Charter, Inception y Product Discovery de
-`documentos/`. Se continúa sobre el código existente. Las decisiones y su estado se registran en
-[decisiones-tecnicas.md](decisiones-tecnicas.md); los cambios visuales requieren revisar el sistema de diseño.
+`docs/project-management/`. Se continúa sobre el código existente. Las decisiones y su estado se registran en
+[technical-decisions.md](../decisions/technical-decisions.md); los cambios visuales requieren revisar el sistema de diseño.
 No se atribuyen aprobaciones académicas ni pruebas con docentes sin evidencia.
 
 ## Persistencia y entorno
 
 El backend usa SQLite por defecto y admite PostgreSQL con
-`DATABASE_URL=postgresql+psycopg://...`. La URL `postgres://...` de `.env.example` corresponde al entorno
+`DATABASE_URL=postgresql+psycopg://...`. La URL `postgres://...` de `backend/.env.example` corresponde al entorno
 de dbmate y no se utiliza directamente para SQLAlchemy. La configuración se establece en la terminal del backend.
 Las dependencias del backend se definen en `backend/pyproject.toml`.
 
-El entorno de EN-011 en `db/` usa PostgreSQL 17 y pgvector 0.8.1, migraciones dbmate, fragmentos de 768
+El entorno de EN-011 en `backend/database/` usa PostgreSQL 17 y pgvector 0.8.1, migraciones dbmate, fragmentos de 768
 dimensiones e índices HNSW y GIN. Es distinto del almacenamiento que usa hoy el backend. Ver
-[la guía de base de datos](../db/README.md). Las migraciones y `db/schema.sql` no se modifican en esta limpieza.
+[la guía de base de datos](../../backend/database/README.md). Las migraciones y `backend/database/schema.sql` no se modifican en esta limpieza.
 No se editarán migraciones ya aplicadas; los futuros cambios de esquema requieren una nueva migración.
 
 ## Ejecución y verificación
@@ -180,7 +180,7 @@ Los informes de avance y las validaciones académicas también se conservan en N
 
 ## Pendientes y límites
 
-Embeddings y búsqueda por significado con pgvector (EN-013, HU-011), unificación con `db/migrations` (EN-024),
+Embeddings y búsqueda por significado con pgvector (EN-013, HU-011), unificación con `backend/database/migrations` (EN-024),
 orquestación de los agentes de las cinco etapas sin repetir contenido (HU-003), OCR de PDF escaneados, recuperación
 de contraseña, importación en LMS reales y mediciones del piloto. Indicadores (antes una pantalla con valores de
 ejemplo) se medirán con datos reales en el Sprint 2.
@@ -188,10 +188,10 @@ Faltan validación con docentes, lectores de pantalla y pruebas amplias de rendi
 
 ## Investigaciones y antecedentes
 
-- [SP-001](spikes/SP-001-modelos-embeddings.md): propuesta de embeddings; no añade procesamiento real.
-- [SP-002](spikes/SP-002-modelos-por-tipo-de-recurso.md): propuesta de modelos por tipo de recurso; estimaciones,
+- [SP-001](../spikes/SP-001-embedding-models.md): propuesta de embeddings; no añade procesamiento real.
+- [SP-002](../spikes/SP-002-models-per-resource-type.md): propuesta de modelos por tipo de recurso; estimaciones,
   no mediciones de generación con docentes.
-- [SP-003](spikes/SP-003-formatos-de-exportacion.md): Moodle XML para Moodle y ZIP QTI 2.1 para Chamilo.
+- [SP-003](../spikes/SP-003-export-formats.md): Moodle XML para Moodle y ZIP QTI 2.1 para Chamilo.
 - HU-045 y HU-046: sesión, catálogo y chat locales publicados; sus registros de avance están en Notion.
 - HU-053 y EP-002: solicitudes, sesión, cursos, archivos e historial conectados; mantienen ejemplos preparados.
 - HU-054: recorrido enlazado, secuencia, versiones y exportación local en los dos formatos seleccionados.

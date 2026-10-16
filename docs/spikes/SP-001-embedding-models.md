@@ -1,9 +1,9 @@
 # SP-001 · Investigación de modelos de embeddings
 
 **Fecha:** 05/10/2026 · **Estado:** recomendación **propuesta**, pendiente de aprobación del equipo y de la prueba con
-material real · **Código del experimento:** [`spikes/sp-001-embeddings/`](../../spikes/sp-001-embeddings/)
+material real · **Código del experimento:** [`docs/spikes/sp-001-embedding-benchmark/`](sp-001-embedding-benchmark/)
 
-> Identificadores según el backlog vigente en Notion. En el backlog v3.0 de `documentos/` esta investigación
+> Identificadores según el backlog vigente en Notion. En el backlog v3.0 de `docs/project-management/` esta investigación
 > corresponde a SP-002 («modelo de embeddings y motor vectorial»), cuyo alcance incluye también comparar motores
 > vectoriales; este spike cubre solo los modelos.
 
@@ -68,7 +68,7 @@ USD 0,20 / 1M tokens, capa gratuita); se añadió a la comparación (`gemini-2`)
 
 ## 5. Resultados
 
-Medición del 05/10/2026 (`spikes/sp-001-embeddings/resultados/`).
+Medición del 05/10/2026 (`docs/spikes/sp-001-embedding-benchmark/results/`).
 
 | Modelo | Dim. | R@1 | R@3 | R@5 | MRR | MRR (filtro unidad) | ms/fragmento (~48 tokens) | ms/fragmento (~400 tokens) | ms/consulta (prom.) | ms/consulta (p95) | USD / 1.000 fragmentos |
 |---|---|---|---|---|---|---|---|---|---|---|---|

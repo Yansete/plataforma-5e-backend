@@ -1,5 +1,5 @@
 /**
- * Modelos de datos del frontend. Coinciden con las respuestas del backend (docs/openapi.json).
+ * Modelos de datos del frontend. Coinciden con las respuestas del backend (docs/api/openapi.json).
  */
 
 /** Etapas del modelo instruccional (Bybee et al., 2006). En pantalla se muestran como momentos de la clase. */

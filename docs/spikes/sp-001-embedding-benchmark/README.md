@@ -1,18 +1,18 @@
 # SP-001 · Benchmark de modelos de embeddings
 
 Experimento aislado (no es código de producción). Resultados y recomendación en
-[`docs/spikes/SP-001-modelos-embeddings.md`](../../docs/spikes/SP-001-modelos-embeddings.md).
+[`docs/spikes/SP-001-embedding-models.md`](../SP-001-embedding-models.md).
 
 ## Archivos
 
 - `dataset.json`: 18 fragmentos en español (12 de la demo del frontend + 6 distractores nuevos) y 16 consultas con su fragmento relevante.
 - `benchmark.py`: mide recall@1/3/5, MRR (sin filtro y con filtro por unidad), latencia y costo estimado.
-- `resultados/`: un JSON por modelo y `tabla.md` con el resumen.
+- `results/`: un JSON por modelo y `summary-table.md` con el resumen.
 
 ## Ejecutar (macOS / Linux, Python ≥ 3.9)
 
 ```bash
-cd spikes/sp-001-embeddings
+cd docs/spikes/sp-001-embedding-benchmark
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
@@ -32,7 +32,7 @@ export GEMINI_API_KEY="..."   # https://aistudio.google.com/apikey (tiene capa g
 ```
 
 Cada ejecución completa consume unos 2.000 tokens por modelo (menos de USD 0,001).
-Los modelos sin clave se omiten. Al terminar se regenera `resultados/tabla.md` con todos los JSON existentes;
+Los modelos sin clave se omiten. Al terminar se regenera `results/summary-table.md` con todos los JSON existentes;
 para regenerarla sin ejecutar nada: `.venv/bin/python benchmark.py --tabla`.
 
 ## Notas

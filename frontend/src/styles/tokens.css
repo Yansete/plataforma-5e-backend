@@ -1,7 +1,7 @@
 /*
  * Tokens del sistema de diseño (Sistema_de_Diseno_UI v1.0, HU-001).
  * Único archivo de variables compartido por todo el frontend.
- * Los valores marcados «PROPUESTA» no están en el documento: ver docs/decisiones-tecnicas.md.
+ * Los valores marcados «PROPUESTA» no están en el documento: ver docs/decisions/technical-decisions.md.
  */
 :root {
   /* 2.1 Colores base */

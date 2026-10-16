@@ -1,6 +1,6 @@
 -- Verificación de EN-011 (C01: extensión instalada y probada; C02: el índice responde consultas de prueba).
 -- Se ejecuta dentro de una transacción que termina en ROLLBACK: no deja datos en la base.
--- Uso recomendado: ./db/verificacion/verificar.sh, que lo ejecuta en una base temporal recién migrada.
+-- Uso recomendado: ./database/verification/verify.sh, que lo ejecuta en una base temporal recién migrada.
 -- (Ejecutarlo muchas veces sobre la misma base acumula entradas muertas en el índice HNSW, y el planificador
 -- puede dejar de elegirlo hasta un REINDEX.) Cualquier comprobación fallida detiene el script con un error.
 

@@ -44,3 +44,5 @@ backend/htmlcov/
 
 # Salida incremental de TypeScript (se regenera con cada build)
 *.tsbuildinfo
+backend/reports/
+backend/evaluation/.venv/

@@ -41,7 +41,7 @@ Capturas, informes y evidencias van a Notion; `test-results/` queda fuera del re
 
 ## Abrir un pull request
 
-Ejecutar las verificaciones de [arquitectura.md](arquitectura.md) y revisar el diff antes de publicar.
+Ejecutar las verificaciones de [overview.md](architecture/overview.md) y revisar el diff antes de publicar.
 El push y la apertura del PR los realiza la autora después de revisar los resultados:
 
 ```bash

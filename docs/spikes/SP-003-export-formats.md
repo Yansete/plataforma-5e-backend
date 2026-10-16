@@ -19,5 +19,5 @@ comprueban estructura y fidelidad del Moodle XML, y la estructura ZIP del paquet
 La importación en instancias reales y sus versiones de Moodle y Chamilo permanece pendiente en TA-006;
 esta decisión de formato no acredita esa validación.
 
-Fuentes internas: `frontend/src/data/catalog.ts` y [arquitectura y estado del proyecto](../arquitectura.md),
+Fuentes internas: `frontend/src/data/catalog.ts` y [arquitectura y estado del proyecto](../architecture/overview.md),
 que reúne el antiguo registro de estado. No se añaden funciones de exportación en esta limpieza.
