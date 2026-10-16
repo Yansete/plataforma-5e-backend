@@ -22,6 +22,7 @@ import {
   highlight,
 } from '../../services/revision';
 import type { DiscardReason, Evidence, ItemOption, Resource, ReviewStatus, Unit } from '../../types';
+import { plural } from '../../utils/format';
 import type { UnitTabProps } from './UnidadPage';
 
 const FILTERS: { status: ReviewStatus; label: string }[] = [
@@ -191,7 +192,7 @@ function ResourceReview({ resource, unit, onSaved, onRemoved, onRegenerated }: R
         <div className="cluster">
           <span className="tag tag--outline">{[typeInfo(resource.type).singular, outcome?.code].filter(Boolean).join(' · ')}</span>
           {resource.generatorKind && <span className="tag">{resource.generatorKind === 'ia' ? 'Redactado con IA' : 'Generador de respaldo'}</span>}
-          <span className="tag">{resource.evidence.length > 0 ? 'Con fuentes' : 'Sin fuentes guardadas'}</span>
+          <span className="tag">Cita {plural(resource.evidence.length, 'fragmento', 'fragmentos')}</span>
           {resource.edited && <span className="tag">Editado</span>}
           {resource.status === 'aprobado' && <span className="tag tag--approved">Aprobado</span>}
           {resource.status === 'descartado' && <span className="tag tag--discarded">Descartado · {discardReasonLabel(resource.discardReason)}</span>}

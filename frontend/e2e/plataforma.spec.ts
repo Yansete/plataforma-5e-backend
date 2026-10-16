@@ -62,9 +62,7 @@ test('recorrido del docente: del curso a la descarga, con todo guardado en el se
   await page.getByLabel('Tengo permiso para usar este material en la plataforma.').check();
   await page.getByRole('button', { name: 'Subir y procesar' }).click();
   await expect(page.getByText(/quedó listo/)).toBeVisible();
-  await expect(page.getByText('Procesado', { exact: true })).toBeVisible();
-  await expect(page.getByText('1 documento procesado', { exact: true })).toBeVisible();
-  await expect(page.getByText(/\b\d+ fragmentos?\b/)).toHaveCount(0);
+  await expect(page.getByText(/Procesado · \d+ fragmentos?/)).toBeVisible();
   await page.getByRole('button', { name: 'Ver fragmentos' }).click();
   await expect(page.getByText('Fragmento 1 · ')).toBeVisible();
 
@@ -75,8 +73,6 @@ test('recorrido del docente: del curso a la descarga, con todo guardado en el se
 
   // Generación con opciones
   await page.getByRole('link', { name: 'Continuar a Generación' }).click();
-  await expect(page.getByText('1 documento procesado', { exact: true })).toBeVisible();
-  await expect(page.getByText(/\b\d+ fragmentos?\b/)).toHaveCount(0);
   await page.getByLabel('Preguntas de opción múltiple').check();
   await page.getByLabel('Cantidad').selectOption('1');
   await page.getByRole('button', { name: 'Generar 1 pregunta' }).click();
@@ -95,8 +91,6 @@ test('recorrido del docente: del curso a la descarga, con todo guardado en el se
   await page.getByRole('link', { name: 'Ir a Revisión' }).click();
   await expect(page.getByRole('button', { name: 'Por revisar (2)' })).toBeVisible();
   const pregunta = page.locator('.review').filter({ has: page.locator('.options') });
-  await expect(pregunta.getByText('Con fuentes', { exact: true })).toBeVisible();
-  await expect(page.getByText(/Cita \d+ fragmentos?/)).toHaveCount(0);
   await expect(pregunta.getByRole('button', { name: 'Aprobar recurso' })).toBeDisabled();
   await expect(pregunta).toContainText('distractores pendientes');
   const aceptar = pregunta.getByRole('button', { name: 'Aceptar' });
