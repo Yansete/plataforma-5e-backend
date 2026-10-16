@@ -38,10 +38,10 @@ backend/tests/
 └── data/                    Archivos de referencia (muestra_moodle_verificada.xml)
 
 frontend/
-├── src/services/*.test.ts   Pruebas unitarias (vitest), junto al código que prueban
+├── src/features/**/{api,model}/*.test.ts y src/shared/**/*.test.ts   Pruebas unitarias (vitest), junto al código que prueban
 ├── src/test/fixtures.ts     Datos de prueba y respuestas simuladas del servidor
-└── e2e/plataforma.spec.ts   Punta a punta en el navegador (Playwright + Chromium) con el backend real:
-                             inicio de sesión, recorrido completo del docente y menú en el celular
+└── e2e/platform.spec.ts   Punta a punta en el navegador (Playwright + Chromium) con el backend real:
+                             inicio de sesión, recorrido completo del docente, menú en el celular y regreso a ruta protegida
 ```
 
 | Tipo | Qué comprueba | Dónde | Comando |
@@ -51,7 +51,7 @@ frontend/
 | Integración | Los adaptadores de persistencia con una base real | `backend/tests/integration` | `pytest tests/integration` |
 | Punta a punta (backend) | Historias completas contra el servidor real y fidelidad del XML exportado (I19) | `backend/tests/e2e` | `pytest tests/e2e` |
 | Punta a punta (sistema completo) | El recorrido del docente en el navegador contra el backend real, de crear la cuenta a la descarga | `frontend/e2e` | `npm run test:e2e` |
-| Cobertura (caja blanca) | Qué parte del código ejecutan las pruebas; falla si baja del umbral | La CI y `frontend/coverage/` | `npm run test:cobertura` · `pytest --cov` |
+| Cobertura (caja blanca) | Qué parte del código ejecutan las pruebas; falla si baja del umbral | La CI y `frontend/coverage/` | `npm run test:coverage` · `pytest --cov` |
 | Prueba manual con IA real | Que el proveedor configurado responda en el sistema publicado | Sistema desplegado | Ver «Prueba manual después del despliegue» |
 | Caja negra, carga, concurrencia y disponibilidad | Sistema desplegado y bajo carga | Sprint 2 (TA-005) | — |
 
@@ -105,10 +105,10 @@ python -m tests.e2e.validador_moodle_xml salida_demo/archivo.xml
 La cobertura mide qué líneas, funciones y ramas del código ejecutan las pruebas. Es la prueba de caja blanca:
 mira el código por dentro y señala lo que ninguna prueba recorre.
 
-| Parte | Qué se mide | Umbral mínimo | Medido el 10/10/2026 |
+| Parte | Qué se mide | Umbral mínimo | Última medición documentada |
 |---|---|---|---|
-| Backend | `plataforma5e/domain` y `plataforma5e/application` (reglas y servicios) | 80 % | 98,9 % |
-| Frontend | `src/services`, `src/utils` | 80 % en líneas, sentencias y funciones; 70 % en ramas | 99,7 % en líneas, 100 % en funciones, 94,6 % en ramas |
+| Backend | `plataforma5e/domain` y `plataforma5e/application` (reglas y servicios) | 80 % | 98,9 % (10/10/2026) |
+| Frontend | `src/features/**/api`, `src/features/**/model`, `src/shared/api`, `src/shared/lib` | 80 % en líneas, sentencias y funciones; 70 % en ramas | 98,56 % en líneas, 100 % en funciones, 94,71 % en ramas (15/10/2026; tarea 7, entrega de estructura y rutas) |
 
 Si un cambio hace bajar la cobertura del umbral, la CI marca el commit en rojo. Dónde ver el detalle:
 
@@ -118,7 +118,7 @@ Si un cambio hace bajar la cobertura del umbral, la CI marca el commit en rojo. 
 
 ```bash
 # Frontend (desde frontend/)
-npm run test:cobertura            # luego abre coverage/index.html
+npm run test:coverage            # luego abre coverage/index.html
 
 # Backend (desde backend/)
 python -m pytest tests/unit tests/arquitectura tests/integration --cov=plataforma5e.domain --cov=plataforma5e.application --cov-report=term-missing

@@ -1,0 +1,15 @@
+/** Historial de descargas guardado en el servidor. */
+import { apiFetch } from '@/shared/api/httpClient';
+import type { BuiltFile } from '@/features/export/model/buildFile';
+import type { Download, DownloadFormat } from '@/shared/types/domain';
+
+/* ——— Historial en el servidor ——— */
+
+const base = (unitId: string) => `/api/v1/unidades/${encodeURIComponent(unitId)}/descargas`;
+
+export const listDownloads = (unitId: string) => apiFetch<Download[]>(base(unitId));
+
+export const registerDownload = (unitId: string, file: Pick<BuiltFile, 'fileName' | 'resourceCount'>, format: DownloadFormat) =>
+  apiFetch<Download>(base(unitId), { method: 'POST', json: { format, fileName: file.fileName, resourceCount: file.resourceCount } });
+
+export const clearDownloads = (unitId: string) => apiFetch<void>(base(unitId), { method: 'DELETE' });

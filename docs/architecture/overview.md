@@ -98,8 +98,8 @@ Desde `backend/`, `python scripts/export_contracts.py` regenera sus JSON Schema 
 
 ## Frontend y puntos de integración
 
-Rutas: `/entrar`, `/crear-cuenta`, `/` (Mis cursos), `/cursos/nuevo`, `/cursos/:id`, `/cursos/:id/editar` y
-`/cursos/:id/unidades/:unidad/:pestaña` (`material`, `generacion`, `revision`, `exportacion`). Sin sesión, las rutas
+Rutas: `/login`, `/register`, `/courses` (Mis cursos), `/courses/new`, `/courses/:id`, `/courses/:id/edit` y
+`/courses/:id/units/:unitId/:tab` (`materials`, `generation`, `review`, `export`). Sin sesión, las rutas
 internas llevan a «Inicio de sesión» y luego regresan a donde estaba el docente.
 
 | Parte | Qué hace |
@@ -112,7 +112,7 @@ internas llevan a «Inicio de sesión» y luego regresan a donde estaba el docen
 | `state/datos.tsx` | Sesión (`useSession`) y datos compartidos: cursos, documentos y resumen de recursos |
 | `pages/unidad/*` | Las cuatro pestañas de la unidad; los recursos se cargan una vez y las pestañas los comparten |
 
-La sesión se guarda en `localStorage` (`plataforma-docente.sesion`); los datos del docente viven en el servidor.
+La sesión se guarda en `localStorage` (`platform5e.session` (migra la clave anterior `plataforma-docente.sesion`)); los datos del docente viven en el servidor.
 Una edición no aprueba un recurso: solo la acción «Aprobar recurso» lo vuelve descargable.
 
 ## Diseño y convenciones
@@ -198,3 +198,20 @@ Faltan validación con docentes, lectores de pantalla y pruebas amplias de rendi
 
 Las verificaciones históricas de interfaz, contraste y base vectorial se conservan como antecedentes en Notion;
 no se presentan como nuevas mediciones del Sprint ni como aprobación académica.
+
+
+### Organización del frontend por funcionalidad
+
+`frontend/src/app/` reúne los proveedores, las rutas y la protección de sesión.
+`shared/` contiene el cliente HTTP, la sesión, los componentes, los hooks y los tipos compartidos.
+`features/` agrupa `auth`, `courses`, `units`, `materials`, `generation`, `review` y `export`;
+cada funcionalidad separa `api/`, `model/` y sus páginas o componentes según corresponda.
+El alias `@/` apunta a `src/`. Los textos visibles permanecen en español.
+
+Esta primera entrega de la tarea 7 cambia la estructura y las rutas del navegador. Conserva
+los endpoints y valores JSON actuales para seguir funcionando con el backend de `main`.
+Quedan pendientes de la integración con Sergio: los contratos REST en inglés, los motivos
+de bloqueo de aprobación enviados por la API y la descarga de archivos generados por el
+backend. Mientras tanto, `review/model/reviewRules.ts` conserva las validaciones actuales y
+`export/model/fileBuilders.ts` y `unitDocument.ts` conservan los generadores existentes.
+Estos pendientes impiden considerar terminada toda la reestructuración del plan.
