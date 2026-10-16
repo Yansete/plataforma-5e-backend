@@ -57,11 +57,13 @@ class ExportUnitResourcesUseCase:
         approved = [
             resource
             for resource in self._review_repository.get_resources_by_unit(teacher_id, unit_id)
-            if resource.get("status") in APPROVED_STATUSES and (not wanted or resource["id"] in wanted)
+            if resource.get("status") in APPROVED_STATUSES
+            and (not wanted or resource["id"] in wanted)
+            and exporter.supports(resource)
         ]
         if not approved:
             raise AccountConfigurationError(
-                "SIN_RECURSOS_APROBADOS", "Elige al menos un recurso aprobado.", 422
+                "SIN_RECURSOS_APROBADOS", "Elige al menos un recurso aprobado que admita este formato.", 422
             )
 
         exported = exporter.export(approved, course, unit)

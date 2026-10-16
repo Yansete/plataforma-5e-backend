@@ -1,11 +1,11 @@
 """Validador del Moodle XML que exporta la plataforma (TA-007, indicadores I17 e I19).
 
 Las reglas salen de la muestra que se importó con éxito en Moodle durante SP-003
-(tests/data/muestra_moodle_verificada.xml): si lo exportado tiene la misma estructura y
+(tests/fixtures/verified_moodle_sample.xml): si lo exportado tiene la misma estructura y
 cumple las reglas de un ítem de opción múltiple, Moodle lo importa sin pérdidas.
 
 Uso desde la terminal:
-    python -m tests.support.moodle_xml_validator salida_demo/archivo.xml
+    python -m tests.support.moodle_xml_validator archivo.xml
 """
 
 from __future__ import annotations
@@ -17,155 +17,131 @@ import re
 import sys
 from xml.etree import ElementTree as ET
 
-# Búsqueda dinámica de la muestra para compatibilidad sin importar la ruta de ejecución
-_POSIBLES_RUTAS = [
-    Path(__file__).resolve().parents[1] / "fixtures" / "verified_moodle_sample.xml",
-    Path(__file__).resolve().parents[2] / "fixtures" / "verified_moodle_sample.xml",
-    Path(__file__).resolve().parents[1] / "data" / "muestra_moodle_verificada.xml",
-    Path(__file__).resolve().parents[2] / "data" / "muestra_moodle_verificada.xml",
-]
-
-MUESTRA_VERIFICADA = next((p for p in _POSIBLES_RUTAS if p.is_file()), _POSIBLES_RUTAS[0])
-
-TIPOS_ADMITIDOS = {"category", "multichoice"}
-MIN_ALTERNATIVAS, MAX_ALTERNATIVAS = 3, 5
+VERIFIED_SAMPLE = Path(__file__).resolve().parents[1] / "fixtures" / "verified_moodle_sample.xml"
+ALLOWED_TYPES = {"category", "multichoice"}
+MIN_OPTIONS, MAX_OPTIONS = 3, 5
 
 
 @dataclass(frozen=True)
-class PreguntaExportada:
+class ExportedQuestion:
     """Lo que el docente verá en Moodle, sin etiquetas HTML."""
 
-    nombre: str
-    enunciado: str
-    retroalimentacion_general: str
-    alternativas: list[tuple[str, str, str]]  # (texto, fracción, retroalimentación)
+    name: str
+    prompt: str
+    general_feedback: str
+    options: list[tuple[str, str, str]]  # (texto, fracción, retroalimentación)
 
 
-def texto_plano(valor: str | None) -> str:
-    sin_etiquetas = re.sub(r"<[^>]+>", " ", valor or "")
-    return re.sub(r"\s+", " ", html.unescape(sin_etiquetas)).strip()
+def plain_text(value: str | None) -> str:
+    without_tags = re.sub(r"<[^>]+>", " ", value or "")
+    return re.sub(r"\s+", " ", html.unescape(without_tags)).strip()
 
 
-def _etiquetas_hijas(pregunta: ET.Element) -> set[str]:
-    return {hijo.tag for hijo in pregunta}
+def _child_tags(question: ET.Element) -> set[str]:
+    return {child.tag for child in question}
 
 
-def etiquetas_de_referencia() -> set[str]:
+def reference_tags() -> set[str]:
     """Etiquetas de un ítem de opción múltiple en la muestra que Moodle importó bien."""
-    if not MUESTRA_VERIFICADA.is_file():
-        raise FileNotFoundError(
-            f"No se encontró el archivo de referencia en: {MUESTRA_VERIFICADA}"
-        )
-    raiz = ET.parse(MUESTRA_VERIFICADA).getroot()
-    pregunta = raiz.find("question[@type='multichoice']")
-    assert pregunta is not None, "la muestra verificada no tiene ítems de opción múltiple"
-    return _etiquetas_hijas(pregunta)
+    root = ET.parse(VERIFIED_SAMPLE).getroot()
+    question = root.find("question[@type='multichoice']")
+    assert question is not None, "la muestra verificada no tiene ítems de opción múltiple"
+    return _child_tags(question)
 
 
-def validar(contenido: bytes | str) -> list[str]:
+def validate(content: bytes | str) -> list[str]:
     """Devuelve la lista de problemas encontrados. Lista vacía = el archivo es importable."""
-    errores: list[str] = []
+    problems: list[str] = []
     try:
-        raiz = ET.fromstring(contenido)
+        root = ET.fromstring(content)
     except ET.ParseError as error:
         return [f"El XML no está bien formado: {error}"]
 
-    if raiz.tag != "quiz":
-        return [f"La raíz debe ser <quiz> y es <{raiz.tag}>."]
+    if root.tag != "quiz":
+        return [f"La raíz debe ser <quiz> y es <{root.tag}>."]
 
-    preguntas = raiz.findall("question")
-    items = [p for p in preguntas if p.get("type") == "multichoice"]
-    if not items:
-        errores.append("No hay ninguna pregunta de opción múltiple.")
+    questions = root.findall("question")
+    if not [q for q in questions if q.get("type") == "multichoice"]:
+        problems.append("No hay ninguna pregunta de opción múltiple.")
 
-    referencia = etiquetas_de_referencia()
-    for posicion, pregunta in enumerate(preguntas, start=1):
-        tipo = pregunta.get("type")
-        donde = f"Pregunta {posicion}"
-        if tipo not in TIPOS_ADMITIDOS:
-            errores.append(
-                f"{donde}: tipo «{tipo}» no verificado en Moodle (se admiten {sorted(TIPOS_ADMITIDOS)})."
-            )
+    reference = reference_tags()
+    for position, question in enumerate(questions, start=1):
+        kind = question.get("type")
+        where = f"Pregunta {position}"
+        if kind not in ALLOWED_TYPES:
+            problems.append(f"{where}: tipo «{kind}» no verificado en Moodle (se admiten {sorted(ALLOWED_TYPES)}).")
             continue
-        if tipo == "category":
-            if not (pregunta.findtext("category/text") or "").strip():
-                errores.append(f"{donde}: la categoría no tiene nombre.")
+        if kind == "category":
+            if not (question.findtext("category/text") or "").strip():
+                problems.append(f"{where}: la categoría no tiene nombre.")
             continue
 
-        nombre = (pregunta.findtext("name/text") or "").strip()
-        donde = f"{donde} «{nombre or 'sin nombre'}»"
-        if not nombre:
-            errores.append(f"{donde}: falta el nombre.")
+        name = (question.findtext("name/text") or "").strip()
+        where = f"{where} «{name or 'sin nombre'}»"
+        if not name:
+            problems.append(f"{where}: falta el nombre.")
 
-        faltan = referencia - _etiquetas_hijas(pregunta)
-        if faltan:
-            errores.append(f"{donde}: faltan etiquetas que tenía la muestra verificada: {sorted(faltan)}.")
+        missing = reference - _child_tags(question)
+        if missing:
+            problems.append(f"{where}: faltan etiquetas que tenía la muestra verificada: {sorted(missing)}.")
 
-        enunciado = pregunta.find("questiontext")
-        if (
-            enunciado is None
-            or enunciado.get("format") != "html"
-            or not texto_plano(enunciado.findtext("text"))
-        ):
-            errores.append(f"{donde}: el enunciado debe existir, tener texto y formato html.")
+        prompt = question.find("questiontext")
+        if prompt is None or prompt.get("format") != "html" or not plain_text(prompt.findtext("text")):
+            problems.append(f"{where}: el enunciado debe existir, tener texto y formato html.")
 
-        if (pregunta.findtext("single") or "").strip() != "true":
-            errores.append(f"{donde}: <single> debe ser true (una sola respuesta correcta).")
+        if (question.findtext("single") or "").strip() != "true":
+            problems.append(f"{where}: <single> debe ser true (una sola respuesta correcta).")
 
-        respuestas = pregunta.findall("answer")
-        if not MIN_ALTERNATIVAS <= len(respuestas) <= MAX_ALTERNATIVAS:
-            errores.append(
-                f"{donde}: tiene {len(respuestas)} alternativas; deben ser entre {MIN_ALTERNATIVAS} y {MAX_ALTERNATIVAS}."
+        answers = question.findall("answer")
+        if not MIN_OPTIONS <= len(answers) <= MAX_OPTIONS:
+            problems.append(
+                f"{where}: tiene {len(answers)} alternativas; deben ser entre {MIN_OPTIONS} y {MAX_OPTIONS}."
             )
 
-        fracciones = [r.get("fraction") for r in respuestas]
-        if fracciones.count("100") != 1:
-            errores.append(
-                f"{donde}: debe haber exactamente una alternativa con fraction=\"100\" y hay {fracciones.count('100')}."
+        fractions = [a.get("fraction") for a in answers]
+        if fractions.count("100") != 1:
+            problems.append(
+                f"{where}: debe haber exactamente una alternativa con fraction=\"100\" y hay {fractions.count('100')}."
             )
-        otras = [f for f in fracciones if f != "100"]
-        if any(f != "0" for f in otras):
-            errores.append(f"{donde}: las alternativas incorrectas deben tener fraction=\"0\" y hay {otras}.")
+        others = [f for f in fractions if f != "100"]
+        if any(f != "0" for f in others):
+            problems.append(f"{where}: las alternativas incorrectas deben tener fraction=\"0\" y hay {others}.")
 
-        textos = [texto_plano(r.findtext("text")) for r in respuestas]
-        if any(not t for t in textos):
-            errores.append(f"{donde}: hay alternativas sin texto.")
-        if len(set(textos)) != len(textos):
-            errores.append(f"{donde}: hay alternativas repetidas.")
-        for letra, respuesta in zip("ABCDE", respuestas):
-            if not texto_plano(respuesta.findtext("feedback/text")):
-                errores.append(f"{donde}: la alternativa {letra} no tiene retroalimentación (I19).")
-    return errores
+        texts = [plain_text(a.findtext("text")) for a in answers]
+        if any(not t for t in texts):
+            problems.append(f"{where}: hay alternativas sin texto.")
+        if len(set(texts)) != len(texts):
+            problems.append(f"{where}: hay alternativas repetidas.")
+        for letter, answer in zip("ABCDE", answers):
+            if not plain_text(answer.findtext("feedback/text")):
+                problems.append(f"{where}: la alternativa {letter} no tiene retroalimentación (I19).")
+    return problems
 
 
-def leer_preguntas(contenido: bytes | str) -> list[PreguntaExportada]:
+def read_questions(content: bytes | str) -> list[ExportedQuestion]:
     """Extrae el contenido de cada ítem tal como lo mostrará Moodle."""
-    raiz = ET.fromstring(contenido)
+    root = ET.fromstring(content)
     return [
-        PreguntaExportada(
-            nombre=(p.findtext("name/text") or "").strip(),
-            enunciado=texto_plano(p.findtext("questiontext/text")),
-            retroalimentacion_general=texto_plano(p.findtext("generalfeedback/text")),
-            alternativas=[
-                (
-                    texto_plano(r.findtext("text")),
-                    r.get("fraction") or "",
-                    texto_plano(r.findtext("feedback/text")),
-                )
-                for r in p.findall("answer")
+        ExportedQuestion(
+            name=(q.findtext("name/text") or "").strip(),
+            prompt=plain_text(q.findtext("questiontext/text")),
+            general_feedback=plain_text(q.findtext("generalfeedback/text")),
+            options=[
+                (plain_text(a.findtext("text")), a.get("fraction") or "", plain_text(a.findtext("feedback/text")))
+                for a in q.findall("answer")
             ],
         )
-        for p in raiz.findall("question[@type='multichoice']")
+        for q in root.findall("question[@type='multichoice']")
     ]
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         sys.exit("Uso: python -m tests.support.moodle_xml_validator <archivo.xml>")
-    problemas = validar(Path(sys.argv[1]).read_bytes())
-    if problemas:
+    found = validate(Path(sys.argv[1]).read_bytes())
+    if found:
         print("NO importable:")
-        for problema in problemas:
-            print(" -", problema)
+        for problem in found:
+            print(" -", problem)
         sys.exit(1)
     print("OK: el archivo cumple la estructura verificada en Moodle.")

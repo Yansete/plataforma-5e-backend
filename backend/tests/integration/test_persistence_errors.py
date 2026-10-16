@@ -22,13 +22,13 @@ from platform5e.infrastructure.persistence.repositories.sqlalchemy_account_repos
 )
 
 
-def test_repositorio_configuracion_recibe_el_catalogo_por_constructor():
+def test_account_repository_receives_the_catalog_in_its_constructor():
     class MockCatalogProvider:
         def get_demo_catalog(self) -> dict[str, Any]:
             return {"units": [{"id": "unidad-inyectada", "title": "Prueba"}]}
 
         # Alias en español por compatibilidad de interfaz
-        def catalogo_demo(self) -> dict[str, Any]:
+        def demo_catalog(self) -> dict[str, Any]:
             return self.get_demo_catalog()
 
     repo = SQLAlchemyAccountRepository(MockCatalogProvider())
@@ -44,7 +44,7 @@ def test_repositorio_configuracion_recibe_el_catalogo_por_constructor():
         (IntegrityError("SQL interno", {}, Exception()), DuplicateRecordError),
     ],
 )
-def test_error_sql_no_atraviesa_el_puerto(monkeypatch, sql_error, expected_domain_error):
+def test_sql_error_does_not_cross_the_port(monkeypatch, sql_error, expected_domain_error):
     repo = generation_repo_module.SQLAlchemyGenerationRepository()
 
     def raise_db_error():
@@ -57,7 +57,7 @@ def test_error_sql_no_atraviesa_el_puerto(monkeypatch, sql_error, expected_domai
         repo.save({"request": {"id": "sol-prueba"}})
 
 
-def test_generacion_con_bd_caida_conserva_respuesta_503(monkeypatch):
+def test_generation_with_database_down_keeps_503_response(monkeypatch):
     repo = generation_repo_module.SQLAlchemyGenerationRepository()
 
     def raise_db_error():

@@ -25,13 +25,16 @@ class TopicSearchInput(BaseModel):
         description="Identificador de la unidad temática que recibirá el material generado.",
         examples=["u2"],
     )
-    tema: str = Field(
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    topic: str = Field(
+        alias="tema",
         min_length=3,
         max_length=120,
         description="Tópico o concepto a consultar en fuentes académicas abiertas (ej. Wikipedia).",
         examples=["Arquitectura Hexagonal en Software"],
     )
-    maximo: int = Field(
+    max_results: int = Field(
+        alias="maximo",
         default=3,
         ge=1,
         le=5,
@@ -72,7 +75,7 @@ def create_materials_router(
         teacher_email: str = Depends(get_current_teacher),
     ) -> list[dict[str, Any]]:
         return material_service.create_from_topic(
-            teacher_email, request.unitId, request.tema, request.maximo
+            teacher_email, request.unitId, request.topic, request.max_results
         )
 
     @router.post(

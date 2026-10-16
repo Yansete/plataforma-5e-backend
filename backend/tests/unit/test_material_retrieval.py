@@ -17,7 +17,7 @@ from platform5e.domain.materials.text_analysis import (
     retrieve_relevant_chunks,
     score_bm25,
     stem_word,
-    tokenize_and_stem,
+    extract_terms,
 )
 
 SAMPLE_TEXT = (
@@ -28,12 +28,12 @@ SAMPLE_TEXT = (
 )
 
 
-def test_limpiar_une_palabras_cortadas_y_espacios():
+def test_clean_text_joins_split_words_and_spaces():
     assert clean_text("comuni-\ncación   de datos\r\n\n\n\nfin") == "comunicación de datos\n\nfin"
     assert clean_text(None) == ""
 
 
-def test_parrafos_separa_titulos_cortos_de_un_pdf():
+def test_paragraphs_split_short_pdf_headings():
     pdf_sample = (
         "Unidad 2: Protocolos\nEl protocolo TCP es orientado a la conexión y garantiza una entrega con\nfiabilidad en la red."
     )
@@ -42,20 +42,20 @@ def test_parrafos_separa_titulos_cortos_de_un_pdf():
     assert extracted[1].startswith("El protocolo TCP")
 
 
-def test_oraciones_respeta_titulos_y_puntos():
+def test_sentences_respect_headings_and_periods():
     sentences_list = extract_sentences(SAMPLE_TEXT)
     assert sentences_list[0] == "Unidad 2: Protocolos de red"
     assert sentences_list[1].startswith("El protocolo TCP") and sentences_list[2].startswith("El protocolo UDP")
 
 
-def test_fragmentar_conserva_ubicacion_orden_y_parrafos():
+def test_chunking_keeps_location_order_and_paragraphs():
     chunks = chunk_pages([("p. 1", SAMPLE_TEXT), ("p. 2", "   "), ("p. 3", "Solo un título")])
     assert [c.get("location") or c.get("ubicacion") for c in chunks] == ["p. 1"]
     assert (chunks[0].get("order") if "order" in chunks[0] else chunks[0]["orden"]) == 0
     assert "\n\n" in (chunks[0].get("text") or chunks[0]["texto"])
 
 
-def test_fragmentar_parte_textos_largos_con_solape_corto():
+def test_chunking_splits_long_texts_with_short_overlap():
     sentence = "La capa de red mueve los paquetes entre redes distintas. "
     chunks = chunk_pages([("sección 1", sentence * 60)], target_words=50)
     assert len(chunks) > 5
@@ -63,35 +63,35 @@ def test_fragmentar_parte_textos_largos_con_solape_corto():
     assert (chunks[1].get("text") or chunks[1]["texto"]).startswith("La capa de red")
 
 
-def test_fragmentar_oracion_mas_larga_que_un_fragmento():
+def test_chunking_a_sentence_longer_than_a_chunk():
     long_sentence = " ".join(f"palabra{i}" for i in range(130)) + "."
     chunks = chunk_pages([("p. 1", long_sentence)], target_words=50)
     assert len(chunks) == 3
 
 
-def test_material_error_lleva_codigo_y_estado():
+def test_material_error_carries_code_and_status():
     error = MaterialError("X", "mensaje", 404)
     assert (error.code, error.message, error.status_code, str(error)) == ("X", "mensaje", 404, "mensaje")
 
 
-def test_terminos_normaliza_quita_vacias_y_reduce_a_raiz():
+def test_terms_normalize_drop_stopwords_and_stem():
     assert normalize_text("Información") == "informacion"
     assert stem_word("protocolos") == stem_word("protocolo")
-    assert tokenize_and_stem("Los protocolos de la red") == [stem_word("protocolos"), "red"]
+    assert extract_terms("Los protocolos de la red") == [stem_word("protocolos"), "red"]
 
 
-def test_bm25_premia_coincidencias_raras():
+def test_bm25_rewards_rare_matches():
     docs = [
-        tokenize_and_stem("el protocolo TCP confiable"),
-        tokenize_and_stem("el protocolo UDP rapido"),
-        tokenize_and_stem("el enrutador decide"),
+        extract_terms("el protocolo TCP confiable"),
+        extract_terms("el protocolo UDP rapido"),
+        extract_terms("el enrutador decide"),
     ]
-    scores = score_bm25(tokenize_and_stem("TCP confiable"), docs)
+    scores = score_bm25(extract_terms("TCP confiable"), docs)
     assert scores[0] > 0 and scores[1] == 0 and scores[2] == 0
     assert score_bm25(["x"], []) == []
 
 
-def test_recuperar_ordena_por_relevancia_y_tiene_respaldo():
+def test_retrieval_sorts_by_relevance_and_has_fallback():
     chunks = [
         {"id": "a", "texto": "El enrutador decide el camino"},
         {"id": "b", "texto": "TCP garantiza la entrega confiable de TCP"},
@@ -109,7 +109,7 @@ def test_recuperar_ordena_por_relevancia_y_tiene_respaldo():
     assert retrieve_relevant_chunks("TCP", chunks, 0) == []
 
 
-def test_terminos_clave_devuelve_formas_frecuentes():
+def test_key_terms_returns_frequent_forms():
     key_terms = extract_key_terms(
         ["El protocolo TCP y el protocolo UDP son protocolos de transporte."], 3
     )

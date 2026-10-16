@@ -1,41 +1,42 @@
 """
-Fábrica para instanciar el generador LLM principal y de respaldo según variables de entorno.
-
-IA_PROVEEDOR  gemini | anthropic | openai | reglas (por defecto: gemini si hay clave, si no reglas)
-IA_API_KEY    clave de API del proveedor
-IA_MODELO     opcional; por defecto gemini-2.5-flash, claude-sonnet-5-5 o gpt-5.4-mini
-IA_URL_BASE   opcional; para proxies o servicios compatibles con OpenAI
-IA_TIEMPO_MAX tiempo de espera en segundos por respuesta (por defecto 90)
+Fábrica del generador principal (modelo de lenguaje) y del de respaldo (por reglas), según las
+variables LLM_* descritas en platform5e.infrastructure.settings.
 """
 
 from __future__ import annotations
 
-import os
+from collections.abc import Mapping
 from typing import Any
 
 from platform5e.application.ports.outbound.language_model_port import ResourceGeneratorPort
 from platform5e.application.services.generation.rule_based_generator import RuleBasedGenerator
 from platform5e.infrastructure.llm.gemini_language_model import GeminiLanguageModel
+from platform5e.infrastructure.settings import read_setting
+
+RULES_PROVIDERS = {"rules", "reglas"}  # «reglas»: nombre anterior, se acepta mientras se actualizan los paneles
 
 
 def create_generators(
-    environment: dict[str, str] | None = None,
+    environment: Mapping[str, str] | None = None,
 ) -> tuple[ResourceGeneratorPort, ResourceGeneratorPort]:
     """Crea los generadores principal y de respaldo (fallback). Si no hay clave, usa reglas."""
-    env = os.environ if environment is None else environment
-    fallback_generator = RuleBasedGenerator()
-    api_key = (env.get("IA_API_KEY") or "").strip()
-    provider = (env.get("IA_PROVEEDOR") or ("gemini" if api_key else "reglas")).strip().lower()
 
-    if provider == "reglas" or not api_key:
+    def setting(name: str) -> str:
+        return read_setting(name, "", environment).strip()
+
+    fallback_generator = RuleBasedGenerator()
+    api_key = setting("LLM_API_KEY")
+    provider = (setting("LLM_PROVIDER") or ("gemini" if api_key else "rules")).lower()
+
+    if provider in RULES_PROVIDERS or not api_key:
         return fallback_generator, fallback_generator
 
     primary_generator = GeminiLanguageModel(
         provider=provider,
         api_key=api_key,
-        model=(env.get("IA_MODELO") or "").strip() or None,
-        base_url=(env.get("IA_URL_BASE") or "").strip() or None,
-        timeout=float(env.get("IA_TIEMPO_MAX") or 90.0),
+        model=setting("LLM_MODEL") or None,
+        base_url=setting("LLM_BASE_URL") or None,
+        timeout=float(setting("LLM_TIMEOUT_SECONDS") or 90.0),
     )
     return primary_generator, fallback_generator
 

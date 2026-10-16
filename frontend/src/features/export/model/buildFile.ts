@@ -1,5 +1,4 @@
-// Moodle XML y el documento de la unidad se arman en el navegador; el paquete SCORM lo arma el backend (exportUnit).
-import { buildMoodleXml } from '@/features/export/model/fileBuilders';
+// El documento de la unidad se arma en el navegador; los archivos para Moodle y Chamilo los arma el backend (exportUnit).
 import { buildUnitDocument } from '@/features/export/model/unitDocument';
 import { fileNameFor, formatInfo, resourcesFor } from '@/features/export/model/exportFormats';
 import type { Course, DownloadFormat, Resource, Unit } from '@/shared/types/domain';
@@ -15,9 +14,6 @@ export function buildFile(format: DownloadFormat, selected: Resource[], course: 
   const resources = resourcesFor(format, selected);
   const info = formatInfo(format);
   const fileName = fileNameFor(course, unit, format);
-  const label = `${course.code} · Unidad ${unit.number}`;
-  let data: string;
-  if (format === 'moodle_xml') data = buildMoodleXml(resources, label);
-  else data = buildUnitDocument(resources, course, unit, date);
+  const data = buildUnitDocument(resources, course, unit, date);
   return { fileName, mimeType: info.mimeType, data, resourceCount: resources.length };
 }

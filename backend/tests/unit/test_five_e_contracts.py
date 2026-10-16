@@ -56,7 +56,7 @@ def make_course_payload(**overrides) -> dict[str, Any]:
     }
 
 
-def test_crear_curso_guarda_sumilla_logro_y_resultados_con_codigo():
+def test_create_course_saves_summary_goal_and_coded_outcomes():
     service = AccountService(MockCoursesRepository(), "docente@5e.demo", "clave")
     created = service.save_course("d", make_course_payload())
     assert created["code"] == "RED-101" and created["sumilla"] == "Curso de redes." and created["logro"] == "Explica redes."
@@ -65,7 +65,7 @@ def test_crear_curso_guarda_sumilla_logro_y_resultados_con_codigo():
     assert all(r["id"].startswith("ra-") for r in outcomes)
 
 
-def test_editar_conserva_ids_de_resultados_y_datos_no_enviados():
+def test_edit_keeps_outcome_ids_and_unsent_data():
     repo = MockCoursesRepository()
     service = AccountService(repo, "docente@5e.demo", "clave")
     created = service.save_course("d", make_course_payload())
@@ -111,7 +111,7 @@ def test_editar_conserva_ids_de_resultados_y_datos_no_enviados():
     assert no_changes["units"][0]["outcomes"] == edited["units"][0]["outcomes"]
 
 
-def test_id_repetido_o_ajeno_crea_uno_nuevo():
+def test_repeated_or_foreign_id_creates_a_new_one():
     repo = MockCoursesRepository()
     service = AccountService(repo, "docente@5e.demo", "clave")
     created = service.save_course("d", make_course_payload())

@@ -23,6 +23,10 @@ class UnitExporterPort(Protocol):
 
     format: str
 
+    def supports(self, resource: Mapping) -> bool:
+        """Si el recurso entra en este formato (Moodle solo importa ítems de opción múltiple)."""
+        ...
+
     def export(self, resources: Sequence[Mapping], course: Mapping, unit: Mapping) -> ExportedFile:
         """Arma el archivo con los recursos ya aprobados, en el orden de la clase."""
         ...

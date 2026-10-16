@@ -95,6 +95,19 @@ def _capitalize_first(text: str) -> str:
     return text[:1].upper() + text[1:]
 
 
+
+# Tipo de recurso (valor guardado en la base) -> método que lo redacta.
+_BUILDERS_BY_TYPE: dict[str, str] = {
+    "item_opcion_multiple": "_multiple_choice_item",
+    "pregunta_detonante": "_trigger_question",
+    "sondeo_diagnostico": "_diagnostic_survey",
+    "guia_exploracion": "_exploration_guide",
+    "caso_indagacion": "_inquiry_case",
+    "explicacion": "_explanation",
+    "glosario": "_glossary",
+    "ejercicio_aplicacion": "_application_exercise",
+}
+
 class RuleBasedGenerator:
     """Generador determinista de recursos pedagógicos para respaldo ante caídas de red."""
 
@@ -127,7 +140,8 @@ class RuleBasedGenerator:
         key_terms = _extract_domain_terms(sentence_pairs, frequent_terms)
 
         request_info = context["solicitud"]
-        builder_method = getattr(self, f"_{request_info['tipo']}", None)
+        builder_name = _BUILDERS_BY_TYPE.get(request_info["tipo"])
+        builder_method = getattr(self, builder_name) if builder_name else None
         if builder_method is None:
             return {"recursos": []}
 
@@ -152,7 +166,7 @@ class RuleBasedGenerator:
         ]
         return matches[(index * 3) % len(matches)] if matches else None
 
-    def _item_opcion_multiple(
+    def _multiple_choice_item(
         self,
         index: int,
         sentence_pairs: list[tuple[str, str]],
@@ -224,7 +238,7 @@ class RuleBasedGenerator:
             }
         return None
 
-    def _pregunta_detonante(
+    def _trigger_question(
         self,
         index: int,
         sentence_pairs: list[tuple[str, str]],
@@ -246,7 +260,7 @@ class RuleBasedGenerator:
             "alternativas": [],
         }
 
-    def _sondeo_diagnostico(
+    def _diagnostic_survey(
         self,
         index: int,
         sentence_pairs: list[tuple[str, str]],
@@ -305,7 +319,7 @@ class RuleBasedGenerator:
             "alternativas": [],
         }
 
-    def _guia_exploracion(
+    def _exploration_guide(
         self,
         index: int,
         sentence_pairs: list[tuple[str, str]],
@@ -337,7 +351,7 @@ class RuleBasedGenerator:
             "alternativas": [],
         }
 
-    def _caso_indagacion(
+    def _inquiry_case(
         self,
         index: int,
         sentence_pairs: list[tuple[str, str]],
@@ -368,7 +382,7 @@ class RuleBasedGenerator:
             "alternativas": [],
         }
 
-    def _explicacion(
+    def _explanation(
         self,
         index: int,
         sentence_pairs: list[tuple[str, str]],
@@ -394,7 +408,7 @@ class RuleBasedGenerator:
             "alternativas": [],
         }
 
-    def _glosario(
+    def _glossary(
         self,
         index: int,
         sentence_pairs: list[tuple[str, str]],
@@ -439,7 +453,7 @@ class RuleBasedGenerator:
             "alternativas": [],
         }
 
-    def _ejercicio_aplicacion(
+    def _application_exercise(
         self,
         index: int,
         sentence_pairs: list[tuple[str, str]],

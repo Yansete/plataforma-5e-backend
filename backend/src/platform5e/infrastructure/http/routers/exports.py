@@ -18,7 +18,9 @@ class ExportRequest(BaseModel):
     """Formato pedido y, si se quiere, solo algunos recursos aprobados."""
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
-    format: Literal["scorm_zip"] = Field(description="Export format. `scorm_zip`: SCORM 1.2 package for Chamilo.")
+    format: Literal["scorm_zip", "moodle_xml"] = Field(
+        description="Export format. `scorm_zip`: SCORM 1.2 package for Chamilo. `moodle_xml`: Moodle question bank."
+    )
     resource_ids: list[str] = Field(
         default_factory=list,
         alias="resourceIds",
@@ -35,7 +37,9 @@ def create_exports_router(use_case: ExportUnitResourcesUseCase, account_service:
         "/{unit_id}/exports",
         summary="Export the approved resources of a unit",
         response_class=Response,
-        responses={200: {"content": {"application/zip": {}}, "description": "The file to download."}},
+        responses={
+            200: {"content": {"application/zip": {}, "application/xml": {}}, "description": "The file to download."}
+        },
     )
     def export_unit(
         unit_id: str,

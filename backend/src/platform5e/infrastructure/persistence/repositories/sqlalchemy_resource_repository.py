@@ -8,14 +8,7 @@ from typing import Any
 
 from sqlalchemy import delete, select
 
-from platform5e.application.ports.outbound.resource_repository_port import (
-    LearningResourceRepositoryPort,
-    ResourceReviewRepositoryPort,
-)
-from platform5e.domain.review.learning_resource import (
-    AlternativeDomain,
-    LearningResourceDomain,
-)
+from platform5e.application.ports.outbound.resource_repository_port import ResourceReviewRepositoryPort
 from platform5e.infrastructure.persistence.database import SessionLocal
 from platform5e.infrastructure.persistence.error_translation import translate_persistence_errors
 from platform5e.infrastructure.persistence.repositories.sqlalchemy_account_repository import (
@@ -24,8 +17,8 @@ from platform5e.infrastructure.persistence.repositories.sqlalchemy_account_repos
 )
 
 
-class SQLAlchemyResourceRepository(ResourceReviewRepositoryPort, LearningResourceRepositoryPort):
-    """Adaptador SQLAlchemy para revisión de recursos generados, descargas y persistencia individual."""
+class SQLAlchemyResourceRepository(ResourceReviewRepositoryPort):
+    """Adaptador SQLAlchemy para la revisión de los recursos generados y el historial de descargas."""
 
     @translate_persistence_errors
     def get_resources_by_unit(self, teacher_id: str, unit_id: str) -> list[dict[str, Any]]:
@@ -109,114 +102,3 @@ class SQLAlchemyResourceRepository(ResourceReviewRepositoryPort, LearningResourc
                 )
             )
             session.commit()
-
-    # -----------------------------------------------------------------------
-    # Métodos del contrato LearningResourceRepositoryPort (entidades individuales)
-    # -----------------------------------------------------------------------
-    @translate_persistence_errors
-    def save(self, resource: LearningResourceDomain) -> LearningResourceDomain:
-        """Guarda una entidad LearningResourceDomain serializándola en la tabla TeacherResourceORM."""
-        with SessionLocal() as session:
-            options_payload = [
-                {
-                    "letter": opt.letter,
-                    "text": opt.text,
-                    "is_correct": opt.is_correct,
-                    "justification": opt.justification,
-                    "review_status": opt.review_status,
-                    "citations": opt.citations,
-                    "source_chunks": opt.source_chunks,
-                }
-                for opt in resource.alternatives
-            ]
-            serialized_payload = {
-                "id": resource.id,
-                "title": resource.title,
-                "prompt": resource.prompt,
-                "feedback": resource.feedback,
-                "alternatives": options_payload,
-                "review_status": resource.review_status,
-                "citations": resource.citations,
-            }
-
-            session.merge(
-                TeacherResourceORM(
-                    id=resource.id,
-                    teacher_id="integration-test",
-                    unit_id="unit-integration",
-                    created_at="",
-                    resource_data=serialized_payload,
-                )
-            )
-            session.commit()
-        return resource
-
-    @translate_persistence_errors
-    def get_by_id(self, resource_id: str) -> LearningResourceDomain | None:
-        """Obtiene un recurso por ID y lo deserializa hacia LearningResourceDomain."""
-        with SessionLocal() as session:
-            entity = session.get(TeacherResourceORM, resource_id)
-            if not entity:
-                return None
-
-            data = entity.resource_data
-            options = [
-                AlternativeDomain(
-                    letter=opt["letter"],
-                    text=opt["text"],
-                    is_correct=opt["is_correct"],
-                    justification=opt.get("justification", ""),
-                    review_status=opt.get("review_status", "pendiente"),
-                    citations=opt.get("citations", []),
-                    source_chunks=opt.get("source_chunks", []),
-                )
-                for opt in data.get("alternatives", [])
-            ]
-
-            return LearningResourceDomain(
-                id=data["id"],
-                title=data["title"],
-                prompt=data["prompt"],
-                feedback=data.get("feedback", ""),
-                alternatives=options,
-                review_status=data.get("review_status", "borrador"),
-                citations=data.get("citations", []),
-            )
-
-    @translate_persistence_errors
-    def get_all(self) -> list[LearningResourceDomain]:
-        """Obtiene todos los recursos pedagógicos almacenados."""
-        with SessionLocal() as session:
-            statement = select(TeacherResourceORM)
-            entities = session.scalars(statement).all()
-            result: list[LearningResourceDomain] = []
-            for entity in entities:
-                data = entity.resource_data
-                options = [
-                    AlternativeDomain(
-                        letter=opt["letter"],
-                        text=opt["text"],
-                        is_correct=opt["is_correct"],
-                        justification=opt.get("justification", ""),
-                        review_status=opt.get("review_status", "pendiente"),
-                    )
-                    for opt in data.get("alternatives", [])
-                ]
-                result.append(
-                    LearningResourceDomain(
-                        id=data["id"],
-                        title=data["title"],
-                        prompt=data["prompt"],
-                        feedback=data.get("feedback", ""),
-                        alternatives=options,
-                        review_status=data.get("review_status", "borrador"),
-                    )
-                )
-            return result
-
-    def reset_demo(self) -> list[LearningResourceDomain]:
-        return self.get_all()
-
-
-# Alias en español para compatibilidad
-SQLAlchemyRecursoRepository = SQLAlchemyResourceRepository

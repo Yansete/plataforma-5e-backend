@@ -21,11 +21,13 @@ from platform5e.infrastructure.http.schemas.generation_request import Generation
 class IntegratedGenerationRequest(GenerationRequestModel):
     """Solicitud unificada que extiende el esquema de entrada con parámetros pedagógicos complementarios."""
 
-    model_config = ConfigDict(extra="forbid")
-    publico_objetivo: str = Field(default="", max_length=200)
-    competencia: str = Field(default="", max_length=200)
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+    audience: str = Field(default="", alias="publico_objetivo", max_length=200)
+    competency: str = Field(default="", alias="competencia", max_length=200)
     # Sprint 1: solo texto. Otra modalidad responde 422 (HU-053, alcance acordado con el docente).
-    modalidades: list[Literal["Textual"]] = Field(default_factory=lambda: ["Textual"], max_length=1)
+    modalities: list[Literal["Textual"]] = Field(
+        default_factory=lambda: ["Textual"], alias="modalidades", max_length=1
+    )
 
     def to_domain_payload(self) -> dict[str, Any]:
         """Transforma el esquema HTTP al diccionario esperado por los servicios de generación."""
@@ -40,9 +42,9 @@ class IntegratedGenerationRequest(GenerationRequestModel):
             "topK": self.top_k,
             "evidenceThreshold": self.evidence_threshold,
             "instructions": self.instructions or "",
-            "audience": self.publico_objetivo,
-            "competency": self.competencia,
-            "modalities": self.modalidades,
+            "audience": self.audience,
+            "competency": self.competency,
+            "modalities": self.modalities,
         }
 
 
@@ -90,8 +92,8 @@ def create_generations_router(
                 status_code=400,
                 content={
                     "error": {
-                        "codigo": getattr(exc, "code", getattr(exc, "codigo", "ERROR_GENERACION")),
-                        "mensaje": getattr(exc, "message", getattr(exc, "mensaje", str(exc))),
+                        "codigo": exc.code,
+                        "mensaje": exc.message,
                     }
                 },
             )
@@ -122,8 +124,8 @@ def create_generations_router(
                 status_code=404,
                 content={
                     "error": {
-                        "codigo": getattr(exc, "code", getattr(exc, "codigo", "GENERACION_NO_ENCONTRADA")),
-                        "mensaje": getattr(exc, "message", getattr(exc, "mensaje", str(exc))),
+                        "codigo": exc.code,
+                        "mensaje": exc.message,
                     }
                 },
             )

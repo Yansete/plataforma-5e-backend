@@ -1,5 +1,5 @@
 """
-Puertos de persistencia para recursos educativos: revisión docente y recursos individuales.
+Puerto de persistencia de los recursos generados: revisión docente e historial de descargas.
 """
 
 from __future__ import annotations
@@ -42,22 +42,3 @@ class ResourceReviewRepositoryPort(Protocol):
         """Limpia el historial de descargas de una unidad."""
         ...
 
-
-class LearningResourceRepositoryPort(Protocol):
-    """Contrato abstracto para el repositorio de recursos pedagógicos individuales."""
-
-    def get_all(self) -> list[Any]:
-        """Obtiene todos los recursos."""
-        ...
-
-    def get_by_id(self, resource_id: str) -> Any | None:
-        """Obtiene un recurso por su identificador único."""
-        ...
-
-    def save(self, resource: Any) -> Any:
-        """Persiste o actualiza un recurso educativo."""
-        ...
-
-    def reset_demo(self) -> list[Any]:
-        """Reinicia el catálogo a los datos predeterminados de demostración."""
-        ...

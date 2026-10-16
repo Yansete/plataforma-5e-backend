@@ -103,7 +103,7 @@ class DocumentTextExtractor(TextExtractorPort):
                         decoded_text[current_match.end() : end_index],
                     )
                 )
-            return [(loc, txt) for loc, txt in sections if txt.strip()][:MAX_PAGINAS_RESTRICCION]
+            return [(loc, txt) for loc, txt in sections if txt.strip()][:MAX_PROCESSED_PAGES]
 
         sections_list: list[str] = []
         current_buffer = ""
@@ -122,7 +122,6 @@ class DocumentTextExtractor(TextExtractorPort):
         ]
 
 
-MAX_PAGINAS_RESTRICCION = MAX_PROCESSED_PAGES
 
 
 def _extract_shape_text(shape: Any) -> list[str]:
