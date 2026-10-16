@@ -65,9 +65,8 @@ test('recorrido del docente: del curso a la descarga, con todo guardado en el se
   await page.getByLabel('Tengo permiso para usar este material en la plataforma.').check();
   await page.getByRole('button', { name: 'Subir y procesar' }).click();
   await expect(page.getByText(/quedó listo/)).toBeVisible();
-  await expect(page.getByText(/Procesado · \d+ fragmentos?/)).toBeVisible();
-  await page.getByRole('button', { name: 'Ver fragmentos' }).click();
-  await expect(page.getByText('Fragmento 1 · ')).toBeVisible();
+  await expect(page.getByText('Listo para generar', { exact: true })).toBeVisible();
+  await expect(page.getByText(/\d+ fragmentos?/)).toHaveCount(0); // ningún conteo técnico a la vista
 
   // La búsqueda por tema está desactivada en esta prueba: el docente ve el motivo.
   await page.getByLabel('Tema').fill('Protocolo TCP');

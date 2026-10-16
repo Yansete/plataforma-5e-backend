@@ -45,6 +45,6 @@ describe('material', () => {
   });
 
   it('resume lo procesado de la unidad', () => {
-    expect(materialSummary([doc({}), doc({ id: 'd2', fragmentCount: 6 }), doc({ id: 'd3', status: 'error', fragmentCount: 0 })])).toEqual({ processed: 2, fragments: 10, withError: 1 });
+    expect(materialSummary([doc({}), doc({ id: 'd2', fragmentCount: 6 }), doc({ id: 'd3', status: 'error', fragmentCount: 0 })])).toEqual({ processed: 2, withError: 1 });
   });
 });

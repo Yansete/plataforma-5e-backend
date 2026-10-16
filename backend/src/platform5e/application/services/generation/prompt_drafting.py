@@ -321,7 +321,7 @@ def _validate_alternatives(
             "correcta": _parse_is_correct(option),
             "retroalimentacion": (
                 _clean_inline_text(option.get("retroalimentacion"), MAX_OPTION_CHARS)
-                or "Revisa el fragmento citado del material."
+                or "Revisa el material de la unidad."
             ),
             "fragmentos": _resolve_fragment_ids(option.get("fragmentos"), tag_mapping)
             or fallback_citations,
