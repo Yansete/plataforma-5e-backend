@@ -42,6 +42,7 @@ from platform5e.infrastructure.http.routers.health import create_health_router
 from platform5e.infrastructure.http.routers.resources import create_resources_router
 from platform5e.infrastructure.llm.language_model_factory import create_generators, describe_generator
 from platform5e.infrastructure.persistence.repositories.sqlalchemy_account_repository import SQLAlchemyAccountRepository
+from platform5e.infrastructure.retrieval.bm25_evidence_retriever import Bm25EvidenceRetriever
 from platform5e.infrastructure.persistence.repositories.sqlalchemy_chunk_repository import SQLAlchemyChunkRepository
 from platform5e.infrastructure.persistence.repositories.sqlalchemy_generation_repository import (
     SQLAlchemyGenerationRepository,
@@ -101,6 +102,7 @@ def create_application() -> FastAPI:
     resource_repository = SQLAlchemyResourceRepository()
     open_source = WikipediaSource() if read_flag("TOPIC_SEARCH_ENABLED", True) else None
     primary_generator, fallback_generator = create_generators()
+    evidence_retriever = Bm25EvidenceRetriever()
 
     # 2. Servicios y casos de uso de la capa de aplicación
     demo_catalog_enabled = read_flag("DEMO_CATALOG", False)
@@ -122,6 +124,7 @@ def create_application() -> FastAPI:
         fallback_generator=fallback_generator,
         review_repository=resource_repository,
         demo_examples_enabled=demo_catalog_enabled,
+        evidence_retriever=evidence_retriever,
     )
     export_use_case = ExportUnitResourcesUseCase(
         account_repository, resource_repository, [ScormPackageExporter(), MoodleXmlExporter(), UnitDocumentExporter()]

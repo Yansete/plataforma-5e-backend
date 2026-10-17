@@ -48,13 +48,15 @@ backend/src/platform5e/
 │   ├── materials/              Fragmentación (chunking.py) y búsqueda BM25 (text_analysis.py)
 │   └── shared/                 Errores comunes (no encontrado, duplicado, persistencia no disponible)
 ├── application/                Casos de uso; solo conoce el dominio y sus puertos
-│   ├── ports/outbound/         Puertos (typing.Protocol): repositorios, modelo de lenguaje, fuente abierta, exportador
+│   ├── ports/outbound/         Puertos (typing.Protocol): repositorios, modelo de lenguaje, recuperación de evidencia,
+│   │                           fuente abierta, exportador
 │   ├── services/               accounts, materials, generation (redacción, generador por reglas) y review
 │   └── use_cases/export/       ExportUnitResourcesUseCase: lo aprobado de una unidad → archivo del formato pedido
 ├── infrastructure/             Adaptadores
 │   ├── http/                   Rutas FastAPI (routers/), esquemas Pydantic (schemas/), errores y autenticación
 │   ├── persistence/            Repositorios SQLAlchemy (PostgreSQL en Neon o SQLite)
 │   ├── llm/                    Gemini, Anthropic u OpenAI por HTTP y la fábrica que elige el generador
+│   ├── retrieval/              Búsqueda de evidencia BM25: adaptador del puerto EvidenceRetrieverPort
 │   ├── exporters/              SCORM 1.2 (Chamilo), Moodle XML y documento HTML: adaptadores del puerto UnitExporterPort
 │   ├── extraction/             Texto de PDF (pypdf), PPTX (python-pptx) y TXT
 │   ├── sources/                Wikipedia en español (CC BY-SA 4.0)
@@ -65,6 +67,11 @@ backend/src/platform5e/
 El dominio y la aplicación no leen variables de entorno ni importan frameworks: `main.py` lee la configuración, crea
 los adaptadores y se los pasa a los servicios por constructor. Por eso las pruebas unitarias usan puertos falsos en
 memoria y no necesitan base de datos ni red.
+
+La generación (RAG) depende de dos puertos: `EvidenceRetrieverPort` elige los fragmentos del material que sustentan el
+pedido y `ResourceGeneratorPort` redacta los recursos citándolos. Hoy los implementan `Bm25EvidenceRetriever` y
+`GeminiLanguageModel` (con `RuleBasedGenerator` de respaldo). La búsqueda por significado con pgvector (EN-013 y HU-011)
+entrará como otro adaptador del puerto de recuperación, sin tocar `GenerationService`.
 
 Las cuentas se crean con `POST /api/v1/accounts` y se guardan con su sal y la huella PBKDF2 de la contraseña.
 Opcionalmente, `main.py` pasa una cuenta inicial (`BOOTSTRAP_TEACHER_EMAIL` y `BOOTSTRAP_TEACHER_PASSWORD`).
