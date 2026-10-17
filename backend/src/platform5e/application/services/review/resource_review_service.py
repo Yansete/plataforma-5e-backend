@@ -40,14 +40,17 @@ def validate_approval_blockers(resource_data: dict[str, Any]) -> list[str]:
         distractors = [opt for opt in options if not opt.get("isCorrect")]
         pending_count = sum(opt.get("decision") == "pendiente" for opt in distractors)
         if pending_count:
-            reasons.append(f"Decide los {pending_count} distractor(es) pendiente(s).")
+            reasons.append(
+                "Decide el distractor pendiente para poder aprobar." if pending_count == 1
+                else f"Decide los {pending_count} distractores pendientes para poder aprobar."
+            )
         elif sum(opt.get("decision") == "aceptado" for opt in distractors) < MIN_ACCEPTED_DISTRACTORS:
             reasons.append(
-                f"El ítem necesita al menos {MIN_ACCEPTED_DISTRACTORS} distractores aceptados."
+                f"Acepta al menos {MIN_ACCEPTED_DISTRACTORS} distractores para poder aprobar."
             )
 
         if not any(opt.get("isCorrect") and str(opt.get("text", "")).strip() for opt in options):
-            reasons.append("El ítem necesita una clave (respuesta correcta).")
+            reasons.append("La pregunta necesita una respuesta correcta.")
 
     return reasons
 

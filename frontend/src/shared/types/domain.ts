@@ -119,6 +119,8 @@ export interface GenerationParams {
 }
 
 export interface Resource {
+  /** Motivos calculados por el backend con la regla que valida la aprobación. */
+  approvalBlockers: string[];
   id: string;
   unitId: string;
   outcomeId: string;

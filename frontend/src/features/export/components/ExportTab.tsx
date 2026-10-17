@@ -5,15 +5,14 @@ import { Icon } from '@/shared/components/Icon';
 import { saveFile } from '@/shared/lib/saveFile';
 import { errorMessage } from '@/shared/api/httpClient';
 import { typeInfo } from '@/features/generation/model/resourceCatalog';
-import { clearDownloads, exportUnit, listDownloads, registerDownload } from '@/features/export/api/exportApi';
-import { buildFile } from '@/features/export/model/buildFile';
+import { clearDownloads, exportUnit, listDownloads } from '@/features/export/api/exportApi';
 import { FORMATS, formatInfo, resourcesFor } from '@/features/export/model/exportFormats';
 import { withStatus } from '@/features/review/model/reviewRules';
 import type { Download, DownloadFormat } from '@/shared/types/domain';
 import { formatDateTime, plural } from '@/shared/lib/format';
 import type { UnitTabProps } from '@/features/units/model/unitTab';
 
-export function ExportTab({ course, unit, base, resources, resourcesError, reloadResources }: UnitTabProps) {
+export function ExportTab({ unit, base, resources, resourcesError, reloadResources }: UnitTabProps) {
   const approved = useMemo(() => withStatus(resources ?? [], 'aprobado'), [resources]);
   const [selected, setSelected] = useState<Set<string>>(() => new Set(approved.map((r) => r.id)));
   const [history, setHistory] = useState<Download[] | null>(null);
@@ -63,26 +62,20 @@ export function ExportTab({ course, unit, base, resources, resourcesError, reloa
 
   const download = async (format: DownloadFormat) => {
     setMessage(null);
-    if (format !== 'documento') {
-      // Los archivos para Moodle y Chamilo los arma el backend, que además registra la descarga en el historial.
-      try {
-        const { blob, fileName } = await exportUnit(unit.id, format, resourcesFor(format, chosen).map((r) => r.id));
-        saveFile(fileName, blob, formatInfo(format).mimeType);
-        setHistory(await listDownloads(unit.id));
-        setMessage({ tone: 'success', text: `Se descargó «${fileName}».` });
-      } catch (e) {
-        setMessage({ tone: 'warn', text: errorMessage(e) });
-      }
-      return;
-    }
-    const file = buildFile(format, chosen, course, unit);
-    saveFile(file.fileName, file.data, file.mimeType);
     try {
-      const saved = await registerDownload(unit.id, file, format);
-      setHistory((list) => [saved, ...(list ?? [])]);
-      setMessage({ tone: 'success', text: `Se descargó «${file.fileName}» con ${plural(file.resourceCount, 'recurso', 'recursos')}.` });
+      const exporting = resourcesFor(format, chosen);
+      const { blob, fileName } = await exportUnit(unit.id, format, exporting.map((r) => r.id));
+      saveFile(fileName, blob, formatInfo(format).mimeType);
+      setMessage({ tone: 'success', text: format === 'documento'
+        ? `Se descargó «${fileName}» con ${plural(exporting.length, 'recurso', 'recursos')}.`
+        : `Se descargó «${fileName}».` });
+      try {
+        setHistory(await listDownloads(unit.id));
+      } catch (e) {
+        setMessage({ tone: 'warn', text: `Se descargó «${fileName}», pero no se pudo actualizar el historial: ${errorMessage(e)}` });
+      }
     } catch (e) {
-      setMessage({ tone: 'warn', text: `Se descargó «${file.fileName}», pero no se pudo guardar en el historial: ${errorMessage(e)}` });
+      setMessage({ tone: 'warn', text: errorMessage(e) });
     }
   };
 

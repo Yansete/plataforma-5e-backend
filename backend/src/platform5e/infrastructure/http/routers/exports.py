@@ -23,7 +23,7 @@ def create_exports_router(use_case: ExportUnitResourcesUseCase, account_service:
         response_class=Response,
         responses={
             200: {
-                "content": {"application/zip": {}, "application/xml": {}},
+                "content": {"application/zip": {}, "application/xml": {}, "text/html": {}},
                 "description": "The file to download; its name comes in Content-Disposition.",
             },
             **error_responses(401, 404, 422),
@@ -35,6 +35,7 @@ def create_exports_router(use_case: ExportUnitResourcesUseCase, account_service:
 
         - `scorm_zip`: SCORM 1.2 package for Chamilo, one page per resource in 5E order; questions are graded.
         - `moodle_xml`: Moodle question bank with the multiple-choice items.
+        - `documento`: printable HTML document of the approved unit resources, with evidence.
         """
         exported = use_case.execute(teacher_id, unit_id, body.format, body.resource_ids)
         return Response(

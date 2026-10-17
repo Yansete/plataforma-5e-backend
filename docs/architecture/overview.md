@@ -55,7 +55,7 @@ backend/src/platform5e/
 │   ├── http/                   Rutas FastAPI (routers/), esquemas Pydantic (schemas/), errores y autenticación
 │   ├── persistence/            Repositorios SQLAlchemy (PostgreSQL en Neon o SQLite)
 │   ├── llm/                    Gemini, Anthropic u OpenAI por HTTP y la fábrica que elige el generador
-│   ├── exporters/              SCORM 1.2 (Chamilo) y Moodle XML: dos adaptadores del mismo puerto UnitExporterPort
+│   ├── exporters/              SCORM 1.2 (Chamilo), Moodle XML y documento HTML: adaptadores del puerto UnitExporterPort
 │   ├── extraction/             Texto de PDF (pypdf), PPTX (python-pptx) y TXT
 │   ├── sources/                Wikipedia en español (CC BY-SA 4.0)
 │   └── settings.py             Variables de entorno
@@ -229,10 +229,17 @@ no se presentan como nuevas mediciones del Sprint ni como aprobación académica
 cada funcionalidad separa `api/`, `model/` y sus páginas o componentes según corresponda.
 El alias `@/` apunta a `src/`. Los textos visibles permanecen en español.
 
-Esta primera entrega de la tarea 7 cambia la estructura y las rutas del navegador. Conserva
-los endpoints y valores JSON actuales para seguir funcionando con el backend de `main`.
-Quedan pendientes de la integración con Sergio: los contratos REST en inglés, los motivos
-de bloqueo de aprobación enviados por la API y la descarga de archivos generados por el
-backend. Mientras tanto, `review/model/reviewRules.ts` conserva las validaciones actuales y
-`export/model/fileBuilders.ts` y `unitDocument.ts` conservan los generadores existentes.
-Estos pendientes impiden considerar terminada toda la reestructuración del plan.
+La tarea 7 usa las rutas y contratos REST en inglés integrados en `main`. La API incluye
+`approvalBlockers` en cada recurso generado, listado o actualizado: se calcula con la misma
+regla que impide aprobarlo en el servidor y no se guarda en la base. El frontend presenta
+esos motivos sin duplicar la regla de aprobación; conserva la validación de los formularios.
+
+Los tres archivos (Moodle XML, SCORM y documento HTML) se solicitan con
+`POST /api/v1/units/{unit_id}/exports`. El caso de uso verifica la unidad del docente,
+selecciona sus recursos aprobados y registra la descarga una sola vez. El adaptador
+`UnitDocumentExporter` conserva la plantilla del documento, el orden de las etapas,
+las alternativas y las citas, escapando texto y admitiendo solo enlaces HTTP(S).
+El navegador selecciona recursos, presenta el estado y descarga el archivo entregado
+por el servidor. No construye el HTML ni decide si un recurso cumple las reglas pedagógicas.
+Los textos visibles y los formatos existentes permanecen en español; los valores guardados
+no se renombran y no se modifican las tablas ni las migraciones.

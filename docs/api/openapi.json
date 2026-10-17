@@ -1669,7 +1669,7 @@
           "exports"
         ],
         "summary": "Export the approved resources of a unit",
-        "description": "Builds the file in the backend from the approved resources (fixed templates, never written by the AI),\nrecords the download in the unit history and returns the file.\n\n- `scorm_zip`: SCORM 1.2 package for Chamilo, one page per resource in 5E order; questions are graded.\n- `moodle_xml`: Moodle question bank with the multiple-choice items.",
+        "description": "Builds the file in the backend from the approved resources (fixed templates, never written by the AI),\nrecords the download in the unit history and returns the file.\n\n- `scorm_zip`: SCORM 1.2 package for Chamilo, one page per resource in 5E order; questions are graded.\n- `moodle_xml`: Moodle question bank with the multiple-choice items.\n- `documento`: printable HTML document of the approved unit resources, with evidence.",
         "operationId": "export_unit_api_v1_units__unit_id__exports_post",
         "security": [
           {
@@ -1702,7 +1702,8 @@
             "description": "The file to download; its name comes in Content-Disposition.",
             "content": {
               "application/zip": {},
-              "application/xml": {}
+              "application/xml": {},
+              "text/html": {}
             }
           },
           "401": {
@@ -2208,7 +2209,7 @@
           "resourceCount"
         ],
         "title": "DownloadInput",
-        "description": "A file built in the browser (the unit document) and saved by the teacher."
+        "description": "Download history entry; exports are built and registered by the backend."
       },
       "DownloadResponse": {
         "properties": {
@@ -2366,11 +2367,12 @@
           "format": {
             "type": "string",
             "enum": [
+              "moodle_xml",
               "scorm_zip",
-              "moodle_xml"
+              "documento"
             ],
             "title": "Format",
-            "description": "`scorm_zip`: SCORM 1.2 package for Chamilo. `moodle_xml`: Moodle question bank (multiple choice)."
+            "description": "`scorm_zip`: SCORM 1.2 package for Chamilo. `moodle_xml`: Moodle question bank (multiple choice). `documento`: printable unit document (HTML)."
           },
           "resourceIds": {
             "items": {
@@ -3147,6 +3149,15 @@
             ],
             "title": "Params",
             "description": "Request parameters, reused by «Regenerar»."
+          },
+          "approvalBlockers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Approvalblockers",
+            "description": "Reasons that block approval, computed by the same rule that validates approval.",
+            "readOnly": true
           }
         },
         "additionalProperties": true,
@@ -3159,7 +3170,8 @@
           "title",
           "body",
           "status",
-          "createdAt"
+          "createdAt",
+          "approvalBlockers"
         ],
         "title": "ResourceResponse"
       },

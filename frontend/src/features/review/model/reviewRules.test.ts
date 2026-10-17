@@ -1,25 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { approvalBlockers, citedCount, citedEvidence, countByStatus, decideOption, distractors, editContent, editOption, editProblem, highlight, optionProblem, optionSource, pendingDistractors, setStatus, withStatus } from '@/features/review/model/reviewRules';
+import { citedCount, citedEvidence, countByStatus, editContent, editOption, editProblem, highlight, optionProblem, optionSource, setStatus, withStatus } from '@/features/review/model/reviewRules';
 import { item, text } from '@/test/fixtures';
 
 describe('reglas para aprobar', () => {
-  it('exige decidir los distractores, aceptar al menos dos y tener clave', () => {
-    let r = item();
-    expect(distractors(r)).toHaveLength(3);
-    expect(pendingDistractors(r)).toBe(3);
-    expect(approvalBlockers(r)).toEqual(['Decide los 3 distractores pendientes para poder aprobar.']);
-    r = decideOption(decideOption(r, 'b', 'aceptado'), 'c', 'descartado', 'duplicado');
-    expect(approvalBlockers(r)).toEqual(['Decide el distractor pendiente para poder aprobar.']);
-    r = decideOption(r, 'd', 'descartado');
-    expect(r.options![3]).toMatchObject({ decision: 'descartado', discardReason: 'otro' });
-    expect(approvalBlockers(r)[0]).toMatch(/al menos 2 distractores/);
-    r = decideOption(r, 'c', 'aceptado');
-    expect(approvalBlockers(r)).toEqual([]);
-    expect(approvalBlockers({ ...r, options: r.options!.map((o) => ({ ...o, isCorrect: false, decision: 'aceptado' as const })) })).toEqual(['La pregunta necesita una respuesta correcta.']);
-    expect(approvalBlockers(text({ body: '  ' }))).toEqual(['El contenido no puede estar vacío.']);
-    expect(approvalBlockers(text())).toEqual([]);
-  });
-
   it('cuenta y ordena por estado', () => {
     const list = [item({ id: 'a', createdAt: '2026-01-01' }), item({ id: 'b', createdAt: '2026-02-01' }), text({ status: 'aprobado' })];
     expect(countByStatus(list)).toEqual({ pendiente: 2, aprobado: 1, descartado: 0 });

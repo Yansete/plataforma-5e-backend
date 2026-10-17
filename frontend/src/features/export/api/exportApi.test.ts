@@ -1,85 +1,63 @@
-/** Descargas: nombres con el curso, archivos para Moodle y Chamilo, documento de la unidad e historial. */
+/** Archivos solicitados al servidor: selección, sesión, nombre y errores. */
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clearDownloads, listDownloads, registerDownload } from '@/features/export/api/exportApi';
-import { buildFile } from '@/features/export/model/buildFile';
-import { FORMATS, fileNameFor, formatInfo, isQuestion, resourcesFor, slug } from '@/features/export/model/exportFormats';
-import { buildUnitDocument } from '@/features/export/model/unitDocument';
-import { exportedOptions } from '@/features/export/model/fileBuilders';
-import { decideOption, setStatus } from '@/features/review/model/reviewRules';
-import { course, item, mockFetch, text, unit } from '@/test/fixtures';
-import type { Resource } from '@/shared/types/domain';
+import { clearDownloads, exportUnit, listDownloads } from '@/features/export/api/exportApi';
+import { FORMATS, formatInfo, isQuestion, resourcesFor } from '@/features/export/model/exportFormats';
+import { setSession, getSession } from '@/shared/api/sessionStore';
+import { item, mockFetch, text } from '@/test/fixtures';
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { setSession(null); vi.unstubAllGlobals(); });
 
-/** Pregunta aprobada: B y C aceptados, D descartado. */
-function approvedItem(overrides: Partial<Resource> = {}): Resource {
-  let r = item(overrides);
-  r = decideOption(decideOption(decideOption(r, 'b', 'aceptado'), 'c', 'aceptado'), 'd', 'descartado', 'duplicado');
-  return setStatus(r, 'aprobado');
-}
-
-describe('nombres y formatos', () => {
-  it('el nombre del archivo lleva el curso y la unidad', () => {
-    expect(slug('  Redes & Comunicación 2026  ')).toBe('redes-comunicacion-2026');
-    expect(fileNameFor({ code: 'RED-301' }, { number: 1 }, 'moodle_xml')).toBe('red-301-unidad-1-moodle.xml');
-    expect(fileNameFor({ code: 'RED-301' }, { number: 2 }, 'scorm_zip')).toBe('red-301-unidad-2-scorm.zip');
-    expect(fileNameFor({ code: '***' }, { number: 3 }, 'documento')).toBe('curso-unidad-3-documento.html');
+describe('formatos y selección', () => {
+  it('Moodle recibe preguntas aprobadas; Chamilo y HTML, todo lo aprobado', () => {
+    const list = [item({ status: 'aprobado' }), item(), text({ status: 'aprobado' })];
+    expect(isQuestion(list[2])).toBe(false);
+    expect(resourcesFor('moodle_xml', list)).toEqual([list[0]]);
+    expect(resourcesFor('scorm_zip', list)).toEqual([list[0], list[2]]);
+    expect(resourcesFor('documento', list)).toEqual([list[0], list[2]]);
     expect(FORMATS.map((f) => f.title)).toEqual(['Moodle', 'Chamilo', 'Documento de la unidad']);
     expect(formatInfo('scorm_zip').extension).toBe('zip');
   });
-
-  it('Moodle y Chamilo reciben solo preguntas aprobadas; el documento, todo lo aprobado', () => {
-    const list = [approvedItem(), item({ id: 'pend' }), text({ status: 'aprobado' })];
-    expect(isQuestion(list[2])).toBe(false);
-    expect(resourcesFor('moodle_xml', list).map((r) => r.id)).toEqual(['r1']);
-    expect(resourcesFor('documento', list).map((r) => r.id)).toEqual(['r1', 'r2']);
-  });
 });
 
-describe('archivos', () => {
-  it('solo se exportan la clave y los distractores no descartados', () => {
-    expect(exportedOptions(approvedItem()).map((o) => o.id)).toEqual(['a', 'b', 'c']);
+describe('descargas del servidor', () => {
+  it.each(['documento', 'moodle_xml', 'scorm_zip'] as const)('pide %s y conserva el archivo y nombre del servidor', async (format) => {
+    setSession({ token: 'session-token', email: 'ana@correo.pe', name: 'Ana' });
+    const fetch = vi.fn().mockResolvedValue(new Response('archivo del servidor', {
+      headers: { 'Content-Type': formatInfo(format).mimeType, 'Content-Disposition': 'attachment; filename="curso-unidad-1.html"' },
+    }));
+    vi.stubGlobal('fetch', fetch);
+    const file = await exportUnit('u/1', format, ['r1']);
+    expect(file.fileName).toBe('curso-unidad-1.html');
+    expect(await file.blob.text()).toBe('archivo del servidor');
+    const [url, request] = fetch.mock.calls[0];
+    expect(url).toBe('/api/v1/units/u%2F1/exports');
+    expect(request.method).toBe('POST');
+    expect(request.headers.Authorization).toBe('Bearer session-token');
+    expect(JSON.parse(request.body)).toEqual({ format, resourceIds: ['r1'] });
   });
 
-  it('arma el documento de la unidad con el nombre correcto', () => {
-    const list = [approvedItem(), text({ status: 'aprobado' })];
-    const html = buildFile('documento', list, course(), unit(), new Date(2026, 9, 10));
-    expect(html).toMatchObject({ fileName: 'red-301-unidad-1-documento.html', mimeType: 'text/html', resourceCount: 2 });
-  });
-});
-
-describe('documento de la unidad', () => {
-  it('ordena por momento de la clase, escapa el texto y cita las fuentes', () => {
-    const html = buildUnitDocument([approvedItem(), text({ status: 'aprobado' }), text({ id: 'no', status: 'pendiente', title: 'Pendiente' })], course(), unit(), new Date(2026, 9, 10));
-    expect(html.indexOf('<h2>Para explicar</h2>')).toBeGreaterThan(-1);
-    expect(html.indexOf('<h2>Para explicar</h2>')).toBeLessThan(html.indexOf('<h2>Para evaluar</h2>'));
-    expect(html).not.toContain('Pendiente');
-    expect(html).toContain('Segundo &lt;párrafo&gt;');
-    expect(html).toContain('(respuesta correcta)');
-    expect(html).toContain('<a href="https://es.example.org/wiki/UDP">fuente</a> (CC BY-SA 4.0)');
-    expect(html).toContain('2 recursos aprobados');
-    expect(html).toContain('RED-301 · Unidad 1');
-    expect(html).not.toMatch(/5E|Wikipedia|Gemini/);
+  it('muestra el error del servidor y cierra la sesión vencida', async () => {
+    setSession({ token: 'expired', email: 'ana@correo.pe', name: 'Ana' });
+    mockFetch({ status: 401, body: { error: { code: 'UNAUTHORIZED', message: 'Inicia sesión.' } } });
+    await expect(exportUnit('u1', 'documento', ['r1'])).rejects.toMatchObject({ status: 401, message: 'Inicia sesión.' });
+    expect(getSession()).toBeNull();
+    mockFetch({ status: 422, body: { error: { code: 'NO_APPROVED_RESOURCES', message: 'Elige un recurso aprobado.' } } });
+    await expect(exportUnit('u1', 'documento', [])).rejects.toMatchObject({ code: 'NO_APPROVED_RESOURCES' });
   });
 
-  it('sin fuentes abiertas no agrega la nota de licencias', () => {
-    const local = text({ status: 'aprobado', evidence: [{ ...item().evidence[0] }], citations: [{ claim: 'TCP', fragmentIds: ['f1'] }] });
-    const html = buildUnitDocument([local], course({ summary: '' }), unit({ outcomes: [] }), new Date(2026, 9, 10));
-    expect(html).not.toContain('licencia');
-    expect(html).toContain('1 recurso aprobado');
-    expect(buildUnitDocument([], course(), unit())).toContain('No hay recursos aprobados.');
-    const unsafe = text({ status: 'aprobado', evidence: [{ ...item().evidence[1], sourceUrl: 'javascript:alert(1)' }], citations: [{ claim: 'UDP', fragmentIds: ['f2'] }] });
-    expect(buildUnitDocument([unsafe], course(), unit())).not.toContain('javascript:');
+  it('informa fallos de conexión y respuestas sin JSON', async () => {
+    mockFetch(new Error('offline'));
+    await expect(exportUnit('u1', 'documento', ['r1'])).rejects.toMatchObject({ code: 'NO_CONNECTION' });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('Bad gateway', { status: 502 })));
+    await expect(exportUnit('u1', 'documento', ['r1'])).rejects.toMatchObject({ status: 502, message: 'No se pudo generar el archivo.' });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('data')));
+    expect((await exportUnit('u1', 'scorm_zip', ['r1'])).fileName).toBe('exportacion.zip');
   });
-});
 
-describe('historial', () => {
-  it('lista, registra y borra las descargas de la unidad', async () => {
-    const calls = mockFetch({ body: [] }, { status: 201, body: { id: 'x' } }, { status: 204 });
+  it('lista y borra el historial sin registrar otra descarga desde el navegador', async () => {
+    const calls = mockFetch({ body: [] }, { status: 204 });
     await listDownloads('u1');
-    await registerDownload('u1', { fileName: 'red-301-unidad-1-moodle.xml', resourceCount: 2 }, 'moodle_xml');
     await clearDownloads('u1');
-    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual(['GET /api/v1/units/u1/downloads', 'POST /api/v1/units/u1/downloads', 'DELETE /api/v1/units/u1/downloads']);
-    expect(calls[1].body).toEqual({ format: 'moodle_xml', fileName: 'red-301-unidad-1-moodle.xml', resourceCount: 2 });
+    expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual(['GET /api/v1/units/u1/downloads', 'DELETE /api/v1/units/u1/downloads']);
   });
 });

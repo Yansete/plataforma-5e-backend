@@ -12,7 +12,7 @@ DownloadFormat = Literal["moodle_xml", "scorm_zip", "documento"]
 
 
 class DownloadInput(ApiRequest):
-    """A file built in the browser (the unit document) and saved by the teacher."""
+    """Download history entry; exports are built and registered by the backend."""
 
     format: DownloadFormat
     file_name: str = Field(min_length=1, max_length=200, examples=["red-301-unidad-1-documento.html"])
@@ -29,8 +29,8 @@ class DownloadResponse(ApiResponse):
 
 
 class ExportRequest(ApiRequest):
-    format: Literal["scorm_zip", "moodle_xml"] = Field(
-        description="`scorm_zip`: SCORM 1.2 package for Chamilo. `moodle_xml`: Moodle question bank (multiple choice)."
+    format: DownloadFormat = Field(
+        description="`scorm_zip`: SCORM 1.2 package for Chamilo. `moodle_xml`: Moodle question bank (multiple choice). `documento`: printable unit document (HTML)."
     )
     resource_ids: list[str] = Field(
         default_factory=list,

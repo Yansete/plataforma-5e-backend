@@ -1,29 +1,5 @@
 import type { DiscardReason, DistractorDecision, Evidence, ItemOption, Resource, ReviewStatus } from '@/shared/types/domain';
 
-export const MIN_DISTRACTORS = 2;
-
-export function distractors(resource: Resource): ItemOption[] {
-  return (resource.options ?? []).filter((o) => !o.isCorrect);
-}
-
-export function pendingDistractors(resource: Resource): number {
-  return distractors(resource).filter((o) => o.decision === 'pendiente').length;
-}
-
-/** Motivos por los que todavía no se puede aprobar. Lista vacía: se puede aprobar. */
-export function approvalBlockers(resource: Resource): string[] {
-  const reasons: string[] = [];
-  if (!resource.body.trim()) reasons.push('El contenido no puede estar vacío.');
-  if (resource.options?.length) {
-    const pending = pendingDistractors(resource);
-    if (pending) reasons.push(pending === 1 ? 'Decide el distractor pendiente para poder aprobar.' : `Decide los ${pending} distractores pendientes para poder aprobar.`);
-    else if (distractors(resource).filter((o) => o.decision === 'aceptado').length < MIN_DISTRACTORS)
-      reasons.push(`Acepta al menos ${MIN_DISTRACTORS} distractores para poder aprobar.`);
-    if (!resource.options.some((o) => o.isCorrect && o.text.trim())) reasons.push('La pregunta necesita una respuesta correcta.');
-  }
-  return reasons;
-}
-
 export function countByStatus(resources: Resource[]): Record<ReviewStatus, number> {
   const counts: Record<ReviewStatus, number> = { pendiente: 0, aprobado: 0, descartado: 0 };
   for (const r of resources) counts[r.status] += 1;
