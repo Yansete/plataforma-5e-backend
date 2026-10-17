@@ -341,7 +341,7 @@ def test_approval_blockers():
     assert validate_approval_blockers({"body": " ", "options": None}) == ["El contenido no puede estar vacío."]
     without_key = make_sample_item()
     without_key["options"] = [{**o, "isCorrect": False, "decision": "aceptado"} for o in without_key["options"]]
-    assert validate_approval_blockers(without_key) == ["El ítem necesita una clave (respuesta correcta)."]
+    assert validate_approval_blockers(without_key) == ["La pregunta necesita una respuesta correcta."]
 
 
 def test_download_history():

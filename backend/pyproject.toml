@@ -37,7 +37,7 @@ where = ["src"]
 include = ["platform5e*"]
 
 [tool.setuptools.package-data]
-platform5e = ["infrastructure/persistence/seed/*.json"]
+platform5e = ["infrastructure/persistence/seed/*.json", "infrastructure/exporters/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

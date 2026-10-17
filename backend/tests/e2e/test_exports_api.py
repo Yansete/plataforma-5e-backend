@@ -34,7 +34,11 @@ def test_exports_approved_resources_as_scorm_and_moodle_xml(server):
                      'decision': 'pendiente' if o['isCorrect'] else 'aceptado'} for o in resource['options']]
         approved = api.put(f"/api/v1/units/{unit['id']}/resources/{resource['id']}", headers=h,
                            json={'title': resource['title'], 'body': resource['body'], 'status': 'aprobado', 'options': options})
+        assert resource['approvalBlockers'] == ['Decide los 3 distractores pendientes para poder aprobar.']
         assert approved.status_code == 200
+        assert approved.json()['approvalBlockers'] == []
+        listed = api.get(f"/api/v1/units/{unit['id']}/resources", headers=h).json()
+        assert listed[0]['approvalBlockers'] == []
 
         file_path = api.post(export_url, headers=h, json={'format': 'scorm_zip', 'resourceIds': [resource['id']]})
         assert file_path.status_code == 200 and file_path.headers['content-type'] == 'application/zip'
@@ -44,5 +48,12 @@ def test_exports_approved_resources_as_scorm_and_moodle_xml(server):
         assert moodle.status_code == 200 and moodle.headers['content-type'].startswith('application/xml')
         assert 'red-301-unidad-1-moodle.xml' in moodle.headers['content-disposition']
         assert validate(moodle.content) == []
+        html = api.post(export_url, headers=h, json={'format': 'documento', 'resourceIds': [resource['id']]})
+        assert html.status_code == 200 and html.headers['content-type'].startswith('text/html')
+        assert 'red-301-unidad-1-documento.html' in html.headers['content-disposition']
+        assert '<h2>Para evaluar</h2>' in html.text and '1 recurso aprobado' in html.text
+        assert resource['title'] in html.text
+        assert api.post(export_url, json={'format': 'documento'}).status_code == 401
+        assert api.post(export_url, headers=h, json={'format': 'documento', 'resourceIds': ['missing']}).status_code == 422
         history = api.get(f"/api/v1/units/{unit['id']}/downloads", headers=h).json()
-        assert sorted(d['format'] for d in history) == ['moodle_xml', 'scorm_zip']
+        assert sorted(d['format'] for d in history) == ['documento', 'moodle_xml', 'scorm_zip']

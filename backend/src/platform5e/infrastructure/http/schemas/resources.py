@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
+from platform5e.application.services.review.resource_review_service import validate_approval_blockers
 from platform5e.infrastructure.http.schemas.common import ApiRequest, ApiResponse
 
 # Valores guardados en la base: pasan al inglés en el Sprint 2 junto con una migración de datos.
@@ -60,6 +61,14 @@ class ResourceResponse(ApiResponse):
     decided_at: str | None = None
     evidence: list[EvidenceResponse] = []
     params: dict[str, Any] | None = Field(default=None, description="Request parameters, reused by «Regenerar».")
+
+    @computed_field(description="Reasons that block approval, computed by the same rule that validates approval.")
+    @property
+    def approval_blockers(self) -> list[str]:
+        return validate_approval_blockers({
+            "body": self.body,
+            "options": [option.model_dump(by_alias=True) for option in self.options] if self.options else None,
+        })
 
 
 class ReviewedOptionInput(ApiRequest):

@@ -21,6 +21,7 @@ from platform5e.domain.generation.errors import GenerationError
 from platform5e.domain.materials.chunking import MaterialError
 from platform5e.domain.shared.errors import DuplicateRecordError, EntityNotFoundError, PersistenceUnavailableError
 from platform5e.infrastructure.exporters.moodle_xml_exporter import MoodleXmlExporter
+from platform5e.infrastructure.exporters.unit_document_exporter import UnitDocumentExporter
 from platform5e.infrastructure.exporters.scorm_package_exporter import ScormPackageExporter
 from platform5e.infrastructure.extraction.document_text_extractor import DocumentTextExtractor
 from platform5e.infrastructure.http.error_handlers import (
@@ -123,7 +124,7 @@ def create_application() -> FastAPI:
         demo_examples_enabled=demo_catalog_enabled,
     )
     export_use_case = ExportUnitResourcesUseCase(
-        account_repository, resource_repository, [ScormPackageExporter(), MoodleXmlExporter()]
+        account_repository, resource_repository, [ScormPackageExporter(), MoodleXmlExporter(), UnitDocumentExporter()]
     )
 
     # 3. Errores del dominio → JSON uniforme
