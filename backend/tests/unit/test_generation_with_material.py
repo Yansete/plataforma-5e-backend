@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from platform5e.application.ports.outbound.chunk_repository_port import ChunkRepositoryPort
+from platform5e.application.ports.outbound.evidence_retriever_port import EvidenceRetrieverPort
 from platform5e.application.ports.outbound.generation_repository_port import GenerationRepositoryPort
 from platform5e.application.ports.outbound.language_model_port import ResourceGeneratorPort
 from platform5e.application.ports.outbound.resource_repository_port import ResourceReviewRepositoryPort
@@ -21,6 +22,8 @@ from platform5e.application.services.generation.prompt_drafting import (
     parse_json_response,
 )
 from platform5e.domain.generation.errors import GenerationError
+from platform5e.domain.materials.text_analysis import retrieve_relevant_chunks
+from platform5e.infrastructure.retrieval.bm25_evidence_retriever import Bm25EvidenceRetriever
 
 MOCK_UNIT = {
     "id": "u1",
@@ -168,6 +171,7 @@ def build_service_setup(
     generator: MockGenerator | None = None,
     fallback: MockGenerator | None = None,
     chunk_repo: ChunkRepositoryPort | None = None,
+    retriever: EvidenceRetrieverPort | None = None,
 ) -> tuple[GenerationService, MockGenerationRepository]:
     repo = MockGenerationRepository()
     service = GenerationService(
@@ -176,6 +180,7 @@ def build_service_setup(
         chunk_repository=chunk_repo or MockMaterialChunkRepository(),
         primary_generator=generator or MockGenerator({"recursos": [MOCK_ITEM]}),
         fallback_generator=fallback,
+        evidence_retriever=retriever or Bm25EvidenceRetriever(),
     )
     return service, repo
 
@@ -232,6 +237,7 @@ def test_generated_resources_are_saved_for_review():
         chunk_repository=MockMaterialChunkRepository(),
         primary_generator=MockGenerator({"recursos": [MOCK_ITEM]}),
         review_repository=review_repo,
+        evidence_retriever=Bm25EvidenceRetriever(),
     )
     result = service.generate(make_request_dict(), "docente")
     assert review_repo.saved_records == [("docente", "u1", [result["resources"][0]["id"]])]
@@ -415,3 +421,52 @@ def test_without_demo_examples_a_unit_without_material_asks_for_upload():
     assert err.value.code == "NO_PROCESSED_MATERIAL" and "pestaña Material" in err.value.message
     with pytest.raises(GenerationError):
         service.generate(make_request_dict(), None)
+
+
+class MockEvidenceRetriever(EvidenceRetrieverPort):
+    """Buscador falso: devuelve siempre el primer fragmento y guarda lo que le pidieron."""
+
+    description = "buscador falso"
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, int]] = []
+
+    def retrieve(self, query: str, chunks: list[dict[str, Any]], top_k: int) -> list[dict[str, Any]]:
+        self.calls.append((query, top_k))
+        return [{**chunks[0], "relevance": 0.9}]
+
+
+def test_generation_uses_the_injected_evidence_retriever():
+    retriever = MockEvidenceRetriever()
+    item = {**MOCK_ITEM, "alternativas": [{**alt, "fragmentos": ["F1"]} for alt in MOCK_ITEM["alternativas"]]}
+    ai_gen = MockGenerator({"recursos": [item]})
+    service, _ = build_service_setup(ai_gen, retriever=retriever)
+    result = service.generate(make_request_dict(topK=20), "docente")
+
+    query, top_k = retriever.calls[0]
+    assert "Protocolos de transporte" in query and "contexto peruano" in query
+    assert top_k == 12  # el servicio acota topK antes de llamar al puerto
+    assert [f["id"] for f in ai_gen.captured_contexts[0]["fragmentos"]] == ["f1"]
+    assert result["retrievedChunks"] == [
+        {"id": "f1", "location": "p. 1", "text": MOCK_FRAGMENTS[0]["text"], "relevance": 0.9}
+    ]
+
+
+def test_without_evidence_retriever_material_is_not_used():
+    service = GenerationService(
+        repository=MockGenerationRepository(),
+        teacher_repository=MockTeacherConfigRepository(),
+        chunk_repository=MockMaterialChunkRepository(),
+        primary_generator=MockGenerator({"recursos": [MOCK_ITEM]}),
+        demo_examples_enabled=False,
+    )
+    with pytest.raises(GenerationError) as err:
+        service.generate(make_request_dict(), "docente")
+    assert err.value.code == "NO_PROCESSED_MATERIAL"
+
+
+def test_bm25_adapter_delegates_to_the_domain_search():
+    retriever = Bm25EvidenceRetriever()
+    assert retriever.description == "búsqueda por palabras (BM25)"
+    query = "protocolo confiable con conexión"
+    assert retriever.retrieve(query, MOCK_FRAGMENTS, 2) == retrieve_relevant_chunks(query, MOCK_FRAGMENTS, 2)

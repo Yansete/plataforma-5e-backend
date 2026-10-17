@@ -14,6 +14,7 @@ from typing import Any
 from uuid import uuid4
 
 from platform5e.application.ports.outbound.chunk_repository_port import ChunkRepositoryPort
+from platform5e.application.ports.outbound.evidence_retriever_port import EvidenceRetrieverPort
 from platform5e.application.ports.outbound.generation_repository_port import GenerationRepositoryPort
 from platform5e.application.ports.outbound.language_model_port import ResourceGeneratorPort
 from platform5e.application.ports.outbound.resource_repository_port import ResourceReviewRepositoryPort
@@ -23,7 +24,6 @@ from platform5e.application.services.generation.prompt_drafting import (
     normalize_generated_resources,
 )
 from platform5e.domain.generation.errors import GenerationError
-from platform5e.domain.materials.text_analysis import retrieve_relevant_chunks
 
 OPTION_LETTERS: str = "abcdefghij"
 NO_MATERIAL_NOTICE: str = (
@@ -59,8 +59,10 @@ class GenerationService:
         fallback_generator: ResourceGeneratorPort | None = None,
         review_repository: ResourceReviewRepositoryPort | None = None,
         demo_examples_enabled: bool = True,
+        evidence_retriever: EvidenceRetrieverPort | None = None,
     ) -> None:
         self._repository = repository
+        self._evidence_retriever = evidence_retriever
         self._demo_examples_enabled = demo_examples_enabled
         self._review_repository = review_repository
         self._teacher_repository = teacher_repository
@@ -74,6 +76,7 @@ class GenerationService:
             teacher_id
             and self._teacher_repository
             and self._chunk_repository
+            and self._evidence_retriever
             and (self._primary_generator or self._fallback_generator)
         ):
             course, unit = self._get_course_and_unit(teacher_id, request_data["unitId"])
@@ -108,8 +111,8 @@ class GenerationService:
         unit: dict[str, Any],
         chunks: list[dict[str, Any]],
     ) -> dict[str, Any]:
-        """Orquesta la recuperación de evidencia BM25 y la invocación del generador LLM."""
-        assert self._teacher_repository is not None
+        """Orquesta la recuperación de evidencia (puerto de recuperación) y la redacción (puerto del modelo)."""
+        assert self._teacher_repository is not None and self._evidence_retriever is not None
         if request_data["outcomeId"] and not any(
             outcome["id"] == request_data["outcomeId"] for outcome in unit.get("outcomes", [])
         ):
@@ -132,7 +135,7 @@ class GenerationService:
         )
 
         top_k = max(3, min(int(request_data.get("topK") or 8), 12))
-        selected_chunks = retrieve_relevant_chunks(query_text, chunks, top_k)
+        selected_chunks = self._evidence_retriever.retrieve(query_text, chunks, top_k)
 
         documents_map = {
             doc["id"]: doc
