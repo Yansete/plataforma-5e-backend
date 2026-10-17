@@ -1,4 +1,4 @@
-import type { Course, DownloadFormat, Resource, Unit } from '@/shared/types/domain';
+import type { DownloadFormat, Resource } from '@/shared/types/domain';
 
 export interface FormatInfo {
   id: DownloadFormat;
@@ -42,25 +42,8 @@ export const FORMATS: FormatInfo[] = [
   },
 ];
 
-const SUFFIX: Record<DownloadFormat, string> = { moodle_xml: 'moodle', scorm_zip: 'scorm', documento: 'documento' };
-
 export function formatInfo(id: DownloadFormat): FormatInfo {
   return FORMATS.find((f) => f.id === id) ?? FORMATS[0];
-}
-
-/** Texto apto para nombre de archivo: minúsculas, sin tildes ni espacios. */
-export function slug(value: string): string {
-  return value
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^A-Za-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .toLowerCase();
-}
-
-/** «red-301-unidad-1-moodle.xml»: el curso y la unidad de donde salen los recursos. */
-export function fileNameFor(course: Pick<Course, 'code'>, unit: Pick<Unit, 'number'>, format: DownloadFormat): string {
-  return `${slug(course.code) || 'curso'}-unidad-${unit.number}-${SUFFIX[format]}.${formatInfo(format).extension}`;
 }
 
 export function isQuestion(resource: Resource): boolean {

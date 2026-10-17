@@ -12,6 +12,7 @@ describe('servidor', () => {
     expect(body.options![1]).toEqual({ id: 'b', text: 'TCP', feedback: 'Retro b', decision: 'aceptado', discardReason: null, edited: false });
     expect(reviewBody(text()).options).toBeNull();
     expect(reviewBody(item()).discardReason).toBeNull();
+    expect(reviewBody(item())).not.toHaveProperty('approvalBlockers');
   });
 
   it('lista, guarda y borra en la ruta de la unidad', async () => {

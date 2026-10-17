@@ -128,6 +128,16 @@ test('recorrido del docente: del curso a la descarga, con todo guardado en el se
   expect(xml).toContain('<quiz>');
   expect(xml).toContain('$course$/top/E2E-101 · Unidad 1');
   await expect(page.getByRole('cell', { name: 'e2e-101-unidad-1-moodle.xml' })).toBeVisible();
+  const htmlRequest = page.waitForRequest((r) => r.method() === 'POST' && r.url().endsWith('/exports') && r.postDataJSON().format === 'documento');
+  const htmlDownloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Descargar .html' }).click();
+  const htmlDownload = await htmlDownloadPromise;
+  expect((await htmlRequest).postDataJSON().resourceIds).toHaveLength(1);
+  expect(htmlDownload.suggestedFilename()).toBe('e2e-101-unidad-1-documento.html');
+  const html = await readFile(await htmlDownload.path(), 'utf-8');
+  expect(html).toContain('<h2>Para evaluar</h2>');
+  expect(html).toContain('1 recurso aprobado');
+  await expect(page.getByRole('cell', { name: 'e2e-101-unidad-1-documento.html' })).toBeVisible();
   await page.getByRole('button', { name: 'Borrar historial' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Borrar historial' }).click();
   await expect(page.getByText('Todavía no hay descargas de esta unidad.')).toBeVisible();

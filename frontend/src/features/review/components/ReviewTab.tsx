@@ -5,7 +5,7 @@ import { Icon } from '@/shared/components/Icon';
 import { errorMessage } from '@/shared/api/httpClient';
 import { DISCARD_REASONS, discardReasonLabel, typeInfo } from '@/features/generation/model/resourceCatalog';
 import { deleteResource, regenerate, saveResource } from '@/features/review/api/reviewApi';
-import { approvalBlockers, citedEvidence, countByStatus, decideOption, editContent, editOption, editProblem, optionProblem, optionSource, setStatus, withStatus, highlight } from '@/features/review/model/reviewRules';
+import { citedEvidence, countByStatus, decideOption, editContent, editOption, editProblem, optionProblem, optionSource, setStatus, withStatus, highlight } from '@/features/review/model/reviewRules';
 import type { DiscardReason, Evidence, ItemOption, Resource, ReviewStatus, Unit } from '@/shared/types/domain';
 import type { UnitTabProps } from '@/features/units/model/unitTab';
 
@@ -166,7 +166,7 @@ function ResourceReview({ resource, unit, onSaved, onRemoved, onRegenerated }: R
   };
 
   const pending = resource.status === 'pendiente';
-  const blockers = approvalBlockers(resource);
+  const blockers = resource.approvalBlockers;
   const outcome = unit.outcomes.find((o) => o.id === resource.outcomeId);
   const disabled = busy !== '';
 

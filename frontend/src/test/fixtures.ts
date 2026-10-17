@@ -72,6 +72,7 @@ export function option(id: string, overrides: Partial<ItemOption> = {}): ItemOpt
 
 export function item(overrides: Partial<Resource> = {}): Resource {
   return {
+    approvalBlockers: ['Decide los 3 distractores pendientes para poder aprobar.'],
     id: 'r1',
     unitId: 'u1',
     outcomeId: 'ra1',
@@ -98,5 +99,5 @@ export function item(overrides: Partial<Resource> = {}): Resource {
 }
 
 export function text(overrides: Partial<Resource> = {}): Resource {
-  return item({ id: 'r2', type: 'explicacion', stage: 'explain', title: 'Las capas del modelo', body: 'Primer párrafo.\n\nSegundo <párrafo>.', options: null, ...overrides });
+  return item({ approvalBlockers: [], id: 'r2', type: 'explicacion', stage: 'explain', title: 'Las capas del modelo', body: 'Primer párrafo.\n\nSegundo <párrafo>.', options: null, ...overrides });
 }
