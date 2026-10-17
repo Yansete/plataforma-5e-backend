@@ -151,7 +151,26 @@ anota el resultado en el acta de la semana:
    la página (lo aprobado sigue ahí) y descargar el Moodle XML y el documento de la unidad (.html).
 5. Validar el XML descargado con `python -m tests.support.moodle_xml_validator <archivo.xml>` antes de importarlo en Moodle.
 
-## Última verificación: 16/10/2026, estructura hexagonal y API en inglés
+## Verificación de la integración final de la tarea 7 (16/10/2026)
+
+Sobre `main` en `55531cc`, con los ajustes de aprobación y documento HTML aplicados,
+Python 3.12 y Node 24:
+
+- Backend: 285 pruebas superadas (126 unitarias, 107 de arquitectura, 36 de integración y
+  16 de punta a punta por HTTP). Cobertura de dominio y aplicación: 98,35 % (269 pruebas
+  unitarias, de arquitectura e integración; mínimo requerido: 80 %).
+- Frontend: comprobación de tipos y compilación correctas; 68 pruebas unitarias y
+  97,89 % de líneas cubiertas (96,03 % de ramas, 100 % de funciones).
+- El HTML se verifica en el backend: orden de las etapas, alternativas, citas, caracteres
+  especiales, enlaces HTTP(S), nombre del archivo, selección y registro único de descarga.
+  Las reglas de aprobación se prueban allí; el cliente no las vuelve a calcular.
+- Las cuatro pruebas en Chromium contra el backend real pasaron (1,1 minutos).
+- Las pruebas HTTP comprueban `approvalBlockers` al generar, listar y guardar un recurso.
+  La prueba del navegador añade la descarga del HTML desde `/exports` y su historial.
+- Se utilizan SQLite temporal y el generador por reglas. Esta verificación no acredita
+  importaciones reales en LMS, proveedores de IA, Wikipedia ni la instalación en producción.
+
+## Verificación anterior: 16/10/2026, estructura hexagonal y API en inglés
 
 Hecha sobre `main` con la reestructuración del backend (#24) y los cambios de la tarea del docente aplicados, con
 Python 3.13 y Node 22:
