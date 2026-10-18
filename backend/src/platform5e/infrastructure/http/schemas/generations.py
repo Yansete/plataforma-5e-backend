@@ -61,7 +61,7 @@ class GenerationRequest(ApiRequest):
 
 
 class GeneratorInfo(ApiResponse):
-    description: str = Field(examples=["Gemini (gemini-2.5-flash)"])
+    description: str = Field(examples=["Gemini (gemini-3.8-flash)"])
     uses_ai: bool = Field(description="False when the rule-based generator is active.")
     provider: str = Field(examples=["gemini", "rules"])
     model: str | None = None

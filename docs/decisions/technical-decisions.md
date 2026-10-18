@@ -194,8 +194,9 @@ textos que lee el docente siguen en español. Se vigila con `tests/architecture/
 Queda en español, como deuda declarada para el Sprint 2 porque exige migrar los datos de Neon:
 
 - Los nombres de tablas y columnas (`ep002_cursos`, `docente`…). Los atributos del ORM ya están en inglés.
-- Los valores guardados: estados (`pendiente`, `aprobado`, `descartado`), tipos de recurso (`item_opcion_multiple`…)
-  y dificultades (`basica`, `intermedia`, `avanzada`).
+- Los valores guardados: estados (`pendiente`, `aprobado`, `descartado`), tipos de recurso (`item_opcion_multiple`…),
+  dificultades (`basica`, `intermedia`, `avanzada`) y el formato `documento` del historial de descargas, que también
+  se acepta en `POST /units/{unit_id}/exports`.
 - Los nombres anteriores de las variables de entorno (`CORS_ORIGENES`, `IA_API_KEY`…) se siguen leyendo si falta el
   nombre nuevo, para que Render no se caiga mientras se renombran en el panel.
 - Los cursos, documentos y generaciones guardados antes del contrato se adaptan al leerlos (claves `sumilla`, `logro`,

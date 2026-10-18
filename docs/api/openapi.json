@@ -2724,7 +2724,7 @@
             "type": "string",
             "title": "Description",
             "examples": [
-              "Gemini (gemini-2.5-flash)"
+              "Gemini (gemini-3.8-flash)"
             ]
           },
           "usesAi": {

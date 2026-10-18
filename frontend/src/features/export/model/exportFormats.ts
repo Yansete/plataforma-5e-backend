@@ -6,7 +6,7 @@ export interface FormatInfo {
   description: string;
   extension: 'xml' | 'zip' | 'html';
   mimeType: string;
-  /** Moodle y Chamilo solo importan preguntas de opción múltiple. */
+  /** Moodle solo importa preguntas de opción múltiple; Chamilo y el documento reciben todo lo aprobado. */
   onlyQuestions: boolean;
   /** Cómo usar el archivo. */
   howTo: string;

@@ -45,7 +45,7 @@ no hace falta correr migraciones para este despliegue.
 | `CORS_ALLOWED_ORIGINS` | `https://plataforma-5e-taller-integrador.vercel.app` | Permite que el frontend publicado llame al backend |
 | `LLM_PROVIDER` | `gemini` (o `anthropic`, `openai`, `rules`) | Proveedor del modelo de lenguaje |
 | `LLM_API_KEY` | la clave del proveedor | Sin clave se usa el generador por reglas |
-| `LLM_MODEL` | opcional | Por defecto `gemini-2.5-flash`, `claude-sonnet-5-5` o `gpt-5.4-mini` |
+| `LLM_MODEL` | opcional | Por defecto `gemini-3.8-flash`, `claude-sonnet-5-5` o `gpt-5.4-mini` |
 | `LLM_BASE_URL` | opcional | Para servicios compatibles con la API de OpenAI |
 | `LLM_TIMEOUT_SECONDS` | opcional | Tiempo de espera por respuesta (por defecto 90) |
 | `TOPIC_SEARCH_ENABLED` | `true` (por defecto) | `false` desactiva la búsqueda en Wikipedia |

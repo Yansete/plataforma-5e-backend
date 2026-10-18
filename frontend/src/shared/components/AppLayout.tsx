@@ -1,12 +1,13 @@
 /**
  * Marco de las pantallas con sesión: menú lateral (cursos y unidades), barra para celular y contenido.
  */
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom';
 import { logout } from '@/features/auth/api/authApi';
 import { useData, useSession } from '@/app/DataProvider';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 import { Icon } from '@/shared/components/Icon';
+import { Spinner } from '@/shared/components/ui';
 
 export function AppLayout() {
   const session = useSession();
@@ -138,7 +139,9 @@ export function AppLayout() {
         <main className="main" id="contenido" tabIndex={-1}>
           <div className="content">
             <ErrorBoundary key={pageKey}>
-              <Outlet />
+              <Suspense fallback={<Spinner label="Cargando…" />}>
+                <Outlet />
+              </Suspense>
             </ErrorBoundary>
           </div>
         </main>
