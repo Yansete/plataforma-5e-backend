@@ -37,6 +37,31 @@ RETRY_PROMPT_SUFFIX: str = (
 _STRING_TYPE: dict[str, str] = {"type": "STRING"}
 _TAGS_ARRAY_TYPE: dict[str, Any] = {"type": "ARRAY", "items": _STRING_TYPE}
 
+def _object_list(*fields: str, flags: tuple[str, ...] = ()) -> dict[str, Any]:
+    properties: dict[str, Any] = {name: _STRING_TYPE for name in fields}
+    properties.update({name: {"type": "BOOLEAN"} for name in flags})
+    return {"type": "ARRAY", "items": {"type": "OBJECT", "properties": properties}}
+
+
+# Contenido estructurado de los recursos visuales, de audio e interactivos (todos los campos son opcionales).
+_STRUCTURE_SCHEMA: dict[str, Any] = {
+    "type": "OBJECT",
+    "properties": {
+        "guion": _STRING_TYPE,
+        "descripcion_imagen": _STRING_TYPE,
+        "texto_alternativo": _STRING_TYPE,
+        "leyenda": _STRING_TYPE,
+        "central": _STRING_TYPE,
+        "nodos": _object_list("etiqueta", "detalle"),
+        "puntos": _object_list("titulo", "texto"),
+        "pasos": _object_list("titulo", "texto"),
+        "pares": _object_list("termino", "definicion"),
+        "secuencia": _TAGS_ARRAY_TYPE,
+        "afirmaciones": _object_list("texto", "retroalimentacion", flags=("verdadera",)),
+        "espacios": _object_list("oracion", "respuesta"),
+    },
+}
+
 # Esquema estructurado para Gemini
 GEMINI_RESPONSE_SCHEMA: dict[str, Any] = {
     "type": "OBJECT",
@@ -72,6 +97,7 @@ GEMINI_RESPONSE_SCHEMA: dict[str, Any] = {
                             "required": ["texto", "correcta", "retroalimentacion", "fragmentos"],
                         },
                     },
+                    "estructura": _STRUCTURE_SCHEMA,
                 },
                 "required": ["titulo", "contenido", "citas", "alternativas"],
             },

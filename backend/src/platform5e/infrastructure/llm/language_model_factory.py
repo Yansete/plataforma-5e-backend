@@ -10,8 +10,10 @@ from typing import Any
 
 from platform5e.application.ports.outbound.language_model_port import ResourceGeneratorPort
 from platform5e.application.services.generation.rule_based_generator import RuleBasedGenerator
+from platform5e.application.ports.outbound.media_port import MediaGeneratorPort
 from platform5e.infrastructure.llm.gemini_language_model import GeminiLanguageModel
-from platform5e.infrastructure.settings import read_setting
+from platform5e.infrastructure.llm.gemini_media_generator import GeminiMediaGenerator
+from platform5e.infrastructure.settings import read_flag, read_setting
 
 RULES_PROVIDERS = {"rules", "reglas"}  # «reglas»: nombre anterior, se acepta mientras se actualizan los paneles
 
@@ -39,6 +41,25 @@ def create_generators(
         timeout=float(setting("LLM_TIMEOUT_SECONDS") or 90.0),
     )
     return primary_generator, fallback_generator
+
+
+def create_media_generator(environment: Mapping[str, str] | None = None) -> MediaGeneratorPort | None:
+    """Imágenes y voz con Gemini. Sin clave de Gemini (o con MEDIA_GENERATION_ENABLED=false) se usan los respaldos."""
+
+    def setting(name: str) -> str:
+        return read_setting(name, "", environment).strip()
+
+    api_key = setting("LLM_API_KEY")
+    provider = (setting("LLM_PROVIDER") or ("gemini" if api_key else "rules")).lower()
+    if provider != "gemini" or not api_key or not read_flag("MEDIA_GENERATION_ENABLED", True, environment):
+        return None
+    return GeminiMediaGenerator(
+        api_key=api_key,
+        image_model=setting("IMAGE_MODEL") or None,
+        speech_model=setting("SPEECH_MODEL") or None,
+        voice=setting("SPEECH_VOICE") or None,
+        timeout=float(setting("LLM_TIMEOUT_SECONDS") or 120.0),
+    )
 
 
 def describe_generator(generator: ResourceGeneratorPort) -> dict[str, Any]:

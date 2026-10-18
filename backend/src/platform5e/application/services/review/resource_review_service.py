@@ -13,6 +13,7 @@ from uuid import uuid4
 from platform5e.application.ports.outbound.resource_repository_port import ResourceReviewRepositoryPort
 from platform5e.application.ports.outbound.teacher_repository_port import TeacherRepositoryPort
 from platform5e.domain.accounts.teacher_account import AccountConfigurationError
+from platform5e.domain.generation.resource_formats import needs_structure, normalize_structure, structure_problems
 
 MIN_ACCEPTED_DISTRACTORS: int = 2
 ALLOWED_REVIEW_STATUSES: set[str] = {"pendiente", "aprobado", "descartado"}
@@ -52,6 +53,8 @@ def validate_approval_blockers(resource_data: dict[str, Any]) -> list[str]:
         if not any(opt.get("isCorrect") and str(opt.get("text", "")).strip() for opt in options):
             reasons.append("La pregunta necesita una respuesta correcta.")
 
+    if resource_data.get("type"):
+        reasons += structure_problems(resource_data["type"], resource_data.get("structure"))
     return reasons
 
 
@@ -73,6 +76,10 @@ class ResourceReviewService:
             raise AccountConfigurationError(
                 "UNIT_NOT_FOUND", "La unidad no pertenece a tus cursos.", 404
             )
+
+    def get_resource(self, teacher_id: str, unit_id: str, resource_id: str) -> dict[str, Any]:
+        """Un recurso de la unidad del docente (404 si no existe o es de otra unidad)."""
+        return self._get_resource_or_fail(teacher_id, unit_id, resource_id)
 
     def _get_resource_or_fail(
         self, teacher_id: str, unit_id: str, resource_id: str
@@ -120,6 +127,24 @@ class ResourceReviewService:
             "body": changes["body"],
             "edited": bool(changes.get("edited")),
         }
+        if "bodyHtml" in changes:
+            # Ya llega limpio (sin scripts ni atributos peligrosos) desde el adaptador HTTP.
+            updated_resource["bodyHtml"] = changes["bodyHtml"] or None
+        if changes.get("structure") is not None:
+            if not needs_structure(existing.get("type", "")):
+                raise AccountConfigurationError(
+                    "INVALID_STRUCTURE", "Este tipo de recurso no tiene elementos para editar.", 422
+                )
+            structure = normalize_structure(existing["type"], changes["structure"])
+            if structure is None:
+                raise AccountConfigurationError(
+                    "INVALID_STRUCTURE", "Completa todos los elementos de la actividad antes de guardar.", 422
+                )
+            media = existing.get("media") or {}
+            if media.get("status") == "ready" and structure != existing.get("structure"):
+                # El archivo se generó con el guion o la descripción anterior: se avisa en la revisión.
+                updated_resource["media"] = {**media, "outdated": True}
+            updated_resource["structure"] = structure
 
         options = existing.get("options")
         if options is not None:

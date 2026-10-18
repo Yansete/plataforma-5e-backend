@@ -9,6 +9,10 @@ LLM_MODEL                   opcional; por defecto gemini-3.8-flash, claude-sonne
 LLM_BASE_URL                opcional; para proxies o servicios compatibles con OpenAI
 LLM_TIMEOUT_SECONDS         tiempo de espera por respuesta (por defecto 90)
 TOPIC_SEARCH_ENABLED        true (por defecto) | false: búsqueda de material por tema en Wikipedia
+MEDIA_GENERATION_ENABLED    true (por defecto) | false: imágenes y voz con Gemini (necesita LLM_PROVIDER=gemini)
+IMAGE_MODEL                 opcional; por defecto gemini-3.1-flash-lite-image (requiere facturación en Google AI)
+SPEECH_MODEL                opcional; por defecto gemini-3.8-flash-tts
+SPEECH_VOICE                opcional; voz de Gemini, por defecto Kore
 BOOTSTRAP_TEACHER_EMAIL     opcional; cuenta inicial configurada en el servidor
 BOOTSTRAP_TEACHER_PASSWORD  opcional; su contraseña
 DEMO_CATALOG                solo pruebas: cuenta y curso de ejemplo

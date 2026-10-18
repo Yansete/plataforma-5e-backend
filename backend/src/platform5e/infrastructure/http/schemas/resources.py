@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import Field, computed_field
+from pydantic import Field, computed_field, field_validator
 
 from platform5e.application.services.review.resource_review_service import validate_approval_blockers
+from platform5e.infrastructure.html_sanitizer import clean_html
 from platform5e.infrastructure.http.schemas.common import ApiRequest, ApiResponse
 
 # Valores guardados en la base: pasan al inglés en el Sprint 2 junto con una migración de datos.
@@ -43,6 +44,18 @@ class ResourceOptionResponse(ApiResponse):
     edited: bool = False
 
 
+class MediaResponse(ApiResponse):
+    """Image or audio generated for the resource. `fallback`: no file, the review shows the description or uses the
+    browser's voice."""
+
+    status: Literal["ready", "fallback"]
+    id: str | None = None
+    mime_type: str | None = None
+    file_name: str | None = None
+    note: str | None = None
+    outdated: bool = Field(default=False, description="The teacher edited the script or description after generating.")
+
+
 class ResourceResponse(ApiResponse):
     id: str
     unit_id: str
@@ -51,6 +64,12 @@ class ResourceResponse(ApiResponse):
     type: str = Field(description="Resource type, e.g. `item_opcion_multiple`.")
     title: str
     body: str = Field(description="Content. In questions it is the prompt; paragraphs separated by a blank line.")
+    body_html: str | None = Field(default=None, description="Formatted content from the rich text editor (sanitized).")
+    format: str = Field(default="text", description="`text`, `visual`, `image`, `audio` or `interactive`.")
+    structure: dict[str, Any] | None = Field(
+        default=None, description="Items of visual, audio and interactive resources (nodes, steps, pairs, statements…)."
+    )
+    media: MediaResponse | None = None
     options: list[ResourceOptionResponse] | None = None
     citations: list[CitationResponse] = []
     status: str = Field(description="`pendiente`, `aprobado` or `descartado`.")
@@ -67,6 +86,8 @@ class ResourceResponse(ApiResponse):
     def approval_blockers(self) -> list[str]:
         return validate_approval_blockers({
             "body": self.body,
+            "type": self.type,
+            "structure": self.structure,
             "options": [option.model_dump(by_alias=True) for option in self.options] if self.options else None,
         })
 
@@ -85,10 +106,19 @@ class ReviewedResourceInput(ApiRequest):
 
     title: str = Field(min_length=1, max_length=160)
     body: str = Field(min_length=1, max_length=8000)
+    body_html: str | None = Field(
+        default=None, max_length=20000, description="HTML from the editor; only text formatting and web links are kept."
+    )
+    structure: dict[str, Any] | None = Field(default=None, description="Edited items of the activity or graphic.")
     status: ReviewStatus
     discard_reason: DiscardReason | None = None
     edited: bool = False
     options: list[ReviewedOptionInput] | None = Field(default=None, max_length=10)
+
+    @field_validator("body_html")
+    @classmethod
+    def sanitize_html(cls, value: str | None) -> str | None:
+        return clean_html(value) if value is not None else None
 
 
 class UnitSummaryResponse(ApiResponse):

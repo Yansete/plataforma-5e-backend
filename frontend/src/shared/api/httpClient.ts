@@ -67,6 +67,25 @@ export function errorMessage(error: unknown): string {
   return 'Ocurrió un error inesperado. Vuelve a intentar.';
 }
 
+/** GET de un archivo con la sesión (imagen, gráfico o audio de un recurso). */
+export async function apiBlob(path: string): Promise<Blob> {
+  const session = getSession();
+  const headers: Record<string, string> = {};
+  if (session) headers.Authorization = `Bearer ${session.token}`;
+  let response: Response;
+  try {
+    response = await fetch(apiUrl(path), { headers });
+  } catch {
+    throw new ApiError(0, 'NO_CONNECTION', CONNECTION_ERROR_MESSAGE);
+  }
+  if (!response.ok) {
+    const data = (await response.json().catch(() => null)) as { error?: Record<string, string> } | null;
+    if (response.status === 401 && session) setSession(null);
+    throw new ApiError(response.status, data?.error?.code ?? `HTTP_${response.status}`, data?.error?.message ?? 'No se pudo cargar el archivo.');
+  }
+  return response.blob();
+}
+
 /** POST que devuelve un archivo (por ejemplo, el paquete SCORM) en vez de JSON. */
 export async function apiDownload(path: string, json: unknown): Promise<{ blob: Blob; fileName: string }> {
   const session = getSession();

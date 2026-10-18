@@ -151,6 +151,22 @@ anota el resultado en el acta de la semana:
    la página (lo aprobado sigue ahí) y descargar el Moodle XML y el documento de la unidad (.html).
 5. Validar el XML descargado con `python -m tests.support.moodle_xml_validator <archivo.xml>` antes de importarlo en Moodle.
 
+## Verificación de los cambios pedidos por el docente el 17/10/2026
+
+Sobre `main` en `4910bed` con los parches 9 y 10, Python 3.13 (y compilación con 3.11 y una instalación limpia con
+`pip install .` en 3.12, como Render), Node 24 y Chromium:
+
+- Backend: 334 pruebas superadas. Nuevas: `tests/unit/test_multimodal_resources.py` (catálogo por etapa, los 18 tipos
+  con el generador por reglas, estructura, SVG bien formado y con texto escapado, imágenes y voz de Gemini con un
+  servidor simulado, respaldo si el servicio falla, SCORM con todos los archivos declarados en el manifiesto y
+  documento con clave de respuestas) y `tests/e2e/test_multimodal_api.py` (gráfico por HTTP, audio sin archivo,
+  HTML limpiado, elementos validados, aprobación y exportación).
+- Frontend: comprobación de tipos y compilación correctas; 78 pruebas unitarias, 98,15 % de líneas cubiertas.
+- Punta a punta en Chromium: las 4 pruebas anteriores y `e2e/multimodal.spec.ts` (selección múltiple, revisión en el
+  orden de la clase, editor con negrita, edición de una afirmación, aprobación y SCORM con los tres recursos).
+- Sin clave de IA: se usan el generador por reglas, la tarjeta descriptiva de la imagen y la voz del navegador. Esta
+  verificación no acredita la generación real de imágenes y audio con Gemini ni la importación en Canvas.
+
 ## Verificación de la integración final de la tarea 7 (16/10/2026)
 
 Sobre `main` en `55531cc`, con los ajustes de aprobación y documento HTML aplicados,

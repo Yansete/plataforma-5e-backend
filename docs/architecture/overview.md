@@ -18,11 +18,14 @@ backend y orienta la redacción. En la interfaz no se nombran las etapas; se mue
 
 | Momento en la interfaz | Etapa 5E | Tipos de recurso |
 |---|---|---|
-| Para iniciar la clase | Enganchar (*engage*) | Pregunta detonante, sondeo de ideas previas |
-| Para explorar | Explorar (*explore*) | Guía de exploración, caso con preguntas |
-| Para explicar | Explicar (*explain*) | Explicación del tema, glosario |
-| Para aplicar | Elaborar (*elaborate*) | Ejercicio de aplicación |
-| Para evaluar | Evaluar (*evaluate*) | Preguntas de opción múltiple |
+| Para iniciar la clase | Enganchar (*engage*) | Pregunta detonante, sondeo de ideas previas, cápsula de audio detonante |
+| Para explorar | Explorar (*explore*) | Guía de exploración, caso con preguntas, imagen ilustrativa, diagrama de proceso |
+| Para explicar | Explicar (*explain*) | Explicación del tema, glosario, mapa conceptual, infografía, resumen en pódcast |
+| Para aplicar | Elaborar (*elaborate*) | Ejercicio de aplicación, relacionar conceptos, ordenar pasos |
+| Para evaluar | Evaluar (*evaluate*) | Preguntas de opción múltiple, verdadero o falso, completar espacios |
+
+En «Elegir opciones» el docente marca uno o varios tipos en cada momento de la clase y se generan todos juntos. La
+revisión los muestra agrupados en el mismo orden. Detalle de formatos, medios y respaldos en ADR-011.
 
 | Área | Funcionamiento actual | Límite |
 |---|---|---|
@@ -44,20 +47,22 @@ en inglés los vigila `tests/architecture/test_english_names.py`.
 backend/src/platform5e/
 ├── domain/                     Reglas puras, sin FastAPI ni SQLAlchemy
 │   ├── accounts/               Errores de la cuenta y la configuración del docente
-│   ├── generation/             Errores de la generación
+│   ├── generation/             Errores y catálogo de tipos por etapa y formato (resource_formats.py)
 │   ├── materials/              Fragmentación (chunking.py) y búsqueda BM25 (text_analysis.py)
 │   └── shared/                 Errores comunes (no encontrado, duplicado, persistencia no disponible)
 ├── application/                Casos de uso; solo conoce el dominio y sus puertos
 │   ├── ports/outbound/         Puertos (typing.Protocol): repositorios, modelo de lenguaje, recuperación de evidencia,
-│   │                           fuente abierta, exportador
+│   │                           fuente abierta, exportador, medios (generar, guardar y dibujar)
 │   ├── services/               accounts, materials, generation (redacción, generador por reglas) y review
-│   └── use_cases/export/       ExportUnitResourcesUseCase: lo aprobado de una unidad → archivo del formato pedido
+│   └── use_cases/              export: lo aprobado de una unidad → archivo · media: gráfico, imagen o audio de un recurso
 ├── infrastructure/             Adaptadores
 │   ├── http/                   Rutas FastAPI (routers/), esquemas Pydantic (schemas/), errores y autenticación
 │   ├── persistence/            Repositorios SQLAlchemy (PostgreSQL en Neon o SQLite)
-│   ├── llm/                    Gemini, Anthropic u OpenAI por HTTP y la fábrica que elige el generador
+│   ├── llm/                    Gemini, Anthropic u OpenAI por HTTP, imágenes y voz con Gemini, y las fábricas
 │   ├── retrieval/              Búsqueda de evidencia BM25: adaptador del puerto EvidenceRetrieverPort
-│   ├── exporters/              SCORM 1.2 (Chamilo), Moodle XML y documento HTML: adaptadores del puerto UnitExporterPort
+│   ├── exporters/              SCORM 1.2 multirrecurso, Moodle XML y documento HTML (UnitExporterPort); gráficos SVG
+│   │                           (VisualRendererPort)
+│   ├── html_sanitizer.py       Limpieza del HTML del editor enriquecido (nh3)
 │   ├── extraction/             Texto de PDF (pypdf), PPTX (python-pptx) y TXT
 │   ├── sources/                Wikipedia en español (CC BY-SA 4.0)
 │   └── settings.py             Variables de entorno
@@ -111,9 +116,10 @@ el código es estable y en inglés; el mensaje lo lee el docente y va en españo
 | `/generations` y `/generations/{generation_id}` | POST generar con el material de la unidad; GET historial; GET una generación |
 | `/generator` | GET generador activo (modelo de lenguaje o reglas) |
 | `/review-summary` | GET recursos aprobados y por revisar de cada unidad |
-| `/units/{unit_id}/resources` y `/units/{unit_id}/resources/{resource_id}` | GET recursos con su revisión; PUT guardar la revisión; DELETE borrar |
+| `/units/{unit_id}/resources` y `/units/{unit_id}/resources/{resource_id}` | GET recursos con su revisión; PUT guardar la revisión (texto con formato y elementos editados); DELETE borrar |
+| `/units/{unit_id}/resources/{resource_id}/media` | GET gráfico SVG, imagen o audio del recurso |
 | `/units/{unit_id}/downloads` | GET historial; POST registrar una descarga; DELETE borrar el historial |
-| `/units/{unit_id}/exports` | POST archivo para Chamilo (`scorm_zip`) o Moodle (`moodle_xml`) armado en el backend |
+| `/units/{unit_id}/exports` | POST paquete SCORM para Canvas o Chamilo (`scorm_zip`), Moodle (`moodle_xml`) o documento (`documento`) |
 | `/health` (sin prefijo) | GET comprobación de salud para Render |
 
 Los contratos 5E (estructura de cada tipo de recurso) están en `backend/src/platform5e/infrastructure/http/schemas/`
@@ -134,8 +140,8 @@ al backend), `model/` (reglas sin React), `components/` y `pages/`.
 | `shared/api/httpClient.ts` | Cliente HTTP: agrega la sesión, lee los errores `{error: {code, message}}`, distingue «sin conexión» de «tiempo agotado» y cierra la sesión vencida |
 | `features/auth`, `features/courses` | Cuentas y sesión; cursos con borrado y resumen de recursos por unidad |
 | `features/materials` | Subir, procesar y borrar documentos; buscar un tema en fuentes abiertas |
-| `features/generation` | Formulario y pedido escrito (interpretado por reglas); llamada a `POST /generations` |
-| `features/review` | Reglas para aprobar (iguales a las del backend), cambios del docente, regeneración y evidencia |
+| `features/generation` | Formulario con selección múltiple por etapa y pedido escrito (interpretado por reglas); un `POST /generations` por tipo marcado |
+| `features/review` | Revisión agrupada por etapa; editor enriquecido (Tiptap, se carga al editar); gráficos, imágenes, audio (con la voz del navegador de respaldo) y actividades; edición de sus elementos; regeneración y evidencia |
 | `features/export` | Pide al backend el archivo para Moodle o Chamilo (`POST /units/{id}/exports`), arma el documento de la unidad (HTML) y muestra el historial |
 | `features/units` | La página de la unidad con sus cuatro pestañas; los recursos se cargan una vez y las pestañas los comparten |
 | `app/` | Rutas, sesión requerida y datos compartidos (`DataProvider`) |

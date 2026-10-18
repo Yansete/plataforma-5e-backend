@@ -178,8 +178,8 @@ export function ExportTab({ unit, base, resources, resourcesError, reloadResourc
       </div>
       <p className="note">
         <Icon name="info" size={16} />
-        Moodle solo importa preguntas de opción múltiple. Chamilo recibe todos los recursos aprobados como páginas de la lección, y el
-        documento de la unidad sirve para imprimir o compartir.
+        Moodle solo importa preguntas de opción múltiple. El paquete SCORM (Canvas o Chamilo) lleva todos los recursos aprobados, con sus
+        imágenes, audios y actividades, y el documento de la unidad sirve para imprimir o compartir.
       </p>
 
       <Card>

@@ -24,12 +24,12 @@ export const FORMATS: FormatInfo[] = [
   },
   {
     id: 'scorm_zip',
-    title: 'Chamilo',
-    description: 'Paquete SCORM 1.2: cada recurso aprobado es una página de la lección.',
+    title: 'SCORM (Canvas o Chamilo)',
+    description: 'Paquete SCORM 1.2: cada recurso aprobado es una página, con sus gráficos, imágenes, audios y actividades calificadas.',
     extension: 'zip',
     mimeType: 'application/zip',
     onlyQuestions: false,
-    howTo: 'En Chamilo: Lecciones › Importar AICC, SCORM y Chamilo.',
+    howTo: 'En Canvas: herramienta SCORM del curso › subir el .zip. En Chamilo: Lecciones › Importar AICC, SCORM y Chamilo.',
   },
   {
     id: 'documento',

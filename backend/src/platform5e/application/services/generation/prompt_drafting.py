@@ -9,6 +9,16 @@ import json
 import re
 from typing import Any
 
+from platform5e.domain.generation.resource_formats import (
+    AUDIO,
+    IMAGE,
+    INTERACTIVE,
+    TEXT,
+    VISUAL,
+    normalize_structure,
+    resource_format,
+)
+
 PHASES_5E: dict[str, tuple[str, str]] = {
     "engage": ("Enganchar", "activar ideas previas y despertar la curiosidad"),
     "explore": ("Explorar", "que el estudiante indague y descubra a partir de actividades"),
@@ -50,6 +60,73 @@ RESOURCE_TYPES: dict[str, tuple[str, str]] = {
         "Ítem de opción múltiple",
         "Un enunciado con 1 respuesta correcta y distractores plausibles con retroalimentación.",
     ),
+    "audio_detonante": (
+        "Cápsula de audio detonante",
+        "Un guion de 45 a 75 segundos para escuchar al iniciar la clase: una situación del material y una pregunta abierta.",
+    ),
+    "podcast_resumen": (
+        "Resumen en formato podcast",
+        "Un guion de 90 a 150 segundos que resume las ideas centrales, como un pódcast breve narrado por una voz.",
+    ),
+    "imagen_ilustrativa": (
+        "Imagen ilustrativa",
+        "Una ilustración didáctica de una idea del material, sin texto dentro de la imagen, y una pregunta para observarla.",
+    ),
+    "diagrama_proceso": (
+        "Diagrama de proceso",
+        "De 3 a 7 pasos o fases en orden, cada uno con un título corto y una explicación breve.",
+    ),
+    "mapa_conceptual": (
+        "Mapa conceptual",
+        "Un concepto central y de 4 a 7 conceptos relacionados, cada uno con una relación o detalle breve.",
+    ),
+    "infografia": (
+        "Infografía",
+        "Un titular y de 3 a 6 datos o ideas clave, cada uno con un título corto y una explicación breve.",
+    ),
+    "emparejamiento": (
+        "Actividad de emparejamiento",
+        "De 4 a 8 pares término-definición para que el estudiante relacione cada término con su definición.",
+    ),
+    "ordenar_pasos": (
+        "Actividad de ordenar pasos",
+        "De 4 a 7 pasos o eventos de un proceso del material, en el orden correcto; el estudiante los ordenará.",
+    ),
+    "verdadero_falso": (
+        "Verdadero o falso",
+        "De 4 a 8 afirmaciones, unas verdaderas y otras falsas según el material, con retroalimentación.",
+    ),
+    "completar_espacios": (
+        "Completar espacios",
+        "De 3 a 6 oraciones del material con un término clave reemplazado por ____ y su respuesta.",
+    ),
+}
+
+# Instrucción para el campo «estructura» según el tipo (claves del contrato con el modelo).
+STRUCTURE_INSTRUCTIONS: dict[str, str] = {
+    "audio_detonante": '"estructura": {"guion": "texto para leer en voz alta, sin acotaciones ni efectos de sonido"}',
+    "podcast_resumen": '"estructura": {"guion": "texto para leer en voz alta, sin acotaciones ni efectos de sonido"}',
+    "imagen_ilustrativa": (
+        '"estructura": {"descripcion_imagen": "descripción visual detallada para un ilustrador, sin texto escrito '
+        'en la imagen", "texto_alternativo": "...", "leyenda": "..."}'
+    ),
+    "diagrama_proceso": '"estructura": {"pasos": [{"titulo": "...", "texto": "..."}]}',
+    "mapa_conceptual": '"estructura": {"central": "...", "nodos": [{"etiqueta": "...", "detalle": "..."}]}',
+    "infografia": '"estructura": {"central": "titular", "puntos": [{"titulo": "...", "texto": "..."}]}',
+    "emparejamiento": '"estructura": {"pares": [{"termino": "...", "definicion": "..."}]}',
+    "ordenar_pasos": '"estructura": {"secuencia": ["primer paso", "segundo paso", "..."]}',
+    "verdadero_falso": (
+        '"estructura": {"afirmaciones": [{"texto": "...", "verdadera": true, "retroalimentacion": "..."}]}'
+    ),
+    "completar_espacios": '"estructura": {"espacios": [{"oracion": "El ____ ...", "respuesta": "..."}]}',
+}
+
+FORMAT_RULES: dict[str, str] = {
+    TEXT: "Genera solo texto: no incluyas imágenes, enlaces a video o audio.",
+    AUDIO: "El guion se convertirá en audio con una voz sintética: escribe frases cortas y naturales para el oído.",
+    IMAGE: "La imagen la dibujará un modelo de imágenes: describe la escena con detalle y sin texto escrito en ella.",
+    VISUAL: "La plataforma dibuja el gráfico con tu estructura: usa títulos cortos (máximo 6 palabras).",
+    INTERACTIVE: "La plataforma arma la actividad interactiva con tu estructura y la califica automáticamente.",
 }
 
 DIFFICULTY_LABELS: dict[str, str] = {
@@ -130,7 +207,7 @@ def build_prompt_instructions(context: dict[str, Any]) -> tuple[str, str]:
         "Usa SOLO la información de los FRAGMENTOS del material: no agregues datos ajenos. "
         "Cada afirmación importante debe citar las etiquetas de los fragmentos que la respaldan (F1, F2…). "
         "Si los fragmentos no alcanzan, devuelve menos recursos. "
-        "Genera solo texto: no incluyas imágenes, enlaces a video o audio, ni instrucciones para producir material multimedia. "
+        f"{FORMAT_RULES[resource_format(req['tipo'])]} "
         "Responde únicamente con JSON válido, sin delimitadores adicionales."
     )
 
@@ -164,6 +241,13 @@ def build_prompt_instructions(context: dict[str, Any]) -> tuple[str, str]:
         ' "citas": [{"afirmacion": "...", "fragmentos": ["F1"]}],',
         ' "alternativas": [{"texto": "...", "correcta": true, "retroalimentacion": "...", "fragmentos": ["F2"]}]}]}',
         "«alternativas» solo se llena en ítems de opción múltiple; en los demás tipos usa [].",
+    ]
+    if req["tipo"] in STRUCTURE_INSTRUCTIONS:
+        lines += [
+            "Agrega también a cada recurso: " + STRUCTURE_INSTRUCTIONS[req["tipo"]],
+            "En «contenido» escribe la consigna o una explicación breve para el estudiante.",
+        ]
+    lines += [
         "",
         "FRAGMENTOS DEL MATERIAL:",
     ]
@@ -227,6 +311,54 @@ def _resolve_fragment_ids(value: Any, tag_mapping: dict[str, str]) -> list[str]:
     return resolved_ids
 
 
+def _list_of_dicts(value: Any) -> list[dict[str, Any]]:
+    return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
+
+
+def structure_from_model(resource_type: str, raw: Any, body: str, title: str) -> dict[str, Any] | None:
+    """Traduce la «estructura» del contrato con el modelo (claves en español) a la del recurso y la valida."""
+    data = raw if isinstance(raw, dict) else {}
+    converted: dict[str, Any] = {}
+    if resource_type in ("audio_detonante", "podcast_resumen"):
+        converted = {"script": data.get("guion") or body}
+    elif resource_type == "imagen_ilustrativa":
+        converted = {
+            "prompt": data.get("descripcion_imagen"),
+            "alt": data.get("texto_alternativo"),
+            "caption": data.get("leyenda") or title,
+        }
+    elif resource_type == "diagrama_proceso":
+        converted = {"steps": [{"title": i.get("titulo"), "text": i.get("texto")} for i in _list_of_dicts(data.get("pasos"))]}
+    elif resource_type == "mapa_conceptual":
+        converted = {
+            "central": data.get("central") or title,
+            "nodes": [{"label": i.get("etiqueta"), "detail": i.get("detalle")} for i in _list_of_dicts(data.get("nodos"))],
+        }
+    elif resource_type == "infografia":
+        converted = {
+            "headline": data.get("central") or title,
+            "points": [{"title": i.get("titulo"), "text": i.get("texto")} for i in _list_of_dicts(data.get("puntos"))],
+        }
+    elif resource_type == "emparejamiento":
+        converted = {
+            "pairs": [{"term": i.get("termino"), "definition": i.get("definicion")} for i in _list_of_dicts(data.get("pares"))]
+        }
+    elif resource_type == "ordenar_pasos":
+        converted = {"sequence": data.get("secuencia")}
+    elif resource_type == "verdadero_falso":
+        converted = {
+            "statements": [
+                {"text": i.get("texto"), "isTrue": i.get("verdadera"), "feedback": i.get("retroalimentacion")}
+                for i in _list_of_dicts(data.get("afirmaciones"))
+            ]
+        }
+    elif resource_type == "completar_espacios":
+        converted = {
+            "blanks": [{"sentence": i.get("oracion"), "answer": i.get("respuesta")} for i in _list_of_dicts(data.get("espacios"))]
+        }
+    return normalize_structure(resource_type, converted)
+
+
 def _parse_is_correct(alternative: dict[str, Any]) -> bool:
     """Determina si una opción es la clave correcta aceptando variantes sintácticas."""
     raw_val = next(
@@ -269,6 +401,12 @@ def normalize_generated_resources(raw_payload: Any, context: dict[str, Any]) -> 
             or f"{RESOURCE_TYPES[req['tipo']][0]} {len(verified_resources) + 1}"
         )
 
+        structure = None
+        if req["tipo"] in STRUCTURE_INSTRUCTIONS:
+            structure = structure_from_model(req["tipo"], raw_item.get("estructura"), body, title)
+            if structure is None:
+                continue
+
         alternatives = None
         if req["tipo"] == "item_opcion_multiple":
             alternatives = _validate_alternatives(
@@ -286,6 +424,7 @@ def normalize_generated_resources(raw_payload: Any, context: dict[str, Any]) -> 
                 "contenido": body,
                 "citas": valid_citations,
                 "alternativas": alternatives,
+                "estructura": structure,
             }
         )
 

@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, Response, status
 
 from platform5e.application.services.accounts.account_service import AccountService
 from platform5e.application.services.review.resource_review_service import ResourceReviewService
+from platform5e.application.use_cases.media.get_resource_media import GetResourceMediaUseCase
 from platform5e.infrastructure.http.dependencies import current_teacher_dependency
 from platform5e.infrastructure.http.schemas.common import error_responses
 from platform5e.infrastructure.http.schemas.resources import (
@@ -19,7 +20,11 @@ from platform5e.infrastructure.http.schemas.resources import (
 )
 
 
-def create_resources_router(review_service: ResourceReviewService, account_service: AccountService) -> APIRouter:
+def create_resources_router(
+    review_service: ResourceReviewService,
+    account_service: AccountService,
+    media_use_case: GetResourceMediaUseCase,
+) -> APIRouter:
     router = APIRouter(prefix="/api/v1", tags=["resources"])
     current_teacher = current_teacher_dependency(account_service)
 
@@ -54,7 +59,32 @@ def create_resources_router(review_service: ResourceReviewService, account_servi
     ) -> dict[str, Any]:
         """Saves edits and decisions. `aprobado` needs a key, no pending distractors and at least two accepted
         (409 APPROVAL_BLOCKED otherwise): the same rule the review screen shows."""
-        return review_service.update_resource(teacher_id, unit_id, resource_id, body.model_dump(by_alias=True))
+        return review_service.update_resource(
+            teacher_id, unit_id, resource_id, body.model_dump(by_alias=True, exclude_unset=True)
+        )
+
+    @router.get(
+        "/units/{unit_id}/resources/{resource_id}/media",
+        summary="Get the image, graphic or audio of a resource",
+        response_class=Response,
+        responses={
+            200: {
+                "content": {"image/svg+xml": {}, "image/png": {}, "image/jpeg": {}, "audio/mpeg": {}, "audio/wav": {}},
+                "description": "The file. Graphics are drawn as SVG from the resource structure.",
+            },
+            **error_responses(401, 404),
+        },
+    )
+    def get_resource_media(unit_id: str, resource_id: str, teacher_id: str = Depends(current_teacher)) -> Response:
+        """Concept maps, infographics and process diagrams are drawn as SVG from their items. Illustrations and
+        audio return the generated file; without one, an illustration returns a card with its description and an
+        audio resource answers 404 NO_MEDIA (the review reads the script with the browser's voice)."""
+        media = media_use_case.execute(teacher_id, unit_id, resource_id)
+        return Response(
+            media.content,
+            media_type=media.media_type,
+            headers={"Content-Disposition": f'inline; filename="{media.file_name}"', "Cache-Control": "private, max-age=60"},
+        )
 
     @router.delete(
         "/units/{unit_id}/resources/{resource_id}",

@@ -49,6 +49,9 @@ no hace falta correr migraciones para este despliegue.
 | `LLM_BASE_URL` | opcional | Para servicios compatibles con la API de OpenAI |
 | `LLM_TIMEOUT_SECONDS` | opcional | Tiempo de espera por respuesta (por defecto 90) |
 | `TOPIC_SEARCH_ENABLED` | `true` (por defecto) | `false` desactiva la búsqueda en Wikipedia |
+| `MEDIA_GENERATION_ENABLED` | `true` (por defecto) | Imágenes y voz con Gemini (necesita `LLM_PROVIDER=gemini`); `false` usa siempre los respaldos |
+| `IMAGE_MODEL` | opcional | Por defecto `gemini-3.1-flash-lite-image`. La capa gratuita de Gemini no genera imágenes: requiere facturación |
+| `SPEECH_MODEL` y `SPEECH_VOICE` | opcional | Por defecto `gemini-3.8-flash-tts` y la voz `Kore` |
 | `BOOTSTRAP_TEACHER_EMAIL` y `BOOTSTRAP_TEACHER_PASSWORD` | opcional | Crean una cuenta inicial configurada en el servidor. Sin ellas, cada docente usa «Crear cuenta». |
 
 `DEMO_CATALOG` no se define en producción: solo lo usan las pruebas automáticas (curso y cuenta de ejemplo).

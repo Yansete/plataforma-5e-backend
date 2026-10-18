@@ -24,6 +24,16 @@ export function normalize(text: string): string {
 
 /** Frases que nombran un tipo sin ambigüedad. Se revisan en este orden. */
 const EXPLICIT: [RegExp, ResourceType][] = [
+  [/mapa conceptual|mapa mental|esquema conceptual/, 'mapa_conceptual'],
+  [/infografia/, 'infografia'],
+  [/diagrama|flujo del proceso|proceso paso a paso/, 'diagrama_proceso'],
+  [/podcast|resumen (en |de )?audio|resumen para escuchar/, 'podcast_resumen'],
+  [/\baudios?\b|\bcapsulas?\b|para escuchar|locucion/, 'audio_detonante'],
+  [/\bimagen(es)?\b|ilustracion|dibujo|fotografia/, 'imagen_ilustrativa'],
+  [/verdadero o falso|verdadero\/falso|\bv o f\b/, 'verdadero_falso'],
+  [/emparejar|relacionar|relaciona|unir con flechas|columnas/, 'emparejamiento'],
+  [/completar|espacios en blanco|rellenar/, 'completar_espacios'],
+  [/ordenar|ordena|secuenciar|secuencia de pasos/, 'ordenar_pasos'],
   [/detonante/, 'pregunta_detonante'],
   [/opcion multiple/, 'item_opcion_multiple'],
   [/sondeo|ideas previas|saberes previos|conocimientos previos|diagnostic/, 'sondeo_diagnostico'],
@@ -54,7 +64,7 @@ export function detectType(text: string): ResourceType {
 
 const NUMBERS: Record<string, number> = { un: 1, una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10 };
 const NUMBER = `(\\d+|${Object.keys(NUMBERS).join('|')})`;
-const RESOURCE_NOUN = '(preguntas?|items?|ejercicios?|casos?|guias?|explicacion(?:es)?|glosarios?|sondeos?|recursos?|problemas?|reactivos?)';
+const RESOURCE_NOUN = '(preguntas?|items?|ejercicios?|casos?|guias?|explicacion(?:es)?|glosarios?|sondeos?|recursos?|problemas?|reactivos?|imagen(?:es)?|audios?|mapas?|infografias?|diagramas?|actividad(?:es)?|podcasts?)';
 
 function toNumber(word: string): number {
   return /^\d+$/.test(word) ? Number(word) : NUMBERS[word] ?? 0;

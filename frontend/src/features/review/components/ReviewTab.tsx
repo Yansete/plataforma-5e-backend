@@ -1,12 +1,28 @@
 /** Pestaña 3: revisión docente. Cada decisión se guarda en el servidor al momento. */
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Alert, Button, ButtonLink, ConfirmDialog, EmptyState, SelectField, Spinner, TextField } from '@/shared/components/ui';
+import { sanitizeHtml, htmlToText } from '@/shared/components/safeHtml';
+import { textToHtml } from '@/shared/lib/html';
+import { ResourceMediaView } from '@/features/review/components/ResourceMediaView';
+import { StructureEditor } from '@/features/review/components/StructureEditor';
+import { structureSpec } from '@/features/review/model/structureFields';
 import { Icon } from '@/shared/components/Icon';
 import { errorMessage } from '@/shared/api/httpClient';
-import { DISCARD_REASONS, discardReasonLabel, typeInfo } from '@/features/generation/model/resourceCatalog';
+import { DISCARD_REASONS, FORMAT_LABELS, discardReasonLabel, formatOf, typeInfo } from '@/features/generation/model/resourceCatalog';
 import { deleteResource, regenerate, saveResource } from '@/features/review/api/reviewApi';
-import { citedEvidence, countByStatus, decideOption, editContent, editOption, editProblem, optionProblem, optionSource, setStatus, withStatus, highlight } from '@/features/review/model/reviewRules';
-import type { DiscardReason, Evidence, ItemOption, Resource, ReviewStatus, Unit } from '@/shared/types/domain';
+import { byStage, citedEvidence, countByStatus, decideOption, editContent, editOption, editProblem, editStructure, optionProblem, optionSource, setStatus, withStatus, highlight } from '@/features/review/model/reviewRules';
+import type { DiscardReason, Evidence, ItemOption, Resource, ReviewStatus, Stage5E, Unit } from '@/shared/types/domain';
+
+const RichTextEditor = lazy(() => import('@/features/review/components/RichTextEditor'));
+
+/** Revisión unificada: los recursos se agrupan en el orden de la clase. */
+const STAGE_TITLES: Record<Stage5E, string> = {
+  engage: 'Para iniciar la clase',
+  explore: 'Para explorar',
+  explain: 'Para explicar',
+  elaborate: 'Para aplicar',
+  evaluate: 'Para evaluar',
+};
 import type { UnitTabProps } from '@/features/units/model/unitTab';
 
 const FILTERS: { status: ReviewStatus; label: string }[] = [
@@ -74,22 +90,29 @@ export function ReviewTab({ unit, base, resources, resourcesError, reloadResourc
               : 'Aquí quedan los recursos que descartes, con su motivo.'}
         </EmptyState>
       ) : (
-        shown.map((r) => (
-          <ResourceReview
-            key={r.id}
-            resource={r}
-            unit={unit}
-            onSaved={(saved) => upsertResources([saved])}
-            onRemoved={removeResource}
-            onRegenerated={(created, replaced) => {
-              upsertResources([...created, replaced]);
-              setNotice(
-                created.length
-                  ? 'Se generó una versión nueva y quedó al inicio de «Por revisar». La anterior pasó a «Descartados».'
-                  : 'No se pudo redactar una versión nueva con el material disponible.',
-              );
-            }}
-          />
+        byStage(shown).map((group) => (
+          <section key={group.stage} className="stage-group stack stack--loose" aria-labelledby={`etapa-${group.stage}`}>
+            <h2 className="stage-group__title" id={`etapa-${group.stage}`}>
+              {STAGE_TITLES[group.stage]} <span className="caption">({group.resources.length})</span>
+            </h2>
+            {group.resources.map((r) => (
+              <ResourceReview
+                key={r.id}
+                resource={r}
+                unit={unit}
+                onSaved={(saved) => upsertResources([saved])}
+                onRemoved={removeResource}
+                onRegenerated={(created, replaced) => {
+                  upsertResources([...created, replaced]);
+                  setNotice(
+                    created.length
+                      ? 'Se generó una versión nueva y quedó al inicio de «Por revisar». La anterior pasó a «Descartados».'
+                      : 'No se pudo redactar una versión nueva con el material disponible.',
+                  );
+                }}
+              />
+            ))}
+          </section>
         ))
       )}
     </div>
@@ -109,7 +132,8 @@ function ResourceReview({ resource, unit, onSaved, onRemoved, onRegenerated }: R
   const [error, setError] = useState('');
   const [editingContent, setEditingContent] = useState(false);
   const [title, setTitle] = useState(resource.title);
-  const [body, setBody] = useState(resource.body);
+  const [html, setHtml] = useState(resource.bodyHtml || textToHtml(resource.body));
+  const [editingStructure, setEditingStructure] = useState(false);
   const [discarding, setDiscarding] = useState(false);
   const [reason, setReason] = useState<DiscardReason>('sin_sentido');
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -117,8 +141,8 @@ function ResourceReview({ resource, unit, onSaved, onRemoved, onRegenerated }: R
 
   useEffect(() => {
     setTitle(resource.title);
-    setBody(resource.body);
-  }, [resource.title, resource.body]);
+    setHtml(resource.bodyHtml || textToHtml(resource.body));
+  }, [resource.title, resource.body, resource.bodyHtml]);
 
   const save = async (next: Resource): Promise<boolean> => {
     setBusy('guardando');
@@ -169,12 +193,15 @@ function ResourceReview({ resource, unit, onSaved, onRemoved, onRegenerated }: R
   const blockers = resource.approvalBlockers;
   const outcome = unit.outcomes.find((o) => o.id === resource.outcomeId);
   const disabled = busy !== '';
+  const format = resource.format ?? formatOf(resource.type);
+  const spec = structureSpec(resource.type);
 
   return (
     <div className="review">
       <article className="card review__main" aria-labelledby={`titulo-${resource.id}`}>
         <div className="cluster">
           <span className="tag tag--outline">{[typeInfo(resource.type).singular, outcome?.code].filter(Boolean).join(' · ')}</span>
+          {format !== 'text' && <span className="tag">{FORMAT_LABELS[format]}</span>}
           {resource.generatorKind && <span className="tag">{resource.generatorKind === 'ia' ? 'Redactado con IA' : 'Generador de respaldo'}</span>}
           {resource.evidence.length > 0 && <span className="tag">Con evidencia del material</span>}
           {resource.edited && <span className="tag">Editado</span>}
@@ -187,13 +214,16 @@ function ResourceReview({ resource, unit, onSaved, onRemoved, onRegenerated }: R
             className="stack"
             onSubmit={(e) => {
               e.preventDefault();
-              const problem = editProblem(title, body);
+              const text = htmlToText(html);
+              const problem = editProblem(title, text);
               if (problem) return setError(problem);
-              void save(editContent(resource, title.trim(), body.trim())).then((ok) => ok && setEditingContent(false));
+              void save(editContent(resource, title.trim(), text, sanitizeHtml(html))).then((ok) => ok && setEditingContent(false));
             }}
           >
             <TextField label="Título" value={title} onChange={setTitle} maxLength={160} />
-            <TextField label={resource.options ? 'Enunciado' : 'Contenido'} multiline rows={8} value={body} onChange={setBody} maxLength={8000} hint="Separa los párrafos con una línea en blanco." />
+            <Suspense fallback={<Spinner label="Cargando el editor…" />}>
+              <RichTextEditor label={resource.options ? 'Enunciado' : 'Contenido'} initialHtml={html} onChange={setHtml} />
+            </Suspense>
             <div className="btn-row">
               <Button type="submit" variant="primary" loading={busy === 'guardando'}>
                 Guardar cambios
@@ -202,7 +232,7 @@ function ResourceReview({ resource, unit, onSaved, onRemoved, onRegenerated }: R
                 onClick={() => {
                   setEditingContent(false);
                   setTitle(resource.title);
-                  setBody(resource.body);
+                  setHtml(resource.bodyHtml || textToHtml(resource.body));
                   setError('');
                 }}
               >
@@ -222,15 +252,40 @@ function ResourceReview({ resource, unit, onSaved, onRemoved, onRegenerated }: R
                 </Button>
               )}
             </div>
-            <div className="prose">
-              {resource.body
-                .split(/\n{2,}/)
-                .filter((p) => p.trim())
-                .map((p, i) => (
-                  <p key={i}>{p}</p>
-                ))}
-            </div>
+            {resource.bodyHtml ? (
+              <div className="prose" dangerouslySetInnerHTML={{ __html: sanitizeHtml(resource.bodyHtml) }} />
+            ) : (
+              <div className="prose">
+                {resource.body
+                  .split(/\n{2,}/)
+                  .filter((p) => p.trim())
+                  .map((p, i) => (
+                    <p key={i}>{p}</p>
+                  ))}
+              </div>
+            )}
           </div>
+        )}
+
+        {editingStructure && spec ? (
+          <StructureEditor
+            resource={resource}
+            spec={spec}
+            saving={busy === 'guardando'}
+            onSave={(structure) => save(editStructure(resource, structure)).then((ok) => (ok && setEditingStructure(false), ok))}
+            onCancel={() => setEditingStructure(false)}
+          />
+        ) : (
+          <>
+            <ResourceMediaView resource={resource} />
+            {spec && pending && !editingContent && (
+              <div className="btn-row">
+                <Button compact icon="edit" onClick={() => setEditingStructure(true)} disabled={disabled}>
+                  {format === 'audio' ? 'Editar guion' : format === 'image' ? 'Editar descripción' : 'Editar elementos'}
+                </Button>
+              </div>
+            )}
+          </>
         )}
 
         {resource.options && (

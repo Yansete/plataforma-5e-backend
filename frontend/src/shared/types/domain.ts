@@ -67,7 +67,47 @@ export type ResourceType =
   | 'explicacion'
   | 'glosario'
   | 'ejercicio_aplicacion'
-  | 'item_opcion_multiple';
+  | 'item_opcion_multiple'
+  | 'audio_detonante'
+  | 'imagen_ilustrativa'
+  | 'diagrama_proceso'
+  | 'mapa_conceptual'
+  | 'infografia'
+  | 'podcast_resumen'
+  | 'emparejamiento'
+  | 'ordenar_pasos'
+  | 'verdadero_falso'
+  | 'completar_espacios';
+
+/** Cómo se presenta el recurso: texto, gráfico dibujado por la plataforma, imagen, audio o actividad. */
+export type ResourceFormat = 'text' | 'visual' | 'image' | 'audio' | 'interactive';
+
+/** Elementos de los recursos que no son solo texto (claves del backend). */
+export interface ResourceStructure {
+  central?: string;
+  nodes?: { label: string; detail: string }[];
+  headline?: string;
+  points?: { title: string; text: string }[];
+  steps?: { title: string; text: string }[];
+  sequence?: string[];
+  pairs?: { term: string; definition: string }[];
+  statements?: { text: string; isTrue: boolean; feedback: string }[];
+  blanks?: { sentence: string; answer: string }[];
+  script?: string;
+  prompt?: string;
+  alt?: string;
+  caption?: string;
+}
+
+/** Imagen o audio generado. `fallback`: sin archivo (se muestra la descripción o se usa la voz del navegador). */
+export interface ResourceMedia {
+  status: 'ready' | 'fallback';
+  id?: string | null;
+  mimeType?: string | null;
+  fileName?: string | null;
+  note?: string | null;
+  outdated?: boolean;
+}
 
 export interface Citation {
   claim: string;
@@ -129,6 +169,11 @@ export interface Resource {
   title: string;
   /** Contenido. En preguntas es el enunciado. Párrafos separados por línea en blanco. */
   body: string;
+  /** Contenido con formato del editor enriquecido (el servidor lo guarda limpio). */
+  bodyHtml?: string | null;
+  format?: ResourceFormat;
+  structure?: ResourceStructure | null;
+  media?: ResourceMedia | null;
   options: ItemOption[] | null;
   citations: Citation[];
   status: ReviewStatus;

@@ -1,4 +1,4 @@
-import { apiFetch } from '@/shared/api/httpClient';
+import { apiBlob, apiFetch } from '@/shared/api/httpClient';
 import { generate } from '@/features/generation/api/generationApi';
 import { hasOptions } from '@/features/generation/model/resourceCatalog';
 import { setStatus } from '@/features/review/model/reviewRules';
@@ -17,6 +17,8 @@ export function reviewBody(resource: Resource) {
     status: resource.status,
     discardReason: resource.status === 'descartado' ? resource.discardReason : null,
     edited: resource.edited,
+    ...(resource.bodyHtml !== undefined ? { bodyHtml: resource.bodyHtml } : {}),
+    ...(resource.structure ? { structure: resource.structure } : {}),
     options: resource.options?.map((o) => ({
       id: o.id,
       text: o.text,
@@ -30,6 +32,10 @@ export function reviewBody(resource: Resource) {
 
 export const saveResource = (resource: Resource) =>
   apiFetch<Resource>(`${base(resource.unitId)}/${encodeURIComponent(resource.id)}`, { method: 'PUT', json: reviewBody(resource) });
+
+/** Gráfico (SVG), imagen o audio del recurso, para mostrarlo en la revisión. */
+export const fetchResourceMedia = (resource: Resource) =>
+  apiBlob(`${base(resource.unitId)}/${encodeURIComponent(resource.id)}/media`);
 
 export const deleteResource = (resource: Resource) =>
   apiFetch<void>(`${base(resource.unitId)}/${encodeURIComponent(resource.id)}`, { method: 'DELETE' });

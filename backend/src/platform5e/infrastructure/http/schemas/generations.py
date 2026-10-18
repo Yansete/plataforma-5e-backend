@@ -19,6 +19,16 @@ ResourceType = Literal[
     "glosario",
     "ejercicio_aplicacion",
     "item_opcion_multiple",
+    "audio_detonante",
+    "imagen_ilustrativa",
+    "diagrama_proceso",
+    "mapa_conceptual",
+    "infografia",
+    "podcast_resumen",
+    "emparejamiento",
+    "ordenar_pasos",
+    "verdadero_falso",
+    "completar_espacios",
 ]
 Difficulty = Literal["basica", "intermedia", "avanzada"]
 

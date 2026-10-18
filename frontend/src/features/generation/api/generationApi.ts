@@ -1,7 +1,7 @@
 /** Generación de recursos con el material de la unidad. */
-import { apiFetch } from '@/shared/api/httpClient';
+import { apiFetch, errorMessage } from '@/shared/api/httpClient';
 import { hasOptions, typeInfo } from '@/features/generation/model/resourceCatalog';
-import type { GenerationInput, Resource } from '@/shared/types/domain';
+import type { GenerationInput, Resource, ResourceType } from '@/shared/types/domain';
 
 /** Generar con IA puede tardar cerca de un minuto. */
 export const GENERATION_TIMEOUT_MS = 150000;
@@ -38,6 +38,40 @@ interface GenerationResponse {
 export async function generate(input: GenerationInput): Promise<GenerationResult> {
   const response = await apiFetch<GenerationResponse>('/api/v1/generations', { method: 'POST', json: generationBody(input), timeoutMs: GENERATION_TIMEOUT_MS });
   return { resources: response.resources ?? [], usedFallback: Boolean(response.generator?.fallback) };
+}
+
+export interface BatchProgress {
+  done: number;
+  total: number;
+  current: ResourceType;
+}
+
+export interface BatchResult {
+  resources: Resource[];
+  /** Tipos que no se pudieron generar, con el motivo. */
+  failed: { type: ResourceType; message: string }[];
+  /** Tipos que redactó el generador de respaldo. */
+  fallbackTypes: ResourceType[];
+}
+
+/**
+ * Varios tipos de recurso en un solo pedido del docente: uno tras otro (la IA gratuita limita las solicitudes
+ * por minuto). Si un tipo falla, los demás se generan igual.
+ */
+export async function generateMany(input: GenerationInput, types: ResourceType[], onProgress?: (p: BatchProgress) => void): Promise<BatchResult> {
+  const result: BatchResult = { resources: [], failed: [], fallbackTypes: [] };
+  for (const [index, type] of types.entries()) {
+    onProgress?.({ done: index, total: types.length, current: type });
+    try {
+      const generated = await generate({ ...input, resourceType: type });
+      result.resources.push(...generated.resources);
+      if (generated.usedFallback) result.fallbackTypes.push(type);
+    } catch (error) {
+      result.failed.push({ type, message: errorMessage(error) });
+    }
+  }
+  onProgress?.({ done: types.length, total: types.length, current: types[types.length - 1] });
+  return result;
 }
 
 export function defaultInput(unitId: string): GenerationInput {
