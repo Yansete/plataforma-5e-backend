@@ -87,7 +87,7 @@ class ExportUnitResourcesUseCase:
     def _with_media_file(self, teacher_id: str, resource: dict) -> dict:
         """Agrega el archivo generado (imagen o audio) para que el exportador lo incluya en el paquete."""
         media = resource.get("media") or {}
-        if self._media_repository is None or media.get("status") != "ready":
+        if self._media_repository is None or media.get("status") != "ready" or media.get("outdated"):
             return resource
         stored = self._media_repository.get_media(teacher_id, media["id"])
         if stored is None:

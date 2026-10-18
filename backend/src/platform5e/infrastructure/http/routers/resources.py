@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Response, status
 from platform5e.application.services.accounts.account_service import AccountService
 from platform5e.application.services.review.resource_review_service import ResourceReviewService
 from platform5e.application.use_cases.media.get_resource_media import GetResourceMediaUseCase
+from platform5e.application.use_cases.media.regenerate_resource_media import RegenerateResourceMediaUseCase
 from platform5e.infrastructure.http.dependencies import current_teacher_dependency
 from platform5e.infrastructure.http.schemas.common import error_responses
 from platform5e.infrastructure.http.schemas.resources import (
@@ -24,6 +25,7 @@ def create_resources_router(
     review_service: ResourceReviewService,
     account_service: AccountService,
     media_use_case: GetResourceMediaUseCase,
+    regenerate_media_use_case: RegenerateResourceMediaUseCase,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1", tags=["resources"])
     current_teacher = current_teacher_dependency(account_service)
@@ -85,6 +87,19 @@ def create_resources_router(
             media_type=media.media_type,
             headers={"Content-Disposition": f'inline; filename="{media.file_name}"', "Cache-Control": "private, max-age=60"},
         )
+
+    @router.post(
+        "/units/{unit_id}/resources/{resource_id}/media",
+        response_model=ResourceResponse,
+        summary="Generate the image or audio of a resource again",
+        responses=error_responses(401, 404, 409, 422),
+    )
+    def regenerate_resource_media(unit_id: str, resource_id: str, teacher_id: str = Depends(current_teacher)) -> dict[str, Any]:
+        """Generates the illustration or the audio again from the current description or script, for example after
+        the teacher edited it. Only for resources under review (409 RESOURCE_NOT_PENDING) and when image and voice
+        generation is active on the server (409 MEDIA_GENERATION_DISABLED). If the service fails, the resource keeps
+        its fallback: the description card or the browser's voice."""
+        return regenerate_media_use_case.execute(teacher_id, unit_id, resource_id)
 
     @router.delete(
         "/units/{unit_id}/resources/{resource_id}",

@@ -167,6 +167,14 @@ Sobre `main` en `4910bed` con los parches 9 y 10, Python 3.13 (y compilación co
 - Sin clave de IA: se usan el generador por reglas, la tarjeta descriptiva de la imagen y la voz del navegador. Esta
   verificación no acredita la generación real de imágenes y audio con Gemini ni la importación en Canvas.
 
+Corrección de la revisión del PR #35 (18/10/2026): `tests/unit/test_edited_media.py` cubre el guion editado (el
+SCORM lleva el texto nuevo y la voz del navegador, no el audio anterior), el mismo guion (se conserva el audio), el
+archivo desactualizado (bloquea la aprobación y no se exporta) y «Generar de nuevo» (usa el guion editado; 409 si el
+servicio no está activo o el recurso no está por revisar). `e2e/multimodal.spec.ts` edita el guion en la pantalla.
+Backend: 347 pruebas; frontend: 79 y las 5 pruebas en Chromium. Además se abrió en Chromium cada página de un paquete
+SCORM con los 18 tipos, con una API de SCORM 1.2 simulada: imágenes y audio cargan, las páginas de contenido quedan
+`completed`, la pregunta se califica y las cuatro actividades envían `score.raw` 100 y `passed` al responder bien.
+
 ## Verificación de la integración final de la tarea 7 (16/10/2026)
 
 Sobre `main` en `55531cc`, con los ajustes de aprobación y documento HTML aplicados,

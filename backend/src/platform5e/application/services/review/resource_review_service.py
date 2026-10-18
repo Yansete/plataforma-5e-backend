@@ -13,6 +13,7 @@ from uuid import uuid4
 from platform5e.application.ports.outbound.resource_repository_port import ResourceReviewRepositoryPort
 from platform5e.application.ports.outbound.teacher_repository_port import TeacherRepositoryPort
 from platform5e.domain.accounts.teacher_account import AccountConfigurationError
+from platform5e.application.services.media.media_attachment import EDITED_NOTES, fallback_media
 from platform5e.domain.generation.resource_formats import needs_structure, normalize_structure, structure_problems
 
 MIN_ACCEPTED_DISTRACTORS: int = 2
@@ -55,6 +56,9 @@ def validate_approval_blockers(resource_data: dict[str, Any]) -> list[str]:
 
     if resource_data.get("type"):
         reasons += structure_problems(resource_data["type"], resource_data.get("structure"))
+    media = resource_data.get("media") or {}
+    if media.get("status") == "ready" and media.get("outdated"):
+        reasons.append("El archivo no coincide con el texto editado: genéralo de nuevo para poder aprobar.")
     return reasons
 
 
@@ -142,8 +146,9 @@ class ResourceReviewService:
                 )
             media = existing.get("media") or {}
             if media.get("status") == "ready" and structure != existing.get("structure"):
-                # El archivo se generó con el guion o la descripción anterior: se avisa en la revisión.
-                updated_resource["media"] = {**media, "outdated": True}
+                # El archivo se generó con el guion o la descripción anterior: deja de usarse para que la revisión,
+                # la aprobación y el SCORM no mezclen el texto nuevo con el audio o la imagen viejos.
+                updated_resource["media"] = fallback_media(existing["format"], EDITED_NOTES[existing["format"]])
             updated_resource["structure"] = structure
 
         options = existing.get("options")

@@ -88,6 +88,7 @@ class ResourceResponse(ApiResponse):
             "body": self.body,
             "type": self.type,
             "structure": self.structure,
+            "media": self.media.model_dump(by_alias=True) if self.media else None,
             "options": [option.model_dump(by_alias=True) for option in self.options] if self.options else None,
         })
 

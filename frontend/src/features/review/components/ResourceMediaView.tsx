@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Button, Spinner } from '@/shared/components/ui';
 import { errorMessage } from '@/shared/api/httpClient';
-import { fetchResourceMedia } from '@/features/review/api/reviewApi';
+import { fetchResourceMedia, regenerateMedia } from '@/features/review/api/reviewApi';
 import { formatOf } from '@/features/generation/model/resourceCatalog';
 import type { Resource } from '@/shared/types/domain';
 
@@ -30,7 +30,43 @@ function useMediaUrl(resource: Resource, enabled: boolean) {
   return state;
 }
 
-function GraphicView({ resource }: { resource: Resource }) {
+interface MediaProps {
+  resource: Resource;
+  /** Recurso por revisar: se puede volver a generar su imagen o audio. */
+  editable?: boolean;
+  onChanged?: (resource: Resource) => void;
+}
+
+/** «Generar de nuevo»: cuando el recurso usa el respaldo (por ejemplo, después de editar el guion o la descripción). */
+function RegenerateMedia({ resource, editable, onChanged }: MediaProps) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  if (!editable || !onChanged || resource.media?.status !== 'fallback') return null;
+  const label = resource.format === 'audio' ? 'Generar el audio de nuevo' : 'Generar la imagen de nuevo';
+  const run = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      onChanged(await regenerateMedia(resource));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="stack stack--tight">
+      <div className="btn-row">
+        <Button compact icon="refresh" loading={busy} onClick={() => void run()}>
+          {label}
+        </Button>
+      </div>
+      {error && <p className="caption">{error}</p>}
+    </div>
+  );
+}
+
+function GraphicView({ resource, editable, onChanged }: MediaProps) {
   const { url, error, loading } = useMediaUrl(resource, true);
   const caption = resource.structure?.caption;
   const note = resource.media?.status === 'fallback' ? resource.media.note : null;
@@ -52,11 +88,12 @@ function GraphicView({ resource }: { resource: Resource }) {
           {note && <span className="media-figure__note">{note}</span>}
         </figcaption>
       )}
+      {resource.format === 'image' && <RegenerateMedia resource={resource} editable={editable} onChanged={onChanged} />}
     </figure>
   );
 }
 
-function AudioView({ resource }: { resource: Resource }) {
+function AudioView({ resource, editable, onChanged }: MediaProps) {
   const ready = resource.media?.status === 'ready';
   const { url, error, loading } = useMediaUrl(resource, ready);
   const [speaking, setSpeaking] = useState(false);
@@ -95,7 +132,8 @@ function AudioView({ resource }: { resource: Resource }) {
           <p className="caption">{error || resource.media?.note || 'Sin audio generado: el guion se lee con la voz del navegador.'}</p>
         </div>
       )}
-      {resource.media?.outdated && <p className="caption">El audio se generó con el guion anterior. Usa «Regenerar» para actualizarlo.</p>}
+      {resource.media?.outdated && <p className="caption">El audio se generó con el guion anterior: genéralo de nuevo.</p>}
+      <RegenerateMedia resource={resource} editable={editable} onChanged={onChanged} />
       <details className="media-audio__script" open={!ready}>
         <summary>Guion del audio</summary>
         <p>{script}</p>
@@ -159,10 +197,10 @@ function ActivityPreview({ resource }: { resource: Resource }) {
   );
 }
 
-export function ResourceMediaView({ resource }: { resource: Resource }) {
+export function ResourceMediaView({ resource, editable, onChanged }: MediaProps) {
   const format = resource.format ?? formatOf(resource.type);
   if (format === 'text' || !resource.structure) return null;
   if (format === 'interactive') return <ActivityPreview resource={resource} />;
-  if (format === 'audio') return <AudioView resource={resource} />;
-  return <GraphicView resource={resource} />;
+  if (format === 'audio') return <AudioView resource={resource} editable={editable} onChanged={onChanged} />;
+  return <GraphicView resource={resource} editable={editable} onChanged={onChanged} />;
 }

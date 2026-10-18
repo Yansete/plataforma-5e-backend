@@ -20,12 +20,13 @@ from platform5e.application.ports.outbound.language_model_port import ResourceGe
 from platform5e.application.ports.outbound.media_port import MediaGeneratorPort, MediaRepositoryPort
 from platform5e.application.ports.outbound.resource_repository_port import ResourceReviewRepositoryPort
 from platform5e.application.ports.outbound.teacher_repository_port import TeacherRepositoryPort
+from platform5e.application.services.media.media_attachment import attach_generated_media
 from platform5e.application.services.generation.prompt_drafting import (
     build_generation_context,
     normalize_generated_resources,
 )
 from platform5e.domain.generation.errors import GenerationError
-from platform5e.domain.generation.resource_formats import AUDIO, IMAGE, resource_format
+from platform5e.domain.generation.resource_formats import resource_format
 
 OPTION_LETTERS: str = "abcdefghij"
 NO_MATERIAL_NOTICE: str = (
@@ -284,39 +285,7 @@ class GenerationService:
 
     def _attach_media(self, teacher_id: str, resource: dict[str, Any]) -> None:
         """Genera la imagen o el audio del recurso. Si el servicio falla, deja el respaldo y la generación sigue."""
-        kind = resource["format"]
-        if kind not in (IMAGE, AUDIO):
-            return
-        fallback_note = (
-            "Sin imagen generada: se muestra la descripción de la ilustración."
-            if kind == IMAGE
-            else "Sin audio generado: el guion se escucha con la voz del navegador."
-        )
-        resource["media"] = {"status": "fallback", "note": fallback_note}
-        if self._media_generator is None or self._media_repository is None:
-            return
-        structure = resource.get("structure") or {}
-        try:
-            generated = (
-                self._media_generator.generate_image(structure["prompt"])
-                if kind == IMAGE
-                else self._media_generator.synthesize_speech(structure["script"])
-            )
-        except Exception as exc:  # el recurso se conserva con su respaldo
-            logger.warning("Medio no generado para %s: %s", resource["id"], str(exc)[:200])
-            resource["media"]["note"] += f" ({str(exc)[:120]})"
-            return
-        media = {
-            "id": f"media-{uuid4()}",
-            "resourceId": resource["id"],
-            "status": "ready",
-            "mimeType": generated.mime_type,
-            "fileName": f"{resource['id']}.{generated.extension}",
-            "sizeBytes": len(generated.content),
-            "generator": self._media_generator.description,
-        }
-        self._media_repository.save_media(teacher_id, media, generated.content)
-        resource["media"] = media
+        attach_generated_media(teacher_id, resource, self._media_generator, self._media_repository)
 
     def _save_for_review(
         self,

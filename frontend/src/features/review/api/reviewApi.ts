@@ -37,6 +37,10 @@ export const saveResource = (resource: Resource) =>
 export const fetchResourceMedia = (resource: Resource) =>
   apiBlob(`${base(resource.unitId)}/${encodeURIComponent(resource.id)}/media`);
 
+/** Vuelve a generar la imagen o el audio con la descripción o el guion actual (por ejemplo, después de editarlo). */
+export const regenerateMedia = (resource: Resource) =>
+  apiFetch<Resource>(`${base(resource.unitId)}/${encodeURIComponent(resource.id)}/media`, { method: 'POST', timeoutMs: 150000 });
+
 export const deleteResource = (resource: Resource) =>
   apiFetch<void>(`${base(resource.unitId)}/${encodeURIComponent(resource.id)}`, { method: 'DELETE' });
 

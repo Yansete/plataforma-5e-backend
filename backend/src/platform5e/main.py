@@ -17,6 +17,7 @@ from platform5e.application.services.materials.material_service import MaterialS
 from platform5e.application.services.review.resource_review_service import ResourceReviewService
 from platform5e.application.use_cases.export.export_unit_resources import ExportUnitResourcesUseCase
 from platform5e.application.use_cases.media.get_resource_media import GetResourceMediaUseCase
+from platform5e.application.use_cases.media.regenerate_resource_media import RegenerateResourceMediaUseCase
 from platform5e.domain.accounts.teacher_account import AccountConfigurationError
 from platform5e.domain.generation.errors import GenerationError
 from platform5e.domain.materials.chunking import MaterialError
@@ -144,6 +145,9 @@ def create_application() -> FastAPI:
         media_repository,
     )
     media_use_case = GetResourceMediaUseCase(review_service, media_repository, SvgVisualRenderer())
+    regenerate_media_use_case = RegenerateResourceMediaUseCase(
+        review_service, resource_repository, media_generator, media_repository
+    )
 
     # 3. Errores del dominio → JSON uniforme
     for domain_error in (AccountConfigurationError, MaterialError, GenerationError):
@@ -161,7 +165,9 @@ def create_application() -> FastAPI:
     app.include_router(
         create_generations_router(generation_service, account_service, describe_generator(primary_generator))
     )
-    app.include_router(create_resources_router(review_service, account_service, media_use_case))
+    app.include_router(
+        create_resources_router(review_service, account_service, media_use_case, regenerate_media_use_case)
+    )
     app.include_router(create_downloads_router(review_service, account_service))
     app.include_router(create_exports_router(export_use_case, account_service))
     app.include_router(create_health_router())

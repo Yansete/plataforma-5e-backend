@@ -78,7 +78,16 @@ test('varios recursos por etapa: gráfico, audio y actividad, editados y exporta
   await quiz.getByRole('button', { name: 'Guardar elementos' }).click();
   await expect(quiz.getByText('El protocolo TCP confirma la entrega de los datos.')).toBeVisible();
 
-  for (const card of [page.locator('.review').first(), map, quiz]) {
+  // Guion editado: el audio anterior deja de usarse y se puede pedir uno nuevo (sin IA, el servidor explica por qué no).
+  const audio = page.locator('.review').first();
+  await audio.getByRole('button', { name: 'Editar guion' }).click();
+  await audio.getByLabel('Guion del audio').fill('Guion editado: el protocolo UDP no confirma la entrega y por eso es más rápido en videollamadas y juegos en línea.');
+  await audio.getByRole('button', { name: 'Guardar elementos' }).click();
+  await expect(audio.locator('.media-audio__script')).toContainText('Guion editado');
+  await audio.getByRole('button', { name: 'Generar el audio de nuevo' }).click();
+  await expect(audio.getByText(/no está activa en el servidor/)).toBeVisible();
+
+  for (const card of [audio, map, quiz]) {
     await card.getByRole('button', { name: 'Aprobar recurso' }).click();
   }
   await expect(page.getByRole('button', { name: 'Aprobados (3)' })).toBeVisible();

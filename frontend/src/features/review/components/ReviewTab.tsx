@@ -277,7 +277,7 @@ function ResourceReview({ resource, unit, onSaved, onRemoved, onRegenerated }: R
           />
         ) : (
           <>
-            <ResourceMediaView resource={resource} />
+            <ResourceMediaView resource={resource} editable={pending && !disabled} onChanged={onSaved} />
             {spec && pending && !editingContent && (
               <div className="btn-row">
                 <Button compact icon="edit" onClick={() => setEditingStructure(true)} disabled={disabled}>

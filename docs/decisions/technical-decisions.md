@@ -227,6 +227,12 @@ docente», 17/10/2026, en `docs/project-management/actas/`). Reemplaza a ADR-008
   gratuita de Gemini no incluye imágenes: sin facturación, la imagen queda como tarjeta con su descripción y el audio
   se escucha con la voz del navegador (`speechSynthesis`), en la plataforma y dentro del SCORM. Los archivos se
   guardan en la tabla nueva `media_assets` (puerto `MediaRepositoryPort`) y el audio se convierte a MP3 con `lameenc`.
+- **Medios después de editar** (revisión del PR #35). Si el docente cambia el guion o la descripción de un recurso con
+  audio o imagen generados, ese archivo deja de usarse: la revisión y el SCORM pasan al respaldo con el texto nuevo, y
+  «Generar el audio (o la imagen) de nuevo» (`POST /units/{id}/resources/{id}/media`) crea uno con el texto actual.
+  Un archivo marcado como desactualizado bloquea la aprobación y nunca se exporta.
+- **Prueba con la clave real.** `backend/scripts/check_media_generation.py` genera un audio y una imagen con la clave
+  configurada y explica cada error (pedido inválido, sin facturación, modelo inexistente o sin cuota).
 - **Actividades interactivas.** Relacionar conceptos, ordenar pasos, verdadero o falso y completar espacios. En el
   SCORM se califican en la página (`shared/activity.js`) y envían el puntaje y `passed`/`failed` (60 %) al LMS.
 - **Selección múltiple.** Casillas por etapa; el frontend pide los tipos marcados uno tras otro (la API sigue

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { RESOURCE_TYPES, formatOf, selectionLabel, typeInfo } from '@/features/generation/model/resourceCatalog';
 import { generateMany } from '@/features/generation/api/generationApi';
 import { detectType } from '@/features/generation/model/requestInterpreter';
-import { fetchResourceMedia, reviewBody } from '@/features/review/api/reviewApi';
+import { fetchResourceMedia, regenerateMedia, reviewBody } from '@/features/review/api/reviewApi';
 import { byStage, editContent, editStructure } from '@/features/review/model/reviewRules';
 import { addItem, listItems, moveItem, removeItem, setField, setItem, structureProblem, structureSpec } from '@/features/review/model/structureFields';
 import { escapeHtml, textToHtml } from '@/shared/lib/html';
@@ -92,6 +92,19 @@ describe('revisión', () => {
     expect(fetch.mock.calls[0][1].headers.Authorization).toBe('Bearer tok');
     mockFetch({ status: 404, body: { error: { code: 'NO_MEDIA', message: 'Sin archivo.' } } });
     await expect(fetchResourceMedia(text())).rejects.toMatchObject({ code: 'NO_MEDIA' });
+  });
+});
+
+describe('generar de nuevo la imagen o el audio', () => {
+  it('lo pide al servidor y muestra el motivo si no está activo', async () => {
+    const calls = mockFetch(
+      { body: text({ id: 'r1', media: { status: 'ready', id: 'm2' } }) },
+      { status: 409, body: { error: { code: 'MEDIA_GENERATION_DISABLED', message: 'No está activa.' } } },
+    );
+    const updated = await regenerateMedia(text({ id: 'r1', unitId: 'u1' }));
+    expect(calls[0]).toMatchObject({ method: 'POST', url: '/api/v1/units/u1/resources/r1/media' });
+    expect(updated.media?.status).toBe('ready');
+    await expect(regenerateMedia(text())).rejects.toMatchObject({ code: 'MEDIA_GENERATION_DISABLED', message: 'No está activa.' });
   });
 });
 
