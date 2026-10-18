@@ -172,7 +172,7 @@ propio CI (Frontend CI y Backend CI) y un tercer flujo (End-to-end) prueba las d
 Chamilo recibe un paquete SCORM 1.2 generado en el backend, con una página HTML por recurso aprobado. Reemplaza al
 ZIP QTI 2.1 de ADR-005 y SP-003: Chamilo lo importaba como lección, pero sin ninguna página que mostrar.
 
-## ADR-008 Sprint 1 solo genera texto (15/10/2026)
+## ADR-008 Sprint 1 solo genera texto (15/10/2026) · reemplazada por ADR-011
 
 En el Sprint 1 los recursos se generan solo como texto. El material de entrada también es solo texto: el extractor lee
 el texto de PDF, PPTX y TXT e ignora las imágenes. Imágenes, video y otras modalidades se evalúan en el Sprint 2. La
@@ -194,8 +194,9 @@ textos que lee el docente siguen en español. Se vigila con `tests/architecture/
 Queda en español, como deuda declarada para el Sprint 2 porque exige migrar los datos de Neon:
 
 - Los nombres de tablas y columnas (`ep002_cursos`, `docente`…). Los atributos del ORM ya están en inglés.
-- Los valores guardados: estados (`pendiente`, `aprobado`, `descartado`), tipos de recurso (`item_opcion_multiple`…)
-  y dificultades (`basica`, `intermedia`, `avanzada`).
+- Los valores guardados: estados (`pendiente`, `aprobado`, `descartado`), tipos de recurso (`item_opcion_multiple`…),
+  dificultades (`basica`, `intermedia`, `avanzada`) y el formato `documento` del historial de descargas, que también
+  se acepta en `POST /units/{unit_id}/exports`.
 - Los nombres anteriores de las variables de entorno (`CORS_ORIGENES`, `IA_API_KEY`…) se siguen leyendo si falta el
   nombre nuevo, para que Render no se caiga mientras se renombran en el panel.
 - Los cursos, documentos y generaciones guardados antes del contrato se adaptan al leerlos (claves `sumilla`, `logro`,
@@ -208,3 +209,41 @@ Moodle XML y SCORM 1.2 se arman en el backend con plantillas fijas, como dos ada
 filtra lo aprobado, deja que cada formato elija lo que admite (Moodle solo ítems de opción múltiple) y registra la
 descarga. El navegador solo arma el documento de la unidad (HTML). Actualiza ADR-005: el ZIP QTI 2.1 ya no se usa
 (ver ADR-007). El Moodle XML se valida contra la muestra que Moodle importó en SP-003.
+
+## ADR-011 Recursos multimodales e interactivos, editor enriquecido y SCORM multirrecurso (17/10/2026)
+
+El docente pidió más variedad por etapa, recursos visuales, sonoros e interactivos, selección múltiple, edición con
+formato y un paquete SCORM con todos los recursos y sus medios (documento «Plan de cambios y ajustes solicitados por el
+docente», 17/10/2026, en `docs/project-management/actas/`). Reemplaza a ADR-008.
+
+- **Catálogo.** 18 tipos de recurso: cada etapa 5E combina texto con al menos otro formato (gráfico, imagen, audio o
+  actividad interactiva). El dominio (`domain/generation/resource_formats.py`) fija la etapa y el formato de cada tipo
+  y valida su estructura (nodos, pasos, pares, afirmaciones, oraciones, guion, descripción de la imagen).
+- **Gráficos.** El mapa conceptual, la infografía y el diagrama de proceso los dibuja la plataforma en SVG a partir de
+  la estructura que redacta la IA (o el generador por reglas): el texto viene del material y la forma es una
+  plantilla fija, así que siempre se pueden mostrar, editar y exportar.
+- **Imagen y audio.** Puerto `MediaGeneratorPort` con el adaptador `GeminiMediaGenerator` (Interactions API:
+  `gemini-3.1-flash-lite-image` y `gemini-3.8-flash-tts`, configurables con `IMAGE_MODEL` y `SPEECH_MODEL`). La capa
+  gratuita de Gemini no incluye imágenes: sin facturación, la imagen queda como tarjeta con su descripción y el audio
+  se escucha con la voz del navegador (`speechSynthesis`), en la plataforma y dentro del SCORM. Los archivos se
+  guardan en la tabla nueva `media_assets` (puerto `MediaRepositoryPort`) y el audio se convierte a MP3 con `lameenc`.
+- **Medios después de editar** (revisión del PR #35). Si el docente cambia el guion o la descripción de un recurso con
+  audio o imagen generados, ese archivo deja de usarse: la revisión y el SCORM pasan al respaldo con el texto nuevo, y
+  «Generar el audio (o la imagen) de nuevo» (`POST /units/{id}/resources/{id}/media`) crea uno con el texto actual.
+  Un archivo marcado como desactualizado bloquea la aprobación y nunca se exporta.
+- **Prueba con la clave real.** `backend/scripts/check_media_generation.py` genera un audio y una imagen con la clave
+  configurada y explica cada error (pedido inválido, sin facturación, modelo inexistente o sin cuota).
+- **Actividades interactivas.** Relacionar conceptos, ordenar pasos, verdadero o falso y completar espacios. En el
+  SCORM se califican en la página (`shared/activity.js`) y envían el puntaje y `passed`/`failed` (60 %) al LMS.
+- **Selección múltiple.** Casillas por etapa; el frontend pide los tipos marcados uno tras otro (la API sigue
+  recibiendo un tipo por pedido) y, si uno falla, los demás se generan igual.
+- **Revisión unificada.** Los recursos se agrupan por etapa en el orden de la clase; los elementos de cada recurso se
+  editan en la revisión y el texto se edita con un editor enriquecido (Tiptap) que guarda `bodyHtml`.
+- **Seguridad del HTML.** El HTML del editor se limpia al recibirlo (`nh3`, solo formato de texto y enlaces web) y otra
+  vez al exportarlo; el navegador lo limpia también antes de mostrarlo (DOMPurify).
+- **SCORM multirrecurso.** Un SCO por recurso en orden 5E con sus archivos en `media/`; el manifiesto declara todos los
+  archivos del paquete (lo comprueba una prueba). Es SCORM 1.2, el formato que importan Canvas y Chamilo.
+- **Moodle XML** sigue exportando solo preguntas de opción múltiple: es el único tipo verificado en una importación
+  real (SP-003). Las actividades nuevas van en el SCORM y en el documento de la unidad (con su clave de respuestas).
+- Los tipos nuevos se guardan, como los anteriores, con valores en español (`mapa_conceptual`, `verdadero_falso`…);
+  entran en la deuda declarada de ADR-009.

@@ -1,4 +1,4 @@
-import type { DiscardReason, DistractorDecision, Evidence, ItemOption, Resource, ReviewStatus } from '@/shared/types/domain';
+import type { DiscardReason, DistractorDecision, Evidence, ItemOption, Resource, ResourceStructure, ReviewStatus, Stage5E } from '@/shared/types/domain';
 
 export function countByStatus(resources: Resource[]): Record<ReviewStatus, number> {
   const counts: Record<ReviewStatus, number> = { pendiente: 0, aprobado: 0, descartado: 0 };
@@ -33,9 +33,22 @@ export function editOption(resource: Resource, optionId: string, text: string, f
   }));
 }
 
-export function editContent(resource: Resource, title: string, body: string): Resource {
-  const changed = title !== resource.title || body !== resource.body;
-  return { ...resource, title, body, edited: resource.edited || changed };
+/** `bodyHtml`: lo que dejó el editor con formato (undefined si no se usó). */
+export function editContent(resource: Resource, title: string, body: string, bodyHtml?: string): Resource {
+  const changed = title !== resource.title || body !== resource.body || (bodyHtml !== undefined && bodyHtml !== (resource.bodyHtml ?? ''));
+  return { ...resource, title, body, ...(bodyHtml !== undefined ? { bodyHtml } : {}), edited: resource.edited || changed };
+}
+
+export function editStructure(resource: Resource, structure: ResourceStructure): Resource {
+  return { ...resource, structure, edited: true };
+}
+
+/** Orden de la clase: Enganchar → Explorar → Explicar → Aplicar → Evaluar. */
+export const STAGE_ORDER: Stage5E[] = ['engage', 'explore', 'explain', 'elaborate', 'evaluate'];
+
+/** Los recursos agrupados por etapa, en el orden de la clase (solo las etapas con recursos). */
+export function byStage(resources: Resource[]): { stage: Stage5E; resources: Resource[] }[] {
+  return STAGE_ORDER.map((stage) => ({ stage, resources: resources.filter((r) => r.stage === stage) })).filter((g) => g.resources.length > 0);
 }
 
 export function setStatus(resource: Resource, status: ReviewStatus, reason: DiscardReason | null = null): Resource {

@@ -16,6 +16,8 @@ from platform5e.application.services.generation.generation_service import Genera
 from platform5e.application.services.materials.material_service import MaterialService
 from platform5e.application.services.review.resource_review_service import ResourceReviewService
 from platform5e.application.use_cases.export.export_unit_resources import ExportUnitResourcesUseCase
+from platform5e.application.use_cases.media.get_resource_media import GetResourceMediaUseCase
+from platform5e.application.use_cases.media.regenerate_resource_media import RegenerateResourceMediaUseCase
 from platform5e.domain.accounts.teacher_account import AccountConfigurationError
 from platform5e.domain.generation.errors import GenerationError
 from platform5e.domain.materials.chunking import MaterialError
@@ -23,6 +25,7 @@ from platform5e.domain.shared.errors import DuplicateRecordError, EntityNotFound
 from platform5e.infrastructure.exporters.moodle_xml_exporter import MoodleXmlExporter
 from platform5e.infrastructure.exporters.unit_document_exporter import UnitDocumentExporter
 from platform5e.infrastructure.exporters.scorm_package_exporter import ScormPackageExporter
+from platform5e.infrastructure.exporters.visual_renderer import SvgVisualRenderer
 from platform5e.infrastructure.extraction.document_text_extractor import DocumentTextExtractor
 from platform5e.infrastructure.http.error_handlers import (
     conflict_error_handler,
@@ -40,10 +43,15 @@ from platform5e.infrastructure.http.routers.exports import create_exports_router
 from platform5e.infrastructure.http.routers.generations import create_generations_router
 from platform5e.infrastructure.http.routers.health import create_health_router
 from platform5e.infrastructure.http.routers.resources import create_resources_router
-from platform5e.infrastructure.llm.language_model_factory import create_generators, describe_generator
+from platform5e.infrastructure.llm.language_model_factory import (
+    create_generators,
+    create_media_generator,
+    describe_generator,
+)
 from platform5e.infrastructure.persistence.repositories.sqlalchemy_account_repository import SQLAlchemyAccountRepository
 from platform5e.infrastructure.retrieval.bm25_evidence_retriever import Bm25EvidenceRetriever
 from platform5e.infrastructure.persistence.repositories.sqlalchemy_chunk_repository import SQLAlchemyChunkRepository
+from platform5e.infrastructure.persistence.repositories.sqlalchemy_media_repository import SQLAlchemyMediaRepository
 from platform5e.infrastructure.persistence.repositories.sqlalchemy_generation_repository import (
     SQLAlchemyGenerationRepository,
 )
@@ -103,6 +111,8 @@ def create_application() -> FastAPI:
     open_source = WikipediaSource() if read_flag("TOPIC_SEARCH_ENABLED", True) else None
     primary_generator, fallback_generator = create_generators()
     evidence_retriever = Bm25EvidenceRetriever()
+    media_repository = SQLAlchemyMediaRepository()
+    media_generator = create_media_generator()
 
     # 2. Servicios y casos de uso de la capa de aplicación
     demo_catalog_enabled = read_flag("DEMO_CATALOG", False)
@@ -125,9 +135,18 @@ def create_application() -> FastAPI:
         review_repository=resource_repository,
         demo_examples_enabled=demo_catalog_enabled,
         evidence_retriever=evidence_retriever,
+        media_generator=media_generator,
+        media_repository=media_repository,
     )
     export_use_case = ExportUnitResourcesUseCase(
-        account_repository, resource_repository, [ScormPackageExporter(), MoodleXmlExporter(), UnitDocumentExporter()]
+        account_repository,
+        resource_repository,
+        [ScormPackageExporter(), MoodleXmlExporter(), UnitDocumentExporter()],
+        media_repository,
+    )
+    media_use_case = GetResourceMediaUseCase(review_service, media_repository, SvgVisualRenderer())
+    regenerate_media_use_case = RegenerateResourceMediaUseCase(
+        review_service, resource_repository, media_generator, media_repository
     )
 
     # 3. Errores del dominio → JSON uniforme
@@ -146,7 +165,9 @@ def create_application() -> FastAPI:
     app.include_router(
         create_generations_router(generation_service, account_service, describe_generator(primary_generator))
     )
-    app.include_router(create_resources_router(review_service, account_service))
+    app.include_router(
+        create_resources_router(review_service, account_service, media_use_case, regenerate_media_use_case)
+    )
     app.include_router(create_downloads_router(review_service, account_service))
     app.include_router(create_exports_router(export_use_case, account_service))
     app.include_router(create_health_router())

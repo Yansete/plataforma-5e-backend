@@ -3,8 +3,8 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { Alert, Button, ButtonLink, Card, EmptyState, SelectField, Spinner, TextField } from '@/shared/components/ui';
 import { Icon } from '@/shared/components/Icon';
 import { errorMessage } from '@/shared/api/httpClient';
-import { DIFFICULTIES, GROUPS, RESOURCE_TYPES, countLabel, hasOptions, typeInfo } from '@/features/generation/model/resourceCatalog';
-import { defaultInput, generate } from '@/features/generation/api/generationApi';
+import { DIFFICULTIES, FORMAT_LABELS, GROUPS, RESOURCE_TYPES, countLabel, hasOptions, selectionLabel, typeInfo } from '@/features/generation/model/resourceCatalog';
+import { defaultInput, generate, generateMany, type BatchProgress } from '@/features/generation/api/generationApi';
 import { materialSummary } from '@/features/materials/api/materialsApi';
 import { MAX_REQUEST_LENGTH, interpretRequest, suggestions, type Interpretation } from '@/features/generation/model/requestInterpreter';
 import type { GenerationInput, LearningOutcome, MaterialDocument, ResourceType } from '@/shared/types/domain';
@@ -16,8 +16,10 @@ type Mode = 'opciones' | 'pedido';
 
 interface LastResult {
   count: number;
-  type: ResourceType;
+  /** «1 pregunta», «6 recursos». */
+  label: string;
   usedFallback: boolean;
+  failed: { type: ResourceType; message: string }[];
 }
 
 function outcomeLabel(o: LearningOutcome): string {
@@ -32,6 +34,8 @@ export function GenerationTab({ unit, base, documents, upsertResources }: UnitTa
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [last, setLast] = useState<LastResult | null>(null);
+  const [selected, setSelected] = useState<ResourceType[]>([defaultInput(unit.id).resourceType]);
+  const [progress, setProgress] = useState<BatchProgress | null>(null);
   const slow = useSlowNotice(loading, 20000);
   const understood = useMemo(() => interpretRequest(request, unit.outcomes), [request, unit.outcomes]);
 
@@ -57,7 +61,7 @@ export function GenerationTab({ unit, base, documents, upsertResources }: UnitTa
     try {
       const result = await generate(data);
       upsertResources(result.resources);
-      setLast({ count: result.resources.length, type: data.resourceType, usedFallback: result.usedFallback });
+      setLast({ count: result.resources.length, label: countLabel(data.resourceType, result.resources.length), usedFallback: result.usedFallback, failed: [] });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -65,11 +69,41 @@ export function GenerationTab({ unit, base, documents, upsertResources }: UnitTa
     }
   };
 
+  const runMany = async (types: ResourceType[]) => {
+    setLoading(true);
+    setError('');
+    setLast(null);
+    try {
+      const result = await generateMany(input, types, setProgress);
+      upsertResources(result.resources);
+      if (result.resources.length === 0) setError(result.failed[0]?.message ?? 'No se generó ningún recurso.');
+      else
+        setLast({
+          count: result.resources.length,
+          label: `${result.resources.length} ${result.resources.length === 1 ? 'recurso' : 'recursos'}`,
+          usedFallback: result.fallbackTypes.length > 0,
+          failed: result.failed,
+        });
+    } finally {
+      setProgress(null);
+      setLoading(false);
+    }
+  };
+
   const fromRequest = (i: Interpretation): GenerationInput => ({ ...input, ...i, instructions: request.trim().slice(0, MAX_REQUEST_LENGTH) });
+
+  // Los tipos marcados, en el orden de la clase.
+  const chosen = RESOURCE_TYPES.filter((t) => selected.includes(t.id)).map((t) => t.id);
+  const toggleType = (type: ResourceType, checked: boolean) => {
+    setSelected((list) => (checked ? [...list, type] : list.filter((t) => t !== type)));
+    setLast(null);
+  };
 
   const submitOptions = (e: FormEvent) => {
     e.preventDefault();
-    void run(input);
+    if (chosen.length === 0) return setError('Marca al menos un tipo de recurso.');
+    if (chosen.length === 1) void run({ ...input, resourceType: chosen[0] });
+    else void runMany(chosen);
   };
 
   const submitRequest = (e: FormEvent) => {
@@ -94,10 +128,19 @@ export function GenerationTab({ unit, base, documents, upsertResources }: UnitTa
         </Alert>
       )}
       {last && last.count > 0 && (
-        <Alert tone={last.usedFallback ? 'warn' : 'success'} title={`Listo: ${countLabel(last.type, last.count)} para revisar`} role="status">
+        <Alert tone={last.usedFallback || last.failed.length ? 'warn' : 'success'} title={`Listo: ${last.label} para revisar`} role="status">
           {last.usedFallback
             ? 'La IA no respondió esta vez y se usó el generador de respaldo, que redacta textos más simples. Revísalos con cuidado o vuelve a intentar en unos minutos.'
             : 'Pasa a Revisión para aceptar, editar o descartar lo generado antes de usarlo.'}
+          {last.failed.length > 0 && (
+            <ul className="caption">
+              {last.failed.map((f) => (
+                <li key={f.type}>
+                  No se generó «{typeInfo(f.type).name}»: {f.message}
+                </li>
+              ))}
+            </ul>
+          )}
           <div className="btn-row alert__actions">
             <ButtonLink to={`${base}/review`} variant="primary" compact icon="arrowRight">
               Ir a Revisión
@@ -127,16 +170,23 @@ export function GenerationTab({ unit, base, documents, upsertResources }: UnitTa
             <form className="stack" onSubmit={submitOptions} noValidate>
               <fieldset className="fieldset">
                 <legend className="h2">¿Qué quieres generar?</legend>
+                <p className="caption">Marca uno o varios recursos en cada momento de la clase; se generan todos juntos.</p>
                 <div className="type-groups">
                   {GROUPS.map((group) => (
-                    <div key={group} className="type-group">
+                    <div key={group} className="type-group" role="group" aria-label={group}>
                       <span className="overline">{group}</span>
-                      {RESOURCE_TYPES.filter((t) => t.group === group).map((t) => (
-                        <label key={t.id} className={input.resourceType === t.id ? 'radio-card radio-card--checked' : 'radio-card'}>
-                          <input type="radio" name="tipo" value={t.id} checked={input.resourceType === t.id} onChange={() => set('resourceType', t.id)} />
-                          <span>{t.name}</span>
-                        </label>
-                      ))}
+                      {RESOURCE_TYPES.filter((t) => t.group === group).map((t) => {
+                        const checked = selected.includes(t.id);
+                        return (
+                          <label key={t.id} className={checked ? 'radio-card radio-card--checked' : 'radio-card'}>
+                            <input type="checkbox" name="tipos" value={t.id} checked={checked} onChange={(e) => toggleType(t.id, e.target.checked)} />
+                            <span className="radio-card__text">
+                              <span>{t.name}</span>
+                              {t.format !== 'text' && <span className="format-tag">{FORMAT_LABELS[t.format]}</span>}
+                            </span>
+                          </label>
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
@@ -145,9 +195,15 @@ export function GenerationTab({ unit, base, documents, upsertResources }: UnitTa
                 <SelectField label="Resultado de aprendizaje" value={input.outcomeId ?? ''} onChange={(v) => set('outcomeId', v || null)} options={outcomeOptions} />
               )}
               <div className="form-grid form-grid--3">
-                <SelectField label="Cantidad" value={String(input.quantity)} onChange={(v) => set('quantity', Number(v))} options={[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: String(n) }))} />
+                <SelectField
+                  label="Cantidad"
+                  value={String(input.quantity)}
+                  onChange={(v) => set('quantity', Number(v))}
+                  options={[1, 2, 3, 4, 5].map((n) => ({ value: String(n), label: String(n) }))}
+                  hint={chosen.length > 1 ? 'De cada tipo marcado.' : undefined}
+                />
                 <SelectField label="Dificultad" value={input.difficulty} onChange={(v) => set('difficulty', v as GenerationInput['difficulty'])} options={DIFFICULTIES} />
-                {hasOptions(input.resourceType) && (
+                {chosen.some(hasOptions) && (
                   <SelectField label="Alternativas por pregunta" value={String(input.optionCount)} onChange={(v) => set('optionCount', Number(v))} options={[3, 4, 5].map((n) => ({ value: String(n), label: String(n) }))} />
                 )}
               </div>
@@ -165,11 +221,17 @@ export function GenerationTab({ unit, base, documents, upsertResources }: UnitTa
                 <div className="stack">
                   <TextField label="Público" value={input.audience} onChange={(v) => set('audience', v)} maxLength={200} placeholder="Estudiantes de quinto ciclo de Ingeniería de Sistemas" />
                   <TextField label="Competencia" value={input.competency} onChange={(v) => set('competency', v)} maxLength={200} placeholder="Resuelve problemas de conectividad en redes" />
-                  <p className="caption">Formato: texto. Imágenes y video llegan en el Sprint 2.</p>
+                  <p className="caption">Imágenes, gráficos, audios y actividades interactivas se eligen arriba como tipos de recurso.</p>
                 </div>
               </details>
               {feedback}
-              <GenerateButton loading={loading} slow={slow} label={`Generar ${countLabel(input.resourceType, input.quantity)}`} />
+              <GenerateButton
+                loading={loading}
+                slow={slow}
+                disabled={chosen.length === 0}
+                label={chosen.length ? `Generar ${selectionLabel(chosen, input.quantity)}` : 'Marca al menos un recurso'}
+                progress={progress ? `Generando ${progress.done + 1} de ${progress.total}: ${typeInfo(progress.current).name}…` : undefined}
+              />
             </form>
           </Card>
         ) : (
@@ -228,6 +290,7 @@ export function GenerationTab({ unit, base, documents, upsertResources }: UnitTa
                     className="link-button"
                     onClick={() => {
                       setInput(fromRequest(understood));
+                      setSelected([understood.resourceType]);
                       changeMode('opciones');
                     }}
                   >
@@ -274,14 +337,14 @@ export function GenerationTab({ unit, base, documents, upsertResources }: UnitTa
   );
 }
 
-function GenerateButton({ loading, slow, label }: { loading: boolean; slow: boolean; label: string }) {
+function GenerateButton({ loading, slow, label, disabled, progress }: { loading: boolean; slow: boolean; label: string; disabled?: boolean; progress?: string }) {
   return (
     <div className="stack stack--tight">
       <div className="btn-row">
-        <Button type="submit" variant="primary" loading={loading}>
+        <Button type="submit" variant="primary" loading={loading} disabled={disabled}>
           {label}
         </Button>
-        {loading && <Spinner label="Generando…" />}
+        {loading && <Spinner label={progress ?? 'Generando…'} />}
       </div>
       <p className="caption">{slow ? 'Sigue trabajando: la IA está redactando con tu material.' : 'Puede tardar hasta un minuto.'}</p>
     </div>

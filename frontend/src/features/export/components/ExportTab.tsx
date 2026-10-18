@@ -178,8 +178,8 @@ export function ExportTab({ unit, base, resources, resourcesError, reloadResourc
       </div>
       <p className="note">
         <Icon name="info" size={16} />
-        Moodle y Chamilo solo importan preguntas. Las explicaciones, guías y casos van en el documento de la unidad, que también puedes subir a tu aula
-        virtual como archivo.
+        Moodle solo importa preguntas de opción múltiple. El paquete SCORM (Canvas o Chamilo) lleva todos los recursos aprobados, con sus
+        imágenes, audios y actividades, y el documento de la unidad sirve para imprimir o compartir.
       </p>
 
       <Card>

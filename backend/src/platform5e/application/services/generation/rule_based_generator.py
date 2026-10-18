@@ -106,7 +106,51 @@ _BUILDERS_BY_TYPE: dict[str, str] = {
     "explicacion": "_explanation",
     "glosario": "_glossary",
     "ejercicio_aplicacion": "_application_exercise",
+    "audio_detonante": "_audio_trigger",
+    "podcast_resumen": "_podcast_summary",
+    "imagen_ilustrativa": "_illustration",
+    "diagrama_proceso": "_process_diagram",
+    "mapa_conceptual": "_concept_map",
+    "infografia": "_infographic",
+    "emparejamiento": "_matching_activity",
+    "ordenar_pasos": "_ordering_activity",
+    "verdadero_falso": "_true_false_activity",
+    "completar_espacios": "_fill_in_activity",
 }
+
+
+def _shorten(text: str, limit: int = 200) -> str:
+    return text if len(text) <= limit else text[:limit].rsplit(" ", 1)[0] + "…"
+
+
+def _term_in(sentence: str, terms: list[str]) -> str | None:
+    return next((term for term in terms if _contains_word(sentence, term)), None)
+
+
+def _definitions(sentence_pairs: list[tuple[str, str]], terms: list[str], offset: int, limit: int) -> list[tuple[str, str, str]]:
+    """(término, etiqueta, oración que lo define), un término por oración."""
+    found: list[tuple[str, str, str]] = []
+    used: set[str] = set()
+    for term in terms[offset:]:
+        match = next(
+            (
+                (tag, sentence)
+                for tag, sentence in sentence_pairs
+                if sentence not in used
+                and _contains_word(sentence, term)
+                and re.search(r"\b(es|son|se define|consiste|significa|permite)\b", sentence, re.IGNORECASE)
+            ),
+            None,
+        ) or next(
+            ((tag, sentence) for tag, sentence in sentence_pairs if sentence not in used and _contains_word(sentence, term)),
+            None,
+        )
+        if match:
+            used.add(match[1])
+            found.append((term, match[0], match[1]))
+        if len(found) == limit:
+            break
+    return found
 
 class RuleBasedGenerator:
     """Generador determinista de recursos pedagógicos para respaldo ante caídas de red."""
@@ -148,7 +192,10 @@ class RuleBasedGenerator:
         built_resources: list[dict[str, Any]] = []
         for index in range(request_info["cantidad"]):
             resource = builder_method(index, sentence_pairs, key_terms, context)
-            if resource and all(resource["contenido"] != item["contenido"] for item in built_resources):
+            if resource and all(
+                (resource["contenido"], resource.get("estructura")) != (item["contenido"], item.get("estructura"))
+                for item in built_resources
+            ):
                 built_resources.append(resource)
 
         return {"recursos": built_resources}
@@ -476,4 +523,203 @@ class RuleBasedGenerator:
             "contenido": content,
             "citas": [{"afirmacion": sentence, "fragmentos": [tag]}],
             "alternativas": [],
+        }
+    # ——— Recursos multimodales e interactivos (respaldo sin IA) ———
+
+    def _audio_trigger(self, index, sentence_pairs, terms, context):
+        matched = self._find_matching_pair(sentence_pairs, terms, index)
+        if not matched:
+            return None
+        tag, sentence, term = matched
+        script = (
+            f"Escucha esta idea del material de la unidad. {sentence} "
+            f"Ahora piensa: ¿dónde has visto {term} en tu vida diaria y qué pasaría si no existiera? "
+            "Anota tu respuesta en una frase; la compartiremos al empezar la clase."
+        )
+        return {
+            "titulo": f"Para escuchar: {term}",
+            "contenido": "Escucha la cápsula y anota tu respuesta antes de empezar el tema.",
+            "citas": [{"afirmacion": sentence, "fragmentos": [tag]}],
+            "alternativas": [],
+            "estructura": {"guion": script},
+        }
+
+    def _podcast_summary(self, index, sentence_pairs, terms, context):
+        scored = sorted(sentence_pairs, key=lambda pair: -sum(_contains_word(pair[1], t) for t in terms[:10]))
+        selected = scored[index * 4 : index * 4 + 4] or scored[:4]
+        if len(selected) < 2:
+            return None
+        title = context["unidad"]["titulo"]
+        key_ideas = ", ".join(terms[:3]) if terms else title
+        script = (
+            f"Hola. En este resumen repasamos la unidad «{title}». "
+            + " ".join(sentence for _, sentence in selected)
+            + f" Para cerrar, recuerda estas ideas clave: {key_ideas}. Nos vemos en la próxima clase."
+        )
+        return {
+            "titulo": f"Resumen para escuchar: {title}",
+            "contenido": "Escucha el resumen de la unidad y anota una idea que quieras preguntar en clase.",
+            "citas": [{"afirmacion": sentence, "fragmentos": [tag]} for tag, sentence in selected],
+            "alternativas": [],
+            "estructura": {"guion": script},
+        }
+
+    def _illustration(self, index, sentence_pairs, terms, context):
+        matched = self._find_matching_pair(sentence_pairs, terms, index)
+        if not matched:
+            return None
+        tag, sentence, term = matched
+        return {
+            "titulo": f"Imagen para observar: {term}",
+            "contenido": (
+                f"Observa la imagen y responde: ¿qué elementos se relacionan con {term}? "
+                f"Compara lo que ves con esta idea del material: «{sentence}»"
+            ),
+            "citas": [{"afirmacion": sentence, "fragmentos": [tag]}],
+            "alternativas": [],
+            "estructura": {
+                "descripcion_imagen": (
+                    f"Ilustración didáctica, clara y sin texto escrito, que represente esta idea: {sentence} "
+                    "Estilo de libro escolar, colores suaves y fondo limpio."
+                ),
+                "texto_alternativo": f"Ilustración sobre {term}",
+                "leyenda": sentence,
+            },
+        }
+
+    def _process_diagram(self, index, sentence_pairs, terms, context):
+        start = (index * 4) % max(1, len(sentence_pairs))
+        selected = sentence_pairs[start : start + 5]
+        if len(selected) < 3:
+            selected = sentence_pairs[:5]
+        if len(selected) < 3:
+            return None
+        steps = [
+            {"titulo": _capitalize_first(_term_in(sentence, terms) or f"Paso {n}"), "texto": _shorten(sentence)}
+            for n, (_, sentence) in enumerate(selected, start=1)
+        ]
+        return {
+            "titulo": f"Diagrama del proceso: {context['unidad']['titulo']}",
+            "contenido": "Recorre el diagrama paso a paso y explica con tus palabras cómo se relaciona cada paso con el siguiente.",
+            "citas": [{"afirmacion": sentence, "fragmentos": [tag]} for tag, sentence in selected],
+            "alternativas": [],
+            "estructura": {"pasos": steps},
+        }
+
+    def _concept_map(self, index, sentence_pairs, terms, context):
+        found = _definitions(sentence_pairs, terms, index * 6, 6)
+        if len(found) < 3:
+            return None
+        return {
+            "titulo": f"Mapa conceptual: {context['unidad']['titulo']}",
+            "contenido": "Lee el mapa desde el concepto central y explica cómo se relaciona con cada concepto.",
+            "citas": [{"afirmacion": sentence, "fragmentos": [tag]} for _, tag, sentence in found],
+            "alternativas": [],
+            "estructura": {
+                "central": context["unidad"]["titulo"],
+                "nodos": [{"etiqueta": _capitalize_first(term), "detalle": _shorten(sentence, 140)} for term, _, sentence in found],
+            },
+        }
+
+    def _infographic(self, index, sentence_pairs, terms, context):
+        scored = sorted(sentence_pairs, key=lambda pair: -sum(_contains_word(pair[1], t) for t in terms[:10]))
+        selected = scored[index * 4 : index * 4 + 4] or scored[:4]
+        if len(selected) < 3:
+            return None
+        points = [
+            {"titulo": _capitalize_first(_term_in(sentence, terms) or f"Idea {n}"), "texto": _shorten(sentence)}
+            for n, (_, sentence) in enumerate(selected, start=1)
+        ]
+        return {
+            "titulo": f"Infografía: {context['unidad']['titulo']}",
+            "contenido": "Las ideas clave de la unidad en una sola vista, para repasar o proyectar en clase.",
+            "citas": [{"afirmacion": sentence, "fragmentos": [tag]} for tag, sentence in selected],
+            "alternativas": [],
+            "estructura": {"central": context["unidad"]["titulo"], "puntos": points},
+        }
+
+    def _matching_activity(self, index, sentence_pairs, terms, context):
+        found = [
+            (term, tag, sentence, _mask_target_word(sentence, term))
+            for term, tag, sentence in _definitions(sentence_pairs, terms, index * 6, 6)
+        ]
+        found = [item for item in found if item[3] != item[2]]
+        if len(found) < 3:
+            return None
+        return {
+            "titulo": f"Relaciona los conceptos: {context['unidad']['titulo']}",
+            "contenido": "Relaciona cada término con la descripción que le corresponde según el material.",
+            "citas": [{"afirmacion": sentence, "fragmentos": [tag]} for _, tag, sentence, _ in found],
+            "alternativas": [],
+            "estructura": {"pares": [{"termino": _capitalize_first(term), "definicion": masked} for term, _, _, masked in found]},
+        }
+
+    def _ordering_activity(self, index, sentence_pairs, terms, context):
+        start = (index * 5) % max(1, len(sentence_pairs))
+        selected = sentence_pairs[start : start + 5]
+        if len(selected) < 3:
+            selected = sentence_pairs[:5]
+        if len(selected) < 3:
+            return None
+        return {
+            "titulo": f"Ordena las ideas: {context['unidad']['titulo']}",
+            "contenido": "Ordena las ideas en la secuencia en que el material las presenta y explica por qué van en ese orden.",
+            "citas": [{"afirmacion": sentence, "fragmentos": [tag]} for tag, sentence in selected],
+            "alternativas": [],
+            "estructura": {"secuencia": [sentence for _, sentence in selected]},
+        }
+
+    def _true_false_activity(self, index, sentence_pairs, terms, context):
+        selected = sentence_pairs[index * 5 : index * 5 + 5] or sentence_pairs[:5]
+        if len(selected) < 3:
+            return None
+        statements, citations = [], []
+        for num, (tag, sentence) in enumerate(selected, start=1):
+            swap = next(
+                (
+                    (p, q)
+                    for p in terms
+                    if _contains_word(sentence, p)
+                    for q in terms
+                    if q != p and not _are_related_terms(p, q) and not _contains_word(sentence, q)
+                ),
+                None,
+            )
+            if num % 2 == 0 and swap:
+                false_text = _capitalize_first(
+                    re.sub(rf"(?<!\w){re.escape(swap[0])}(?!\w)", swap[1], sentence, count=1, flags=re.IGNORECASE)
+                )
+                statements.append({"texto": false_text, "verdadera": False, "retroalimentacion": f"Falso. El material dice: «{sentence}»"})
+            else:
+                statements.append({"texto": sentence, "verdadera": True, "retroalimentacion": "Verdadero. Así lo afirma el material."})
+            citations.append({"afirmacion": sentence, "fragmentos": [tag]})
+        if all(s["verdadera"] for s in statements):
+            return None
+        return {
+            "titulo": f"Verdadero o falso: {context['unidad']['titulo']}",
+            "contenido": "Marca si cada afirmación es verdadera o falsa según el material de la unidad.",
+            "citas": citations,
+            "alternativas": [],
+            "estructura": {"afirmaciones": statements},
+        }
+
+    def _fill_in_activity(self, index, sentence_pairs, terms, context):
+        items, citations, used = [], [], set()
+        matches = [(tag, sentence, term) for term in terms for tag, sentence in sentence_pairs if _contains_word(sentence, term)]
+        for tag, sentence, term in matches[index * 4 :] + matches[: index * 4]:
+            if sentence in used:
+                continue
+            used.add(sentence)
+            items.append({"oracion": _mask_target_word(sentence, term), "respuesta": term})
+            citations.append({"afirmacion": sentence, "fragmentos": [tag]})
+            if len(items) == 4:
+                break
+        if len(items) < 2:
+            return None
+        return {
+            "titulo": f"Completa las ideas: {context['unidad']['titulo']}",
+            "contenido": "Escribe el término que completa cada oración según el material.",
+            "citas": citations,
+            "alternativas": [],
+            "estructura": {"espacios": items},
         }

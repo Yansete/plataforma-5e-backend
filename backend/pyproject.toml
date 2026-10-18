@@ -19,6 +19,8 @@ dependencies = [
     "pgvector>=0.3.0",
     "pypdf>=4.2.0",
     "python-pptx>=0.6.23",
+    "nh3>=0.2.17",          # limpieza del HTML del editor enriquecido
+    "lameenc>=1.7.0",       # audio en MP3 (más liviano que WAV) para la revisión y el SCORM
 ]
 
 [project.optional-dependencies]

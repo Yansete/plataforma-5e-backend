@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from uuid import uuid4
 
+from platform5e.application.ports.outbound.media_port import MediaRepositoryPort
 from platform5e.application.ports.outbound.resource_repository_port import ResourceReviewRepositoryPort
 from platform5e.application.ports.outbound.teacher_repository_port import TeacherRepositoryPort
 from platform5e.application.ports.outbound.unit_exporter_port import ExportedFile, UnitExporterPort
@@ -25,7 +26,9 @@ class ExportUnitResourcesUseCase:
         teacher_repository: TeacherRepositoryPort,
         review_repository: ResourceReviewRepositoryPort,
         exporters: Sequence[UnitExporterPort],
+        media_repository: MediaRepositoryPort | None = None,
     ) -> None:
+        self._media_repository = media_repository
         self._teacher_repository = teacher_repository
         self._review_repository = review_repository
         self._exporters = {exporter.format: exporter for exporter in exporters}
@@ -66,7 +69,7 @@ class ExportUnitResourcesUseCase:
                 "NO_APPROVED_RESOURCES", "Elige al menos un recurso aprobado que admita este formato.", 422
             )
 
-        exported = exporter.export(approved, course, unit)
+        exported = exporter.export([self._with_media_file(teacher_id, r) for r in approved], course, unit)
         self._review_repository.save_download(
             teacher_id,
             unit_id,
@@ -80,3 +83,14 @@ class ExportUnitResourcesUseCase:
             },
         )
         return exported
+
+    def _with_media_file(self, teacher_id: str, resource: dict) -> dict:
+        """Agrega el archivo generado (imagen o audio) para que el exportador lo incluya en el paquete."""
+        media = resource.get("media") or {}
+        if self._media_repository is None or media.get("status") != "ready" or media.get("outdated"):
+            return resource
+        stored = self._media_repository.get_media(teacher_id, media["id"])
+        if stored is None:
+            return resource
+        details, content = stored
+        return {**resource, "mediaFile": {"fileName": details["fileName"], "mimeType": details["mimeType"], "content": content}}

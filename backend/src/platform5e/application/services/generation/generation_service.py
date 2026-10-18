@@ -17,13 +17,16 @@ from platform5e.application.ports.outbound.chunk_repository_port import ChunkRep
 from platform5e.application.ports.outbound.evidence_retriever_port import EvidenceRetrieverPort
 from platform5e.application.ports.outbound.generation_repository_port import GenerationRepositoryPort
 from platform5e.application.ports.outbound.language_model_port import ResourceGeneratorPort
+from platform5e.application.ports.outbound.media_port import MediaGeneratorPort, MediaRepositoryPort
 from platform5e.application.ports.outbound.resource_repository_port import ResourceReviewRepositoryPort
 from platform5e.application.ports.outbound.teacher_repository_port import TeacherRepositoryPort
+from platform5e.application.services.media.media_attachment import attach_generated_media
 from platform5e.application.services.generation.prompt_drafting import (
     build_generation_context,
     normalize_generated_resources,
 )
 from platform5e.domain.generation.errors import GenerationError
+from platform5e.domain.generation.resource_formats import resource_format
 
 OPTION_LETTERS: str = "abcdefghij"
 NO_MATERIAL_NOTICE: str = (
@@ -60,7 +63,11 @@ class GenerationService:
         review_repository: ResourceReviewRepositoryPort | None = None,
         demo_examples_enabled: bool = True,
         evidence_retriever: EvidenceRetrieverPort | None = None,
+        media_generator: MediaGeneratorPort | None = None,
+        media_repository: MediaRepositoryPort | None = None,
     ) -> None:
+        self._media_generator = media_generator
+        self._media_repository = media_repository
         self._repository = repository
         self._evidence_retriever = evidence_retriever
         self._demo_examples_enabled = demo_examples_enabled
@@ -222,6 +229,8 @@ class GenerationService:
         ]
 
         uses_ai = bool(getattr(active_generator, "uses_ai", False))
+        for resource in output_resources:
+            self._attach_media(teacher_id, resource)
         self._save_for_review(
             teacher_id,
             unit["id"],
@@ -273,6 +282,10 @@ class GenerationService:
 
         self._repository.save(result_payload, teacher_id)
         return result_payload
+
+    def _attach_media(self, teacher_id: str, resource: dict[str, Any]) -> None:
+        """Genera la imagen o el audio del recurso. Si el servicio falla, deja el respaldo y la generación sigue."""
+        attach_generated_media(teacher_id, resource, self._media_generator, self._media_repository)
 
     def _save_for_review(
         self,
@@ -357,6 +370,8 @@ class GenerationService:
             "outcomeId": outcome_id,
             "stage": request_data["stage"],
             "type": request_data["resourceType"],
+            "format": resource_format(request_data["resourceType"]),
+            "structure": resource_data.get("estructura"),
             "title": resource_data["titulo"],
             "body": resource_data["contenido"],
             "id": resource_id,

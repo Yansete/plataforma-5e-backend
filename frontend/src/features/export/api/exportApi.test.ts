@@ -8,13 +8,13 @@ import { item, mockFetch, text } from '@/test/fixtures';
 afterEach(() => { setSession(null); vi.unstubAllGlobals(); });
 
 describe('formatos y selección', () => {
-  it('Moodle recibe preguntas aprobadas; Chamilo y HTML, todo lo aprobado', () => {
+  it('Moodle recibe preguntas aprobadas; SCORM y HTML, todo lo aprobado', () => {
     const list = [item({ status: 'aprobado' }), item(), text({ status: 'aprobado' })];
     expect(isQuestion(list[2])).toBe(false);
     expect(resourcesFor('moodle_xml', list)).toEqual([list[0]]);
     expect(resourcesFor('scorm_zip', list)).toEqual([list[0], list[2]]);
     expect(resourcesFor('documento', list)).toEqual([list[0], list[2]]);
-    expect(FORMATS.map((f) => f.title)).toEqual(['Moodle', 'Chamilo', 'Documento de la unidad']);
+    expect(FORMATS.map((f) => f.title)).toEqual(['Moodle', 'SCORM (Canvas o Chamilo)', 'Documento de la unidad']);
     expect(formatInfo('scorm_zip').extension).toBe('zip');
   });
 });

@@ -19,6 +19,16 @@ ResourceType = Literal[
     "glosario",
     "ejercicio_aplicacion",
     "item_opcion_multiple",
+    "audio_detonante",
+    "imagen_ilustrativa",
+    "diagrama_proceso",
+    "mapa_conceptual",
+    "infografia",
+    "podcast_resumen",
+    "emparejamiento",
+    "ordenar_pasos",
+    "verdadero_falso",
+    "completar_espacios",
 ]
 Difficulty = Literal["basica", "intermedia", "avanzada"]
 
@@ -61,7 +71,7 @@ class GenerationRequest(ApiRequest):
 
 
 class GeneratorInfo(ApiResponse):
-    description: str = Field(examples=["Gemini (gemini-2.5-flash)"])
+    description: str = Field(examples=["Gemini (gemini-3.8-flash)"])
     uses_ai: bool = Field(description="False when the rule-based generator is active.")
     provider: str = Field(examples=["gemini", "rules"])
     model: str | None = None

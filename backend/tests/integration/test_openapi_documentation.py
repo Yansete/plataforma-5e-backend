@@ -21,7 +21,8 @@ OPERATIONS = [
     for path, operations in SPEC["paths"].items()
     for method, operation in operations.items()
 ]
-FILE_CONTENT = {"application/zip", "application/xml", "application/pdf", "text/plain; charset=utf-8"}
+FILE_CONTENT = {"application/zip", "application/xml", "application/pdf", "text/plain; charset=utf-8",
+                "image/svg+xml", "image/png", "image/jpeg", "audio/mpeg", "audio/wav"}
 VERSIONED_SPEC = Path(__file__).resolve().parents[3] / "docs" / "api" / "openapi.json"
 SPANISH_SEGMENTS = {"cuentas", "sesiones", "cursos", "documentos", "generaciones", "solicitudes", "unidades",
                     "recursos", "descargas", "resumen", "salud", "ia", "procesar", "fragmentos", "archivo"}

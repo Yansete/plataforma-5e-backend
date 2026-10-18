@@ -32,6 +32,7 @@ frontend/playwright-report/
 backend/reportes/
 backend/salida_demo/
 backend/*.db
+backend/media-check/
 backend/.venv/
 __pycache__/
 .pytest_cache/
