@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import xml.etree.ElementTree as ET
+
 from platform5e.infrastructure.exporters.moodle_xml_exporter import MoodleXmlExporter
 from tests.support.moodle_xml_validator import VERIFIED_SAMPLE, read_questions, validate
 
@@ -63,3 +65,24 @@ def test_rejects_unverified_types_and_malformed_xml():
     assert any("no verificado" in e for e in validate(SAMPLE.replace('type="multichoice"', 'type="essay"', 1)))
     assert validate("<quiz><question>")[0].startswith("El XML no está bien formado")
     assert validate("<otro/>") == ["La raíz debe ser <quiz> y es <otro>."]
+
+
+def test_items_go_in_one_category_per_level_with_the_points_of_their_level():
+    """HU-051 C02: el cuestionario de Moodle llega con niveles y puntaje (básico 10, intermedio 20, avanzado 30)."""
+    advanced = {**QUESTION, "id": "r3", "title": "Ventana deslizante", "params": {"difficulty": "avanzada"}}
+    basic = {**QUESTION, "id": "r4", "title": "Puertos", "params": {"difficulty": "basica"}}
+    unknown = {**QUESTION, "id": "r5", "title": "Sin dificultad"}  # recursos antiguos: intermedio
+    exported = MoodleXmlExporter().export([advanced, TEXT, unknown, basic], COURSE, UNIT)
+    assert validate(exported.content) == []
+    root = ET.fromstring(exported.content)
+    sequence = [
+        (q.findtext("category/text") or "").rsplit("/", 1)[-1] if q.get("type") == "category"
+        else (q.findtext("name/text"), q.findtext("defaultgrade"))
+        for q in root.findall("question")
+    ]
+    assert sequence == [
+        "Nivel 1 · Básico", ("Puertos", "10.0000000"),
+        "Nivel 2 · Intermedio", ("Sin dificultad", "20.0000000"),
+        "Nivel 3 · Avanzado", ("Ventana deslizante", "30.0000000"),
+    ]
+    assert root.find("question/category/text").text == "$course$/top/RED-301 · Unidad 1/Nivel 1 · Básico"
