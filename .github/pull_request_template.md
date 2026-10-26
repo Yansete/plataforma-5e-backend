@@ -9,4 +9,4 @@
 - [ ] Nombres en inglés; español solo en comentarios e interfaz
 - [ ] Si cambia un endpoint, su documentación en OpenAPI también
 
-Líder que fusiona: @sceliv
+Líder que fusiona: @Yansete
