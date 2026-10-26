@@ -269,3 +269,23 @@ había niveles, tiempo ni recompensa, así que no bastaban para cerrar la histor
 - **Pendiente de verificar.** Subcategorías y `<defaultgrade>` son parte del formato Moodle XML y el archivo pasa el
   validador construido con la muestra de SP-003, pero la importación con categorías por nivel todavía no se probó en
   una instancia real de Moodle (TA-006).
+
+## ADR-013 Orquestador de la secuencia con un agente por etapa (26/10/2026)
+
+El docente pidió un sistema multiagente para que los recursos de una clase no repitan contenido entre etapas (HU-003).
+Hasta ahora el frontend pedía cada tipo marcado por separado y ningún recurso sabía qué habían redactado los demás.
+
+- **Contrato.** `POST /api/v1/generations` acepta `resourceTypes` (de 1 a 8 tipos) además del pedido de un solo tipo,
+  que sigue igual. Con `resourceTypes`, `stage` y `resourceType` se ignoran; sin ninguno de los dos, la API responde 422.
+- **Agentes.** Cada etapa 5E tiene su agente (`domain/generation/sequence.py`): Enganchar, Explorar, Explicar, Elaborar
+  y Evaluar. Los tipos se ordenan según la clase y cada uno lo redacta el agente de su etapa. En esta versión los agentes
+  comparten los puertos de recuperación y de modelo de lenguaje; los agentes especializados (HU-047 a HU-050) cambiarán
+  cómo redacta cada uno sin tocar el orquestador.
+- **Contexto compartido.** Todos los agentes usan la misma evidencia recuperada y reciben, en el prompt, el título y un
+  resumen de lo que redactaron los anteriores, con la instrucción de no repetirlo.
+- **Rechazo de repetidos.** Un recurso cuya proporción de palabras compartidas (Jaccard sobre los términos de BM25) con
+  otro de la secuencia llega a 0,6 se pide de nuevo una vez; si sigue repetido, se rechaza y el motivo queda en
+  `sequence[].rejected`. Es una regla por palabras: la búsqueda por significado (EN-013) podrá reforzarla.
+- **Trazabilidad.** Cada recurso guarda su `agent`, y la respuesta trae `sequence` con lo que generó o rechazó cada
+  agente. Los recursos comparten el id del pedido y conservan sus propios parámetros, así que «Regenerar» funciona igual.
+- El frontend todavía pide los tipos uno por uno; pasar a un solo pedido con `resourceTypes` queda como tarea aparte.

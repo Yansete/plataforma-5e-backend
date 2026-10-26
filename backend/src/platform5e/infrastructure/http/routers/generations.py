@@ -46,11 +46,18 @@ def create_generations_router(
         Only resources whose claims cite valid chunks are kept; they are saved as `pendiente` for the teacher's review.
         If the AI fails, the rule-based generator answers and `generator.fallback` is true. Without material the
         request is rejected (400 NO_PROCESSED_MATERIAL) instead of inventing content.
+
+        With `resourceTypes`, the request becomes a class sequence (HU-003): each type goes to the agent of its 5E
+        stage, in the order of the class; all agents share the same evidence and see what the previous ones wrote.
+        A resource too similar to another one of the sequence is asked again once and, if it still repeats, rejected.
+        Each resource records its `agent`, and `sequence` reports what every agent generated or rejected.
         """
         try:
             teacher_id = account_service.authenticate_token(authorization) if authorization else None
             if teacher_id:
                 account_service.get_unit(teacher_id, body.unit_id)
+            if body.resource_types:
+                return generation_service.generate_sequence(body.to_domain(), teacher_id)
             return generation_service.generate(body.to_domain(), teacher_id)
         except GenerationError as error:
             return error_json(400, error.code, error.message)

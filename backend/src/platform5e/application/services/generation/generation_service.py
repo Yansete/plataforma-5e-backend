@@ -26,7 +26,15 @@ from platform5e.application.services.generation.prompt_drafting import (
     normalize_generated_resources,
 )
 from platform5e.domain.generation.errors import GenerationError
-from platform5e.domain.generation.resource_formats import resource_format
+from platform5e.domain.generation.resource_formats import resource_format, resource_stage
+from platform5e.domain.generation.sequence import (
+    SIMILARITY_THRESHOLD,
+    SequenceError,
+    most_similar,
+    order_resource_types,
+    resource_text,
+    stage_agent,
+)
 
 OPTION_LETTERS: str = "abcdefghij"
 NO_MATERIAL_NOTICE: str = (
@@ -46,6 +54,11 @@ REQUEST_PARAMETERS: tuple[str, ...] = (
     "topK",
     "evidenceThreshold",
 )
+
+NO_REPEAT_INSTRUCTION: str = (
+    "Tu recurso anterior se parecía demasiado a otro de la secuencia: usa otros ejemplos, preguntas y enfoque."
+)
+SEQUENCE_PREVIEW_CHARS: int = 300
 
 logger = logging.getLogger("platform5e.generation")
 
@@ -99,6 +112,218 @@ class GenerationService:
 
         return self._generate_demo(request_data, teacher_id)
 
+    def generate_sequence(self, request_data: dict[str, Any], teacher_id: str | None) -> dict[str, Any]:
+        """HU-003: reparte un pedido con varios tipos entre los agentes de etapa, en el orden de la clase.
+
+        Todos los agentes usan la misma evidencia recuperada y reciben lo que redactaron los anteriores. Un recurso
+        demasiado parecido a otro de la secuencia se pide de nuevo una vez y, si sigue repetido, se rechaza.
+        """
+        try:
+            ordered_types = order_resource_types(list(request_data.get("resourceTypes") or []))
+        except SequenceError as error:
+            raise GenerationError("INVALID_SEQUENCE", str(error)) from error
+
+        if not (
+            teacher_id
+            and self._teacher_repository
+            and self._chunk_repository
+            and self._evidence_retriever
+            and (self._primary_generator or self._fallback_generator)
+        ):
+            raise GenerationError("NO_PROCESSED_MATERIAL", NO_MATERIAL_NOTICE)
+        course, unit = self._get_course_and_unit(teacher_id, request_data["unitId"])
+        chunks = self._chunk_repository.get_chunks_by_unit(teacher_id, unit["id"]) if unit else []
+        if unit is None or not chunks:
+            raise GenerationError("NO_PROCESSED_MATERIAL", NO_MATERIAL_NOTICE)
+        if request_data["outcomeId"] and not any(
+            outcome["id"] == request_data["outcomeId"] for outcome in unit.get("outcomes", [])
+        ):
+            raise GenerationError("INVALID_OUTCOME", "El resultado de aprendizaje no pertenece a la unidad.")
+
+        # Contexto compartido por todos los agentes: la misma evidencia de la unidad.
+        top_k = max(3, min(int(request_data.get("topK") or 8), 12))
+        selected_chunks = self._evidence_retriever.retrieve(self._build_query(unit, request_data), chunks, top_k)
+        documents_map = {
+            doc["id"]: doc
+            for doc in self._teacher_repository.get_documents(teacher_id)
+            if doc["unitId"] == unit["id"]
+        }
+        document_names = {doc_id: doc["fileName"] for doc_id, doc in documents_map.items()}
+
+        timestamp = datetime.now(timezone.utc).isoformat()
+        request_id = f"sol-api-{uuid4()}"
+        resolved_outcome_id = request_data["outcomeId"] or next((o["id"] for o in unit.get("outcomes", [])), "")
+        accepted: list[dict[str, Any]] = []  # recursos aceptados (formato del generador), con su etapa
+        output_resources: list[dict[str, Any]] = []
+        steps: list[dict[str, Any]] = []
+        warnings: list[str] = []
+        generators: list[ResourceGeneratorPort] = []
+
+        for resource_type in ordered_types:
+            agent = stage_agent(resource_type)
+            step_request = {
+                **request_data,
+                "id": request_id,
+                "createdAt": timestamp,
+                "stage": resource_stage(resource_type),
+                "resourceType": resource_type,
+            }
+            context = build_generation_context(course, unit, step_request, selected_chunks, document_names)
+            context["secuenciaPrevia"] = [
+                {
+                    "etapa": previous["etapa"],
+                    "titulo": previous["titulo"],
+                    "resumen": resource_text(previous)[:SEQUENCE_PREVIEW_CHARS],
+                }
+                for previous in accepted
+            ]
+            drafted, generator, warning = self._draft_resources(context)
+            if warning:
+                warnings.append(f"{agent}: {warning}")
+
+            kept, rejected = self._filter_repeated(drafted, accepted)
+            if rejected and generator is not None:
+                retry_request = {
+                    **context["solicitud"],
+                    "indicaciones": " ".join(
+                        filter(None, [context["solicitud"]["indicaciones"], NO_REPEAT_INSTRUCTION])
+                    ),
+                }
+                retried, generator_retry, _ = self._draft_resources({**context, "solicitud": retry_request})
+                generator = generator_retry or generator
+                kept_retry, rejected = self._filter_repeated(retried[: len(rejected)], accepted + kept)
+                kept += kept_retry
+
+            if generator is not None and kept:
+                generators.append(generator)
+            step_resources = [
+                {
+                    **self._build_resource_dict(
+                        resource, step_request, unit["id"], resolved_outcome_id, generator.description, timestamp
+                    ),
+                    "agent": agent,
+                }
+                for resource in kept
+                if generator is not None
+            ]
+            accepted += [{**resource, "etapa": step_request["stage"]} for resource in kept]
+            output_resources += step_resources
+            steps.append(
+                {
+                    "stage": step_request["stage"],
+                    "resourceType": resource_type,
+                    "agent": agent,
+                    "generated": len(step_resources),
+                    "rejected": rejected,
+                }
+            )
+
+            if step_resources:
+                cited = {f_id for r in step_resources for c in r["citations"] for f_id in c["fragmentIds"]}
+                cited |= {f_id for r in step_resources for o in (r["options"] or []) for f_id in o["sourceFragmentIds"]}
+                step_chunks = [c for c in selected_chunks if c["id"] in cited]
+                for resource in step_resources:
+                    self._attach_media(teacher_id, resource)
+                self._save_for_review(
+                    teacher_id,
+                    unit["id"],
+                    step_resources,
+                    step_chunks,
+                    list(documents_map.values()),
+                    step_request,
+                    bool(getattr(generator, "uses_ai", False)),
+                )
+
+        if not output_resources:
+            raise GenerationError(
+                "INSUFFICIENT_EVIDENCE",
+                "No se pudieron redactar recursos que citen el material sin repetirse. "
+                "Prueba con otros tipos de recurso o agrega más material a la unidad.",
+            )
+
+        cited_ids = {f_id for r in output_resources for c in r["citations"] for f_id in c["fragmentIds"]}
+        cited_ids |= {f_id for r in output_resources for o in (r["options"] or []) for f_id in o["sourceFragmentIds"]}
+        used_chunks = [c for c in selected_chunks if c["id"] in cited_ids]
+        associated_docs = [
+            documents_map[doc_id]
+            for doc_id in dict.fromkeys(c.get("documentId") or c.get("documento_id") for c in used_chunks)
+            if doc_id in documents_map
+        ]
+        main_generator = generators[0]
+        # La historia guarda la primera etapa como referencia y la lista completa en resourceTypes.
+        enriched_request = {
+            **request_data,
+            "id": request_id,
+            "createdAt": timestamp,
+            "stage": resource_stage(ordered_types[0]),
+            "resourceType": ordered_types[0],
+            "resourceTypes": ordered_types,
+        }
+        rejected_total = sum(len(step["rejected"]) for step in steps)
+        notice = (
+            f"Secuencia generada por {len({s['agent'] for s in steps if s['generated']})} agente(s) "
+            f"con {main_generator.description} a partir de tu material."
+        )
+        if rejected_total:
+            notice += f" Se descartaron {rejected_total} recurso(s) por repetir contenido de otra etapa."
+        if warnings:
+            notice += " " + " ".join(warnings)
+
+        result_payload: dict[str, Any] = {
+            "mode": "rag",
+            "notice": notice,
+            "generator": {
+                "description": main_generator.description,
+                "usesAi": bool(getattr(main_generator, "uses_ai", False)),
+                "fallback": bool(warnings),
+            },
+            "request": enriched_request,
+            "resources": output_resources,
+            "available": len(output_resources),
+            "sequence": steps,
+            "fragments": [
+                {
+                    "id": chunk["id"],
+                    "documentId": chunk.get("documentId") or chunk.get("documento_id"),
+                    "location": chunk.get("location") or chunk.get("ubicacion"),
+                    "unitId": unit["id"],
+                    "outcomeId": resolved_outcome_id,
+                    "text": chunk.get("text") or chunk.get("texto"),
+                    "relevance": chunk.get("relevance", chunk.get("relevancia", 0.0)),
+                }
+                for chunk in used_chunks
+            ],
+            "documents": associated_docs,
+            "retrievedChunks": [
+                {
+                    "id": chunk["id"],
+                    "location": chunk.get("location") or chunk.get("ubicacion"),
+                    "text": chunk.get("text") or chunk.get("texto"),
+                    "relevance": chunk.get("relevance", chunk.get("relevancia", 0.0)),
+                }
+                for chunk in selected_chunks
+            ],
+        }
+        self._repository.save(result_payload, teacher_id)
+        return result_payload
+
+    @staticmethod
+    def _filter_repeated(
+        drafted: list[dict[str, Any]], accepted: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], list[str]]:
+        """Separa los recursos nuevos de los que repiten contenido de otro recurso de la secuencia."""
+        kept: list[dict[str, Any]] = []
+        rejected: list[str] = []
+        for resource in drafted:
+            score, previous = most_similar(resource, accepted + kept)
+            if previous is not None and score >= SIMILARITY_THRESHOLD:
+                rejected.append(
+                    f"«{resource.get('titulo', '')}» repetía «{previous.get('titulo', '')}» ({round(score * 100)} %)."
+                )
+            else:
+                kept.append(resource)
+        return kept, rejected
+
     def _get_course_and_unit(
         self, teacher_id: str, unit_id: str
     ) -> tuple[dict[str, Any], dict[str, Any] | None]:
@@ -125,21 +350,7 @@ class GenerationService:
         ):
             raise GenerationError("INVALID_OUTCOME", "El resultado de aprendizaje no pertenece a la unidad.")
 
-        query_text = " ".join(
-            filter(
-                None,
-                [
-                    unit.get("title", ""),
-                    *(
-                        outcome.get("text", "")
-                        for outcome in unit.get("outcomes", [])
-                        if not request_data["outcomeId"] or outcome["id"] == request_data["outcomeId"]
-                    ),
-                    request_data.get("instructions", ""),
-                    request_data.get("competency", ""),
-                ],
-            )
-        )
+        query_text = self._build_query(unit, request_data)
 
         top_k = max(3, min(int(request_data.get("topK") or 8), 12))
         selected_chunks = self._evidence_retriever.retrieve(query_text, chunks, top_k)
@@ -157,35 +368,7 @@ class GenerationService:
             {doc_id: doc["fileName"] for doc_id, doc in documents_map.items()},
         )
 
-        resources: list[dict[str, Any]] = []
-        active_generator: ResourceGeneratorPort | None = None
-        warning_message: str | None = None
-
-        if self._primary_generator is not None:
-            try:
-                raw_response = self._primary_generator.generate(generation_context)
-                resources = normalize_generated_resources(raw_response, generation_context)
-                active_generator = self._primary_generator
-                if not resources:
-                    warning_message = (
-                        f"{self._primary_generator.description} no devolvió recursos con citas válidas del material."
-                    )
-            except Exception as exc:
-                warning_message = f"{self._primary_generator.description} no respondió ({str(exc)[:160]})."
-
-        if (
-            not resources
-            and self._fallback_generator is not None
-            and self._fallback_generator is not self._primary_generator
-        ):
-            raw_response = self._fallback_generator.generate(generation_context)
-            resources = normalize_generated_resources(raw_response, generation_context)
-            active_generator = self._fallback_generator
-            if warning_message:
-                warning_message += " Se usó el generador por reglas."
-
-        if warning_message:
-            logger.warning("Generación con respaldo: %s", warning_message)
+        resources, active_generator, warning_message = self._draft_resources(generation_context)
 
         if not resources or active_generator is None:
             raise GenerationError(
@@ -282,6 +465,60 @@ class GenerationService:
 
         self._repository.save(result_payload, teacher_id)
         return result_payload
+
+    @staticmethod
+    def _build_query(unit: dict[str, Any], request_data: dict[str, Any]) -> str:
+        """Consulta de recuperación: título de la unidad, resultados elegidos, indicaciones y competencia."""
+        return " ".join(
+            filter(
+                None,
+                [
+                    unit.get("title", ""),
+                    *(
+                        outcome.get("text", "")
+                        for outcome in unit.get("outcomes", [])
+                        if not request_data["outcomeId"] or outcome["id"] == request_data["outcomeId"]
+                    ),
+                    request_data.get("instructions", ""),
+                    request_data.get("competency", ""),
+                ],
+            )
+        )
+
+    def _draft_resources(
+        self, generation_context: dict[str, Any]
+    ) -> tuple[list[dict[str, Any]], ResourceGeneratorPort | None, str | None]:
+        """Pide la redacción al generador principal y, si no devuelve recursos válidos, al de respaldo."""
+        resources: list[dict[str, Any]] = []
+        active_generator: ResourceGeneratorPort | None = None
+        warning_message: str | None = None
+
+        if self._primary_generator is not None:
+            try:
+                raw_response = self._primary_generator.generate(generation_context)
+                resources = normalize_generated_resources(raw_response, generation_context)
+                active_generator = self._primary_generator
+                if not resources:
+                    warning_message = (
+                        f"{self._primary_generator.description} no devolvió recursos con citas válidas del material."
+                    )
+            except Exception as exc:
+                warning_message = f"{self._primary_generator.description} no respondió ({str(exc)[:160]})."
+
+        if (
+            not resources
+            and self._fallback_generator is not None
+            and self._fallback_generator is not self._primary_generator
+        ):
+            raw_response = self._fallback_generator.generate(generation_context)
+            resources = normalize_generated_resources(raw_response, generation_context)
+            active_generator = self._fallback_generator
+            if warning_message:
+                warning_message += " Se usó el generador por reglas."
+
+        if warning_message:
+            logger.warning("Generación con respaldo: %s", warning_message)
+        return resources, active_generator, warning_message
 
     def _attach_media(self, teacher_id: str, resource: dict[str, Any]) -> None:
         """Genera la imagen o el audio del recurso. Si el servicio falla, deja el respaldo y la generación sigue."""

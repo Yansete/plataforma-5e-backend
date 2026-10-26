@@ -247,6 +247,14 @@ def build_prompt_instructions(context: dict[str, Any]) -> tuple[str, str]:
             "Agrega también a cada recurso: " + STRUCTURE_INSTRUCTIONS[req["tipo"]],
             "En «contenido» escribe la consigna o una explicación breve para el estudiante.",
         ]
+    previous_resources = context.get("secuenciaPrevia") or []
+    if previous_resources:
+        lines += [
+            "",
+            "RECURSOS QUE OTROS AGENTES YA REDACTARON PARA ESTA CLASE (no repitas sus preguntas, ejemplos ni "
+            "explicaciones; tu recurso debe complementarlos desde su propia etapa):",
+        ]
+        lines += [f"- {previous['titulo']}: {previous['resumen']}" for previous in previous_resources]
     lines += [
         "",
         "FRAGMENTOS DEL MATERIAL:",
