@@ -1851,6 +1851,81 @@
         }
       }
     },
+    "/api/v1/units/{unit_id}/downloads/{download_id}": {
+      "get": {
+        "tags": [
+          "downloads"
+        ],
+        "summary": "Re-download an exported package",
+        "description": "Re-downloads an exported package recorded in the unit's download history (HU-010 C02).",
+        "operationId": "redownload_package_api_v1_units__unit_id__downloads__download_id__get",
+        "security": [
+          {
+            "TeacherSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "unit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Unit Id"
+            }
+          },
+          {
+            "name": "download_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Download Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The re-downloaded file; its name comes in Content-Disposition.",
+            "content": {
+              "application/zip": {},
+              "application/xml": {},
+              "text/html": {}
+            }
+          },
+          "401": {
+            "description": "Missing, invalid or expired session token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The entity does not exist or does not belong to the teacher.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid parameters (type, range or unknown field).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/units/{unit_id}/exports": {
       "post": {
         "tags": [
