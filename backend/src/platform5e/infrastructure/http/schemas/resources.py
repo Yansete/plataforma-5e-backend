@@ -80,6 +80,9 @@ class ResourceResponse(ApiResponse):
     decided_at: str | None = None
     evidence: list[EvidenceResponse] = []
     params: dict[str, Any] | None = Field(default=None, description="Request parameters, reused by «Regenerar».")
+    agent: str | None = Field(
+        default=None, description="Stage agent that drafted the resource in a sequence request (HU-003)."
+    )
 
     @computed_field(description="Reasons that block approval, computed by the same rule that validates approval.")
     @property

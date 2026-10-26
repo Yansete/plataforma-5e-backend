@@ -33,7 +33,7 @@ revisión los muestra agrupados en el mismo orden. Detalle de formatos, medios y
 | Cursos y unidades | Creación, edición y borrado (con su material, recursos y descargas), con sumilla, logro y resultados de aprendizaje | Las unidades guardadas no se quitan de un curso; se borra el curso completo |
 | Material | Archivo en la BD, extracción de PDF, PPTX y TXT, fragmentos de unas 220 palabras con su página, búsqueda por tema en Wikipedia en español. El docente no ve conteos de fragmentos: el documento queda «Listo para generar» | Los PDF escaneados (solo imágenes) no tienen texto; no hay OCR. Sin embeddings todavía (EN-013) |
 | Pedido | «Elegir opciones» (agrupadas por momento de la clase) o «Escribir pedido»: reglas que interpretan tipo, cantidad, dificultad, alternativas y resultado, y muestran lo entendido; el texto completo va como indicación | La interpretación del pedido escrito es por reglas, no por IA |
-| Generación | Recuperación BM25 y redacción con IA (Gemini, Anthropic u OpenAI) o por reglas; solo se aceptan recursos con citas válidas. Cada recurso guarda una copia de su evidencia y los parámetros del pedido | Un solo agente por pedido; el orquestador entre etapas es HU-003. El umbral de evidencia aún no filtra |
+| Generación | Recuperación BM25 y redacción con IA (Gemini, Anthropic u OpenAI) o por reglas; solo se aceptan recursos con citas válidas. Cada recurso guarda una copia de su evidencia y los parámetros del pedido | Con `resourceTypes`, un agente por etapa redacta la secuencia sin repetir contenido (HU-003, ADR-012); el frontend aún pide los tipos uno por uno. El umbral de evidencia aún no filtra |
 | Revisión | En el servidor: aceptar, editar o descartar distractores (con motivo), aprobar con las mismas reglas que el backend, regenerar (la versión anterior pasa a «Descartados») y borrar | No hay «Aceptar todos» (decisión del equipo: se revisa uno por uno) |
 | Descargas | Moodle XML (preguntas aprobadas) y paquete SCORM 1.2 para Chamilo (todos los recursos aprobados), armados en el backend; y el documento de la unidad (HTML) con su evidencia. Nombres con el curso y la unidad. Historial en el servidor, con «Borrar historial» | SCORM probado en SCORM Cloud; importación en las instancias del curso pendiente (TA-006) |
 
@@ -215,7 +215,7 @@ Los informes de avance y las validaciones académicas también se conservan en N
 ## Pendientes y límites
 
 Embeddings y búsqueda por significado con pgvector (EN-013, HU-011), unificación con `backend/database/migrations` (EN-024),
-orquestación de los agentes de las cinco etapas sin repetir contenido (HU-003), OCR de PDF escaneados, recuperación
+agentes especializados por etapa (HU-047 a HU-050) y uso de `resourceTypes` desde el frontend, OCR de PDF escaneados, recuperación
 de contraseña, importación en LMS reales y mediciones del piloto. Indicadores (antes una pantalla con valores de
 ejemplo) se medirán con datos reales en el Sprint 2.
 Faltan validación con docentes, lectores de pantalla y pruebas amplias de rendimiento.

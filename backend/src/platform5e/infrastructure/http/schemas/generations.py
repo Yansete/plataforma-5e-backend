@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from platform5e.infrastructure.http.schemas.common import ApiRequest, ApiResponse
 from platform5e.infrastructure.http.schemas.resources import ResourceResponse
@@ -36,8 +36,25 @@ Difficulty = Literal["basica", "intermedia", "avanzada"]
 class GenerationRequest(ApiRequest):
     unit_id: str = Field(description="Unit whose processed material is used.", examples=["unidad-1"])
     outcome_id: str | None = Field(default=None, description="Learning outcome of the unit, optional.")
-    stage: Stage = Field(description="5E stage of the requested resource.", examples=["evaluate"])
-    resource_type: ResourceType = Field(examples=["item_opcion_multiple"])
+    stage: Stage | None = Field(
+        default=None, description="5E stage of the requested resource. Required unless `resourceTypes` is sent.",
+        examples=["evaluate"],
+    )
+    resource_type: ResourceType | None = Field(
+        default=None, description="Requested resource type. Required unless `resourceTypes` is sent.",
+        examples=["item_opcion_multiple"],
+    )
+    resource_types: list[ResourceType] | None = Field(
+        default=None,
+        min_length=1,
+        max_length=8,
+        description=(
+            "Several resource types for one class sequence (HU-003). Each type goes to the agent of its 5E stage, "
+            "in the order of the class, and a resource that repeats another one of the sequence is rejected. "
+            "When present, `stage` and `resourceType` are ignored."
+        ),
+        examples=[["pregunta_detonante", "explicacion", "item_opcion_multiple"]],
+    )
     quantity: int = Field(default=1, ge=1, le=5)
     difficulty: Difficulty = "intermedia"
     option_count: int = Field(default=4, ge=2, le=5, description="Options per multiple-choice item.")
@@ -51,6 +68,12 @@ class GenerationRequest(ApiRequest):
         default_factory=lambda: ["Textual"], max_length=1, description="Sprint 1 generates text only."
     )
 
+    @model_validator(mode="after")
+    def require_a_resource_type(self) -> "GenerationRequest":
+        if not self.resource_types and (self.stage is None or self.resource_type is None):
+            raise ValueError("Send `stage` and `resourceType`, or `resourceTypes` for a sequence.")
+        return self
+
     def to_domain(self) -> dict[str, Any]:
         """El diccionario que esperan los servicios de generación."""
         return {
@@ -58,6 +81,7 @@ class GenerationRequest(ApiRequest):
             "outcomeId": self.outcome_id,
             "stage": self.stage,
             "resourceType": self.resource_type,
+            "resourceTypes": list(self.resource_types) if self.resource_types else None,
             "quantity": self.quantity,
             "difficulty": self.difficulty,
             "optionCount": self.option_count,
@@ -101,6 +125,16 @@ class GeneratedChunk(ApiResponse):
     relevance: float = 0.0
 
 
+class SequenceStep(ApiResponse):
+    """What one stage agent did in a sequence request."""
+
+    stage: str = Field(description="5E stage of the agent.")
+    resource_type: str
+    agent: str = Field(examples=["Agente de Enganchar"])
+    generated: int = Field(description="Resources kept for review.")
+    rejected: list[str] = Field(default=[], description="Resources rejected for repeating another one, with the reason.")
+
+
 class GenerationResult(ApiResponse):
     mode: Literal["api_demo", "rag"] = Field(description="`rag`: the teacher's material; `api_demo`: test catalog.")
     notice: str = Field(description="Message shown to the teacher.")
@@ -110,6 +144,9 @@ class GenerationResult(ApiResponse):
     available: int
     fragments: list[dict[str, Any]] = Field(description="Chunks cited by the resources.")
     documents: list[dict[str, Any]] = Field(description="Documents those chunks come from.")
+    sequence: list[SequenceStep] | None = Field(
+        default=None, description="Only in sequence requests (`resourceTypes`): one step per stage agent."
+    )
     retrieved_chunks: list[GeneratedChunk] = Field(
         default=[], description="Everything retrieved, not only what was cited. Used by the Ragas evaluation."
     )
