@@ -175,6 +175,17 @@ Backend: 347 pruebas; frontend: 79 y las 5 pruebas en Chromium. Además se abri�
 SCORM con los 18 tipos, con una API de SCORM 1.2 simulada: imágenes y audio cargan, las páginas de contenido quedan
 `completed`, la pregunta se califica y las cuatro actividades envían `score.raw` 100 y `passed` al responder bien.
 
+## Evaluación gamificada por niveles, HU-051 (26/10/2026)
+
+`tests/unit/test_gamification.py` cubre el nivel y los puntos de cada dificultad, las insignias y el orden por nivel.
+`test_scorm_package_exporter.py` comprueba que los ítems de opción múltiple forman un solo SCO «Evaluación por
+niveles» con tres niveles (10, 20 y 30 puntos), el nivel 1 abierto y los demás bloqueados, y que `scorm.js` envía
+`cmi.core.session_time`. `test_moodle_xml_exporter.py` comprueba una subcategoría por nivel con `<defaultgrade>` de
+10, 20 y 30, y que el archivo sigue pasando el validador de la muestra de SP-003. Además se respondió la evaluación en
+Chromium con una API de SCORM 1.2 simulada: el nivel 2 se desbloquea al terminar el 1, el puntaje y el cronómetro
+avanzan, aparece la insignia y el LMS recibe `session_time`, `score.raw` y `passed`. Falta importar el Moodle XML con
+categorías por nivel en una instancia real de Moodle (TA-006).
+
 ## Verificación de la integración final de la tarea 7 (16/10/2026)
 
 Sobre `main` en `55531cc`, con los ajustes de aprobación y documento HTML aplicados,

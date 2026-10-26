@@ -4,6 +4,10 @@ Exportador Moodle XML (ADR-005): banco de preguntas de opción múltiple con los
 Misma estructura que la muestra importada con éxito en Moodle durante SP-003
 (tests/fixtures/verified_moodle_sample.xml). Solo se exportan la clave y los distractores que el
 docente no descartó. La IA nunca escribe XML: el archivo sale de esta plantilla fija.
+
+Gamificación (HU-051, ADR-012): los ítems van en una subcategoría por nivel («Nivel 1 · Básico»…) y cada uno
+vale los puntos de su nivel en <defaultgrade>. Así el docente arma en Moodle un cuestionario por niveles o
+con preguntas aleatorias de cada nivel, y Moodle muestra el puntaje de cada pregunta.
 """
 
 from __future__ import annotations
@@ -13,6 +17,7 @@ import re
 from collections.abc import Mapping, Sequence
 
 from platform5e.application.ports.outbound.unit_exporter_port import ExportedFile, UnitExporterPort
+from platform5e.domain.generation.gamification import by_level, item_level
 
 # Quitar "descartado" cuando los valores guardados estén migrados al inglés.
 DISCARDED = {"discarded", "descartado"}
@@ -51,7 +56,7 @@ def _question(resource: Mapping) -> list[str]:
         f"    <name><text>{_escape(resource.get('title'))}</text></name>",
         f'    <questiontext format="html"><text>{_cdata(_to_html(resource.get("body", "")))}</text></questiontext>',
         f'    <generalfeedback format="html"><text>{_cdata(_to_html(_general_feedback(resource)))}</text></generalfeedback>',
-        "    <defaultgrade>1.0000000</defaultgrade>",
+        f"    <defaultgrade>{item_level(resource).points:.7f}</defaultgrade>",
         "    <penalty>0.3333333</penalty>",
         "    <hidden>0</hidden>",
         "    <idnumber></idnumber>",
@@ -88,14 +93,15 @@ class MoodleXmlExporter(UnitExporterPort):
     def export(self, resources: Sequence[Mapping], course: Mapping, unit: Mapping) -> ExportedFile:
         number = unit.get("number", 1)
         category = f"{course.get('code', '')} · Unidad {number}"
-        lines = [
-            '<?xml version="1.0" encoding="UTF-8"?>',
-            "<quiz>",
-            f'  <question type="category"><category><text>$course$/top/{_escape(category)}</text></category>'
-            '<info format="html"><text></text></info><idnumber></idnumber></question>',
-        ]
-        for resource in resources:
-            if self.supports(resource):
+        lines = ['<?xml version="1.0" encoding="UTF-8"?>', "<quiz>"]
+        for level, items in by_level([r for r in resources if self.supports(r)]):
+            path = f"$course$/top/{_escape(category)}/{_escape(level.title)}"
+            lines.append(
+                f'  <question type="category"><category><text>{path}</text></category>'
+                f'<info format="html"><text>{_cdata(f"<p>Cada pregunta vale {level.points} puntos.</p>")}</text></info>'
+                "<idnumber></idnumber></question>"
+            )
+            for resource in items:
                 lines += _question(resource)
         lines.append("</quiz>")
         file_name = f"{_slug(course.get('code', ''))}-unidad-{number}-moodle.xml"
