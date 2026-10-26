@@ -6,6 +6,32 @@
     "version": "2.0.0"
   },
   "paths": {
+    "/api/v1/resource-types": {
+      "get": {
+        "tags": [
+          "catalog"
+        ],
+        "summary": "List supported resource types in teaching order",
+        "description": "Public metadata only: no teacher data, session or external AI calls.",
+        "operationId": "list_resource_types_api_v1_resource_types_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ResourceTypeResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List Resource Types Api V1 Resource Types Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/accounts": {
       "post": {
         "tags": [
@@ -3457,6 +3483,79 @@
         ],
         "title": "ResourceResponse"
       },
+      "ResourceTypeResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "singular": {
+            "type": "string",
+            "title": "Singular"
+          },
+          "count": {
+            "prefixItems": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Count"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "engage",
+              "explore",
+              "explain",
+              "elaborate",
+              "evaluate"
+            ],
+            "title": "Stage"
+          },
+          "group": {
+            "type": "string",
+            "title": "Group"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "text",
+              "visual",
+              "image",
+              "audio",
+              "interactive"
+            ],
+            "title": "Format"
+          },
+          "hasOptions": {
+            "type": "boolean",
+            "title": "Hasoptions"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "singular",
+          "count",
+          "stage",
+          "group",
+          "format",
+          "hasOptions"
+        ],
+        "title": "ResourceTypeResponse"
+      },
       "ReviewedOptionInput": {
         "properties": {
           "id": {
@@ -3813,6 +3912,10 @@
     }
   },
   "tags": [
+    {
+      "name": "catalog",
+      "description": "Public resource types, labels, stages and formats."
+    },
     {
       "name": "accounts",
       "description": "Teacher registration."

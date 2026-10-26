@@ -13,6 +13,7 @@ export default defineConfig({
   server: { port: 5173, proxy: { '/api': { target: nodeEnv.BACKEND_URL ?? 'http://127.0.0.1:8000', changeOrigin: true } } },
   test: {
     environment: 'node',
+    setupFiles: ['./src/test/setupCatalog.ts'],
     include: ['src/**/*.test.ts'],
     // TA-008 · Cobertura (caja blanca) de la lógica del cliente: servicios y utilidades.
     // `npm run test:coverage` falla si baja de los umbrales. El reporte HTML queda en coverage/.

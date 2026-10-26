@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from platform5e.domain.generation.resource_catalog import RESOURCE_TYPES
+
 TEXT = "text"
 VISUAL = "visual"
 IMAGE = "image"
@@ -18,24 +20,7 @@ INTERACTIVE = "interactive"
 
 # Tipo de recurso (valor guardado) -> (etapa 5E, formato).
 RESOURCE_CATALOG: dict[str, tuple[str, str]] = {
-    "pregunta_detonante": ("engage", TEXT),
-    "sondeo_diagnostico": ("engage", TEXT),
-    "audio_detonante": ("engage", AUDIO),
-    "guia_exploracion": ("explore", TEXT),
-    "caso_indagacion": ("explore", TEXT),
-    "imagen_ilustrativa": ("explore", IMAGE),
-    "diagrama_proceso": ("explore", VISUAL),
-    "explicacion": ("explain", TEXT),
-    "glosario": ("explain", TEXT),
-    "mapa_conceptual": ("explain", VISUAL),
-    "infografia": ("explain", VISUAL),
-    "podcast_resumen": ("explain", AUDIO),
-    "ejercicio_aplicacion": ("elaborate", TEXT),
-    "emparejamiento": ("elaborate", INTERACTIVE),
-    "ordenar_pasos": ("elaborate", INTERACTIVE),
-    "item_opcion_multiple": ("evaluate", TEXT),
-    "verdadero_falso": ("evaluate", INTERACTIVE),
-    "completar_espacios": ("evaluate", INTERACTIVE),
+    entry.id: (entry.stage, entry.format) for entry in RESOURCE_TYPES
 }
 
 BLANK = "____"
