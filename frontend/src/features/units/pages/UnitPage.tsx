@@ -16,6 +16,7 @@ import { CoursesLoading } from '@/features/courses/components/CoursesLoading';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ExportTab } from '@/features/export/components/ExportTab';
 import { GenerationTab } from '@/features/generation/components/GenerationTab';
+import { ResourceCatalogBoundary } from '@/features/generation/components/ResourceCatalogBoundary';
 import { MaterialTab } from '@/features/materials/components/MaterialTab';
 import { ReviewTab } from '@/features/review/components/ReviewTab';
 
@@ -125,9 +126,13 @@ export function UnitPage() {
       </nav>
 
       {tab === 'materials' && <MaterialTab {...shared} documents={docs} />}
-      {tab === 'generation' && <GenerationTab {...shared} documents={docs} />}
-      {tab === 'review' && <ReviewTab {...shared} />}
-      {tab === 'export' && <ExportTab {...shared} />}
+      {tab !== 'materials' && (
+        <ResourceCatalogBoundary>
+          {tab === 'generation' && <GenerationTab {...shared} documents={docs} />}
+          {tab === 'review' && <ReviewTab {...shared} />}
+          {tab === 'export' && <ExportTab {...shared} />}
+        </ResourceCatalogBoundary>
+      )}
     </div>
   );
 }

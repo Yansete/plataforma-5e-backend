@@ -27,13 +27,17 @@ backend y orienta la redacción. En la interfaz no se nombran las etapas; se mue
 En «Elegir opciones» el docente marca uno o varios tipos en cada momento de la clase y se generan todos juntos. La
 revisión los muestra agrupados en el mismo orden. Detalle de formatos, medios y respaldos en ADR-011.
 
+HU-006: el frontend obtiene los tipos, etiquetas y metadatos mediante `GET /api/v1/resource-types`. La definición
+única está en el dominio y también alimenta los formatos usados por los exportadores. Contrato, carga y reintento
+en [Catálogo de recursos](../api/resource-catalog.md).
+
 | Área | Funcionamiento actual | Límite |
 |---|---|---|
 | Cuentas y sesión | «Crear cuenta» con contraseña cifrada (PBKDF2) y sesión con token revocable de ocho horas | Sin recuperación de contraseña ni roles |
 | Cursos y unidades | Creación, edición y borrado (con su material, recursos y descargas), con sumilla, logro y resultados de aprendizaje | Las unidades guardadas no se quitan de un curso; se borra el curso completo |
 | Material | Archivo en la BD, extracción de PDF, PPTX y TXT, fragmentos de unas 220 palabras con su página, búsqueda por tema en Wikipedia en español. El docente no ve conteos de fragmentos: el documento queda «Listo para generar» | Los PDF escaneados (solo imágenes) no tienen texto; no hay OCR. Sin embeddings todavía (EN-013) |
 | Pedido | «Elegir opciones» (agrupadas por momento de la clase) o «Escribir pedido»: reglas que interpretan tipo, cantidad, dificultad, alternativas y resultado, y muestran lo entendido; el texto completo va como indicación | La interpretación del pedido escrito es por reglas, no por IA |
-| Generación | Recuperación BM25 y redacción con IA (Gemini, Anthropic u OpenAI) o por reglas; solo se aceptan recursos con citas válidas. Cada recurso guarda una copia de su evidencia y los parámetros del pedido | Con `resourceTypes`, un agente por etapa redacta la secuencia sin repetir contenido (HU-003, ADR-012); el frontend aún pide los tipos uno por uno. El umbral de evidencia aún no filtra |
+| Generación | Recuperación BM25 y redacción con IA (Gemini, Anthropic u OpenAI) o por reglas; solo se aceptan recursos con citas válidas. Cada recurso guarda una copia de su evidencia y los parámetros del pedido | Con `resourceTypes`, un agente por etapa redacta la secuencia sin repetir contenido (HU-003, ADR-013); el frontend aún pide los tipos uno por uno. El umbral de evidencia aún no filtra |
 | Revisión | En el servidor: aceptar, editar o descartar distractores (con motivo), aprobar con las mismas reglas que el backend, regenerar (la versión anterior pasa a «Descartados») y borrar | No hay «Aceptar todos» (decisión del equipo: se revisa uno por uno) |
 | Descargas | Moodle XML (preguntas aprobadas) y paquete SCORM 1.2 para Chamilo (todos los recursos aprobados), armados en el backend; y el documento de la unidad (HTML) con su evidencia. Nombres con el curso y la unidad. Historial en el servidor, con «Borrar historial» | SCORM probado en SCORM Cloud; importación en las instancias del curso pendiente (TA-006) |
 

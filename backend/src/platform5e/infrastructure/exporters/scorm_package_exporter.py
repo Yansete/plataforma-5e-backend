@@ -4,6 +4,11 @@ Cada recurso aprobado es un SCO: una página HTML propia, en el orden de la clas
 imágenes y audios) dentro del paquete y declarados en el manifiesto. Las páginas de contenido se marcan «completadas»
 al abrirse; las preguntas y las actividades interactivas se califican en la página y envían el puntaje al LMS con la
 API de SCORM 1.2. Todo va en la raíz del .zip, sin carpeta contenedora.
+
+Gamificación (HU-051, ADR-012): los ítems de opción múltiple no van en páginas sueltas, sino juntos en un SCO
+«Evaluación por niveles». Los niveles salen de la dificultad del pedido; el nivel siguiente se desbloquea al
+responder el anterior, cada pregunta suma los puntos de su nivel, un cronómetro mide el tiempo y al final se
+muestra la insignia. El LMS recibe el porcentaje de puntos, aprobado o desaprobado y el tiempo de la sesión.
 """
 from __future__ import annotations
 
@@ -13,8 +18,10 @@ import json
 import re
 import zipfile
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 from platform5e.application.ports.outbound.unit_exporter_port import ExportedFile, UnitExporterPort
+from platform5e.domain.generation.gamification import BADGES, PASSING_PERCENT, Level, by_level
 from platform5e.domain.generation.resource_formats import AUDIO, IMAGE, INTERACTIVE, VISUAL, resource_format
 from platform5e.infrastructure.exporters.visual_renderer import SvgVisualRenderer, can_render
 from platform5e.infrastructure.html_sanitizer import clean_html
@@ -31,6 +38,7 @@ STAGE_LABELS = {
 DISCARDED = {"discarded", "descartado"}
 LETTERS = "abcdefghij"
 FIXED_DATE = (2026, 1, 1, 0, 0, 0)  # fecha fija en el zip: el mismo contenido da el mismo archivo
+QUIZ_TITLE = "Evaluación por niveles"
 
 
 def _esc(value: object) -> str:
@@ -156,6 +164,89 @@ def _sco_page(resource: Mapping, files: list[tuple[str, bytes]] | None = None) -
 """
 
 
+@dataclass(frozen=True)
+class LeveledQuiz:
+    """Los ítems de opción múltiple de la unidad, que se exportan juntos como una evaluación por niveles."""
+
+    items: tuple[Mapping, ...]
+
+
+def is_quiz_item(resource: Mapping) -> bool:
+    return bool(resource.get("options")) and bool(_exported_options(resource))
+
+
+def _quiz_item(resource: Mapping, number: int, level: Level, locked: bool) -> str:
+    off = " disabled" if locked else ""
+    choices = "".join(
+        f'<label class="choice"><input type="radio" name="q{number}" value="{i}"{off} '
+        f'data-correct="{"true" if o.get("isCorrect") else "false"}" data-feedback="{_esc(o.get("feedback"))}"> '
+        f"<span>{LETTERS[i]}) {_esc(o.get('text'))}</span></label>"
+        for i, o in enumerate(_exported_options(resource))
+    )
+    return (
+        f'<form class="quiz-item" data-points="{level.points}">'
+        f'<h3>Pregunta {number}. {_esc(resource.get("title"))}</h3>{body_html(resource)}'
+        f"<fieldset><legend>Elige una respuesta</legend>{choices}</fieldset>"
+        f'<button type="submit"{off}>Comprobar</button>'
+        '<p class="feedback" role="status" aria-live="polite"></p></form>'
+    )
+
+
+def _quiz_page(quiz: LeveledQuiz) -> str:
+    groups = by_level(list(quiz.items))
+    total = sum(level.points * len(items) for level, items in groups)
+    sections, number = [], 0
+    for index, (level, items) in enumerate(groups):
+        locked = index > 0
+        questions = ""
+        for resource in items:
+            number += 1
+            questions += _quiz_item(resource, number, level, locked)
+        sections.append(
+            f'<section class="level{" level--locked" if locked else ""}" data-level="{index + 1}">'
+            f'<h2>{_esc(level.title)} <span class="level__points">{level.points} puntos por pregunta</span></h2>'
+            f'<p class="level__lock"{"" if locked else " hidden"}>Se desbloquea al responder el nivel anterior.</p>'
+            f"{questions}</section>"
+        )
+    config = {"total": total, "passing": PASSING_PERCENT, "badges": [list(b) for b in BADGES]}
+    evidence = {"evidence": [e for r in quiz.items for e in (r.get("evidence") or [])]}
+    return f"""<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{QUIZ_TITLE}</title>
+<link rel="stylesheet" href="../shared/style.css">
+<script src="../shared/scorm.js"></script>
+<script src="../shared/quiz.js"></script>
+</head>
+<body data-kind="quiz">
+<main>
+<p class="stage">{STAGE_LABELS["evaluate"]}</p>
+<h1>{QUIZ_TITLE}</h1>
+<p>Responde las preguntas de cada nivel para desbloquear el siguiente. Cada respuesta correcta suma los puntos de
+su nivel; al terminar verás tu puntaje, tu tiempo y tu insignia.</p>
+<div class="hud" aria-label="Progreso">
+<p>Puntaje <strong id="quiz-score">0</strong> de {total}</p>
+<p>Nivel <strong id="quiz-level">1</strong> de {len(groups)}</p>
+<p>Tiempo <strong id="quiz-clock">00:00</strong></p>
+</div>
+<p id="quiz-status" class="quiz-status" role="status" aria-live="polite"></p>
+{"".join(sections)}
+<section id="quiz-result" class="result" hidden>
+<h2>Resultado</h2>
+<p class="result__badge"></p>
+<p class="result__summary"></p>
+<button type="button" id="quiz-retry">Intentar de nuevo</button>
+</section>
+<script type="application/json" id="quiz-data">{_json_for_script(config)}</script>
+{_sources(evidence)}
+</main>
+</body>
+</html>
+"""
+
+
 def _file_tags(names: list[str]) -> str:
     return "".join('<file href="' + name + '"/>' for name in names)
 
@@ -185,7 +276,7 @@ def _manifest(package_id: str, title: str, pages: list[tuple[str, str]], files: 
   </organizations>
   <resources>{resources}
     <resource identifier="SHARED" type="webcontent" adlcp:scormtype="asset">
-      <file href="shared/scorm.js"/><file href="shared/style.css"/><file href="shared/activity.js"/>
+      <file href="shared/scorm.js"/><file href="shared/style.css"/><file href="shared/activity.js"/><file href="shared/quiz.js"/>
     </resource>
   </resources>
 </manifest>
@@ -215,7 +306,12 @@ SCORM_JS = r"""/* API de SCORM 1.2: busca el objeto API que expone el LMS en las
     setValue('cmi.core.lesson_status', percent >= 60 ? 'passed' : 'failed');
     if (api) api.LMSCommit('');
   }
-  window.scorm5e = { report: report };
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  // cmi.core.session_time (CMITimespan de SCORM 1.2): HH:MM:SS.
+  function reportTime(seconds) {
+    setValue('cmi.core.session_time', pad(Math.floor(seconds / 3600)) + ':' + pad(Math.floor((seconds % 3600) / 60)) + ':' + pad(seconds % 60));
+  }
+  window.scorm5e = { report: report, time: reportTime };
 
   function speak(button) {
     var target = document.getElementById(button.getAttribute('data-speak'));
@@ -296,6 +392,20 @@ figcaption{font:.9rem/1.4 system-ui,sans-serif;color:#5b6470;margin-top:.5rem}
 .order{display:flex;gap:.5rem;align-items:center}.order span{flex:1}
 .order button{padding:.2rem .6rem;background:#eef2f6;color:#1f2328}
 h2,h3{font-family:system-ui,sans-serif}
+.hud{position:sticky;top:0;z-index:1;display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;margin:1rem 0;padding:.6rem 1rem;background:#f3f6f9;border:1px solid #d0d7de;border-radius:8px;font:1rem system-ui,sans-serif}
+.hud p{margin:0}.hud strong{font-variant-numeric:tabular-nums}
+.quiz-status{margin:0;font:600 1rem system-ui,sans-serif;color:#1a7f37}.quiz-status:empty{display:none}
+.level{margin:1.5rem 0}.level h2{font-size:1.15rem;display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
+.level__points{font:600 .8rem system-ui,sans-serif;padding:.15rem .6rem;border-radius:999px;background:#ddf4ff;color:#0a3069}
+.level__lock{font:.95rem system-ui,sans-serif;color:#5b6470}
+.level--locked .quiz-item{opacity:.5}
+.quiz-item{border:1px solid #d0d7de;border-radius:8px;padding:1rem;margin:1rem 0}
+.quiz-item h3{font-size:1rem;margin:0 0 .5rem}.quiz-item fieldset{margin:1rem 0 .75rem}
+.quiz-item.is-answered button{display:none}.quiz-item .feedback{margin:.5rem 0 0}.quiz-item .feedback:empty{display:none}
+button:disabled{background:#d0d7de;color:#57606a;cursor:not-allowed}
+.result{margin:2rem 0;padding:1.25rem;border:2px solid #1f5fae;border-radius:8px;font-family:system-ui,sans-serif}
+.result h2{margin-top:0}.result__badge{font:700 1.4rem system-ui,sans-serif;margin:.25rem 0}
+.badge--oro{color:#7a5300}.badge--plata{color:#424a53}.badge--bronce{color:#8a3c0c}.badge--none{color:#5b6470}
 """
 
 ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, completar y ordenar. Envían el puntaje con scorm5e. */
@@ -414,6 +524,95 @@ ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, com
 """
 
 
+QUIZ_JS = r"""/* Evaluación por niveles (HU-051): puntaje, niveles que se desbloquean, cronómetro e insignia. */
+(function () {
+  'use strict';
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+  function clock(seconds) { return pad(Math.floor(seconds / 60)) + ':' + pad(seconds % 60); }
+
+  window.addEventListener('load', function () {
+    var data = document.getElementById('quiz-data');
+    if (!data) return;
+    var config = JSON.parse(data.textContent);
+    var levels = Array.prototype.slice.call(document.querySelectorAll('.level'));
+    var scoreOut = document.getElementById('quiz-score');
+    var levelOut = document.getElementById('quiz-level');
+    var clockOut = document.getElementById('quiz-clock');
+    var status = document.getElementById('quiz-status');
+    var result = document.getElementById('quiz-result');
+    var started = Date.now();
+    var score = 0;
+    function elapsed() { return Math.round((Date.now() - started) / 1000); }
+    var timer = setInterval(function () { clockOut.textContent = clock(elapsed()); }, 1000);
+
+    function unlock(level) {
+      level.classList.remove('level--locked');
+      var lock = level.querySelector('.level__lock');
+      if (lock) lock.hidden = true;
+      var controls = level.querySelectorAll('input, button');
+      for (var i = 0; i < controls.length; i++) controls[i].disabled = false;
+    }
+
+    function badgeFor(percent) {
+      for (var i = 0; i < config.badges.length; i++) if (percent >= config.badges[i][0]) return config.badges[i][1];
+      return null;
+    }
+
+    function finish() {
+      clearInterval(timer);
+      var seconds = elapsed();
+      clockOut.textContent = clock(seconds);
+      var percent = config.total ? (100 * score) / config.total : 0;
+      var badge = badgeFor(percent);
+      var badgeOut = result.querySelector('.result__badge');
+      badgeOut.textContent = badge ? 'Insignia de ' + badge.toLowerCase() : 'Sin insignia esta vez: ¡inténtalo de nuevo!';
+      badgeOut.className = 'result__badge badge--' + (badge ? badge.toLowerCase() : 'none');
+      result.querySelector('.result__summary').textContent = score + ' de ' + config.total + ' puntos (' +
+        Math.round(percent) + ' %) en un tiempo de ' + clock(seconds) + '. ' +
+        (percent >= config.passing ? 'Aprobaste la evaluación.' : 'Necesitas ' + config.passing + ' % para aprobar.');
+      result.hidden = false;
+      status.textContent = '¡Terminaste la evaluación!';
+      if (window.scorm5e) { window.scorm5e.time(seconds); window.scorm5e.report(percent); }
+    }
+
+    function grade(event) {
+      event.preventDefault();
+      var form = event.currentTarget;
+      var chosen = form.querySelector('input[type="radio"]:checked');
+      var out = form.querySelector('.feedback');
+      if (!chosen) { out.textContent = 'Elige una alternativa.'; return; }
+      var correct = chosen.getAttribute('data-correct') === 'true';
+      var points = Number(form.getAttribute('data-points')) || 0;
+      // La retroalimentación puede empezar con «Correcto.» o «Incorrecto.»: se quita para no repetirlo.
+      var note = (chosen.getAttribute('data-feedback') || '').replace(/^\s*(in)?correcto[.:,]?\s*/i, '');
+      if (correct) score += points;
+      out.textContent = (correct ? 'Correcto, +' + points + ' puntos. ' : 'Incorrecto, 0 puntos. ') + note;
+      out.className = 'feedback ' + (correct ? 'is-correct' : 'is-wrong');
+      var controls = form.querySelectorAll('input, button');
+      for (var i = 0; i < controls.length; i++) controls[i].disabled = true;
+      form.classList.add('is-answered');
+      scoreOut.textContent = score;
+
+      var level = form.closest('.level');
+      if (level.querySelectorAll('.quiz-item:not(.is-answered)').length) return;
+      var next = levels[levels.indexOf(level) + 1];
+      if (next) {
+        unlock(next);
+        levelOut.textContent = levels.indexOf(next) + 1;
+        status.textContent = '¡' + next.querySelector('h2').firstChild.textContent.trim() + ' desbloqueado!';
+      } else {
+        finish();
+      }
+    }
+
+    var forms = document.querySelectorAll('.quiz-item');
+    for (var i = 0; i < forms.length; i++) forms[i].addEventListener('submit', grade);
+    document.getElementById('quiz-retry').addEventListener('click', function () { window.location.reload(); });
+  });
+})();
+"""
+
+
 class ScormPackageExporter(UnitExporterPort):
     """Implementa ResourceExporterPort para el formato SCORM 1.2 (.zip)."""
 
@@ -428,10 +627,14 @@ class ScormPackageExporter(UnitExporterPort):
             resources,
             key=lambda r: (STAGE_ORDER.index(r["stage"]) if r.get("stage") in STAGE_ORDER else 99, r.get("createdAt", "")),
         )
+        entries = _with_leveled_quiz(ordered)
         number = unit.get("number", "")
         title = f"{course.get('code', '')} · Unidad {number}: {unit.get('title', '')}".strip()
-        pages = [(f"sco/{n:02d}.html", r.get("title") or f"Recurso {n}") for n, r in enumerate(ordered, start=1)]
-        files = [media_files(r, n) for n, r in enumerate(ordered, start=1)]
+        pages = [
+            (f"sco/{n:02d}.html", QUIZ_TITLE if isinstance(e, LeveledQuiz) else e.get("title") or f"Recurso {n}")
+            for n, e in enumerate(entries, start=1)
+        ]
+        files = [[] if isinstance(e, LeveledQuiz) else media_files(e, n) for n, e in enumerate(entries, start=1)]
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as package:
             def add(name: str, content: str | bytes) -> None:
@@ -443,9 +646,22 @@ class ScormPackageExporter(UnitExporterPort):
             add("shared/scorm.js", SCORM_JS)
             add("shared/style.css", STYLE_CSS)
             add("shared/activity.js", ACTIVITY_JS)
-            for (href, _), resource, resource_files in zip(pages, ordered, files):
-                add(href, _sco_page(resource, resource_files))
+            add("shared/quiz.js", QUIZ_JS)
+            for (href, _), entry, resource_files in zip(pages, entries, files):
+                add(href, _quiz_page(entry) if isinstance(entry, LeveledQuiz) else _sco_page(entry, resource_files))
                 for name, content in resource_files:
                     add(name, content)
         file_name = f"{_slug(course.get('code', ''))}-unidad-{number}-scorm.zip"
         return ExportedFile(file_name, self.media_type, buffer.getvalue())
+
+
+def _with_leveled_quiz(ordered: list[Mapping]) -> list[Mapping | LeveledQuiz]:
+    """Junta los ítems de opción múltiple en una sola evaluación por niveles, donde iba el primero de ellos."""
+    items = tuple(r for r in ordered if is_quiz_item(r))
+    entries: list[Mapping | LeveledQuiz] = []
+    for resource in ordered:
+        if not is_quiz_item(resource):
+            entries.append(resource)
+        elif resource is items[0]:
+            entries.append(LeveledQuiz(items))
+    return entries

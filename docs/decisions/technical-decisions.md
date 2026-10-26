@@ -248,7 +248,29 @@ docente», 17/10/2026, en `docs/project-management/actas/`). Reemplaza a ADR-008
 - Los tipos nuevos se guardan, como los anteriores, con valores en español (`mapa_conceptual`, `verdadero_falso`…);
   entran en la deuda declarada de ADR-009.
 
-## ADR-012 Orquestador de la secuencia con un agente por etapa (26/10/2026)
+## ADR-012 Evaluación gamificada por niveles (26/10/2026)
+
+HU-051 pide que los ítems de evaluación se presenten con puntaje, niveles o tiempo (C01) y que la actividad se exporte
+como cuestionario de Moodle (C02). Las actividades interactivas del ADR-011 ya enviaban un puntaje al LMS, pero no
+había niveles, tiempo ni recompensa, así que no bastaban para cerrar la historia.
+
+- **Niveles y puntos.** El nivel sale de la dificultad con que el docente pidió el ítem (`params.difficulty`):
+  básica = Nivel 1 (10 puntos), intermedia = Nivel 2 (20), avanzada = Nivel 3 (30). Un ítem sin dificultad guardada
+  (recursos anteriores) cuenta como intermedio. Las reglas viven en `domain/generation/gamification.py`.
+- **SCORM.** Los ítems de opción múltiple aprobados ya no van en páginas sueltas: forman un solo SCO «Evaluación por
+  niveles», en el lugar del primero de ellos. El nivel siguiente se desbloquea al responder el anterior, cada respuesta
+  correcta suma los puntos de su nivel, un cronómetro mide el tiempo y al final se muestra la insignia (oro ≥ 90 %,
+  plata ≥ 75 %, bronce ≥ 60 %). El LMS recibe el porcentaje de puntos, `passed`/`failed` (60 %) y
+  `cmi.core.session_time`. Las actividades interactivas de Evaluar siguen como SCO propios.
+- **Moodle XML.** Cada nivel es una subcategoría del banco («RED-301 · Unidad 1/Nivel 1 · Básico») y cada ítem vale los
+  puntos de su nivel en `<defaultgrade>`. Con eso el docente arma el cuestionario por niveles (o con preguntas
+  aleatorias de cada nivel) y Moodle muestra el puntaje de cada pregunta. El tiempo límite es una opción del
+  cuestionario en Moodle, no de la pregunta, así que no viaja en el XML.
+- **Pendiente de verificar.** Subcategorías y `<defaultgrade>` son parte del formato Moodle XML y el archivo pasa el
+  validador construido con la muestra de SP-003, pero la importación con categorías por nivel todavía no se probó en
+  una instancia real de Moodle (TA-006).
+
+## ADR-013 Orquestador de la secuencia con un agente por etapa (26/10/2026)
 
 El docente pidió un sistema multiagente para que los recursos de una clase no repitan contenido entre etapas (HU-003).
 Hasta ahora el frontend pedía cada tipo marcado por separado y ningún recurso sabía qué habían redactado los demás.
@@ -267,4 +289,3 @@ Hasta ahora el frontend pedía cada tipo marcado por separado y ningún recurso 
 - **Trazabilidad.** Cada recurso guarda su `agent`, y la respuesta trae `sequence` con lo que generó o rechazó cada
   agente. Los recursos comparten el id del pedido y conservan sus propios parámetros, así que «Regenerar» funciona igual.
 - El frontend todavía pide los tipos uno por uno; pasar a un solo pedido con `resourceTypes` queda como tarea aparte.
-

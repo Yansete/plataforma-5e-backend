@@ -15,34 +15,43 @@ export interface ResourceTypeInfo {
   stage: Stage5E;
   group: string;
   format: ResourceFormat;
+  hasOptions: boolean;
 }
 
-const ENGAGE = 'Para iniciar la clase';
-const EXPLORE = 'Para explorar';
-const EXPLAIN = 'Para explicar';
-const ELABORATE = 'Para aplicar';
-const EVALUATE = 'Para evaluar';
+/** Se completan con GET /api/v1/resource-types antes de renderizar las pestañas. */
+export const RESOURCE_TYPES: ResourceTypeInfo[] = [];
+export const GROUPS: string[] = [];
 
-export const RESOURCE_TYPES: ResourceTypeInfo[] = [
-  { id: 'pregunta_detonante', name: 'Pregunta detonante', singular: 'Pregunta detonante', count: ['pregunta detonante', 'preguntas detonantes'], stage: 'engage', group: ENGAGE, format: 'text' },
-  { id: 'sondeo_diagnostico', name: 'Sondeo de ideas previas', singular: 'Sondeo de ideas previas', count: ['sondeo', 'sondeos'], stage: 'engage', group: ENGAGE, format: 'text' },
-  { id: 'audio_detonante', name: 'Cápsula de audio detonante', singular: 'Cápsula de audio', count: ['audio', 'audios'], stage: 'engage', group: ENGAGE, format: 'audio' },
-  { id: 'guia_exploracion', name: 'Guía de exploración', singular: 'Guía de exploración', count: ['guía', 'guías'], stage: 'explore', group: EXPLORE, format: 'text' },
-  { id: 'caso_indagacion', name: 'Caso con preguntas', singular: 'Caso con preguntas', count: ['caso', 'casos'], stage: 'explore', group: EXPLORE, format: 'text' },
-  { id: 'imagen_ilustrativa', name: 'Imagen ilustrativa', singular: 'Imagen ilustrativa', count: ['imagen', 'imágenes'], stage: 'explore', group: EXPLORE, format: 'image' },
-  { id: 'diagrama_proceso', name: 'Diagrama de proceso', singular: 'Diagrama de proceso', count: ['diagrama', 'diagramas'], stage: 'explore', group: EXPLORE, format: 'visual' },
-  { id: 'explicacion', name: 'Explicación del tema', singular: 'Explicación del tema', count: ['explicación', 'explicaciones'], stage: 'explain', group: EXPLAIN, format: 'text' },
-  { id: 'glosario', name: 'Glosario', singular: 'Glosario', count: ['glosario', 'glosarios'], stage: 'explain', group: EXPLAIN, format: 'text' },
-  { id: 'mapa_conceptual', name: 'Mapa conceptual', singular: 'Mapa conceptual', count: ['mapa conceptual', 'mapas conceptuales'], stage: 'explain', group: EXPLAIN, format: 'visual' },
-  { id: 'infografia', name: 'Infografía', singular: 'Infografía', count: ['infografía', 'infografías'], stage: 'explain', group: EXPLAIN, format: 'visual' },
-  { id: 'podcast_resumen', name: 'Resumen en pódcast', singular: 'Resumen en pódcast', count: ['pódcast', 'pódcasts'], stage: 'explain', group: EXPLAIN, format: 'audio' },
-  { id: 'ejercicio_aplicacion', name: 'Ejercicio de aplicación', singular: 'Ejercicio de aplicación', count: ['ejercicio', 'ejercicios'], stage: 'elaborate', group: ELABORATE, format: 'text' },
-  { id: 'emparejamiento', name: 'Relacionar conceptos', singular: 'Actividad de relacionar', count: ['actividad de relacionar', 'actividades de relacionar'], stage: 'elaborate', group: ELABORATE, format: 'interactive' },
-  { id: 'ordenar_pasos', name: 'Ordenar pasos', singular: 'Actividad de ordenar', count: ['actividad de ordenar', 'actividades de ordenar'], stage: 'elaborate', group: ELABORATE, format: 'interactive' },
-  { id: 'item_opcion_multiple', name: 'Preguntas de opción múltiple', singular: 'Pregunta de opción múltiple', count: ['pregunta', 'preguntas'], stage: 'evaluate', group: EVALUATE, format: 'text' },
-  { id: 'verdadero_falso', name: 'Verdadero o falso', singular: 'Verdadero o falso', count: ['verdadero o falso', 'verdadero o falso'], stage: 'evaluate', group: EVALUATE, format: 'interactive' },
-  { id: 'completar_espacios', name: 'Completar espacios', singular: 'Completar espacios', count: ['completar espacios', 'completar espacios'], stage: 'evaluate', group: EVALUATE, format: 'interactive' },
-];
+const STAGES = ['engage', 'explore', 'explain', 'elaborate', 'evaluate'];
+const FORMATS = ['text', 'visual', 'image', 'audio', 'interactive'];
+
+export function parseResourceCatalog(raw: unknown): ResourceTypeInfo[] {
+  if (!Array.isArray(raw) || raw.length === 0) throw new Error('El catálogo está vacío.');
+  const ids = new Set<string>();
+  const result = raw.map((value) => {
+    const entry = value as Record<string, unknown> | null;
+    if (!entry || typeof entry !== 'object' ||
+        !['id', 'name', 'singular', 'group'].every((key) => typeof entry[key] === 'string' && (entry[key] as string).trim()) ||
+        !STAGES.includes(entry.stage as string) || !FORMATS.includes(entry.format as string) ||
+        !Array.isArray(entry.count) || entry.count.length !== 2 ||
+        !entry.count.every((part) => typeof part === 'string' && part.trim()) ||
+        typeof entry.hasOptions !== 'boolean' || ids.has(entry.id as string)) {
+      throw new Error('El catálogo de recursos no es válido.');
+    }
+    ids.add(entry.id as string);
+    return { id: entry.id, name: entry.name, singular: entry.singular, count: [...entry.count],
+      stage: entry.stage, group: entry.group, format: entry.format, hasOptions: entry.hasOptions } as ResourceTypeInfo;
+  });
+  if (!ids.has('item_opcion_multiple')) throw new Error('Falta el tipo de recurso predeterminado.');
+  return result;
+}
+
+export function installResourceCatalog(raw: unknown): void {
+  const entries = parseResourceCatalog(raw);
+  // Solo se reemplaza después de validar toda la respuesta.
+  RESOURCE_TYPES.splice(0, RESOURCE_TYPES.length, ...entries);
+  GROUPS.splice(0, GROUPS.length, ...new Set(entries.map((entry) => entry.group)));
+}
 
 /** Etiqueta corta del formato, para la lista de opciones y la revisión. */
 export const FORMAT_LABELS: Record<ResourceFormat, string> = {
@@ -59,8 +68,6 @@ export function countLabel(type: ResourceType, quantity: number): string {
   return `${quantity} ${quantity === 1 ? one : many}`;
 }
 
-/** Momentos de la clase, en el orden en que se usan. */
-export const GROUPS = [ENGAGE, EXPLORE, EXPLAIN, ELABORATE, EVALUATE];
 
 /** Varios tipos a la vez: «2 recursos», o el nombre del tipo si es uno solo. */
 export function selectionLabel(types: ResourceType[], quantity: number): string {
@@ -101,11 +108,13 @@ export const DISCARD_REASONS: { value: DiscardReason; label: string }[] = [
 export const MAX_FILE_MB = 25;
 
 export function typeInfo(type: ResourceType): ResourceTypeInfo {
-  return RESOURCE_TYPES.find((t) => t.id === type) ?? RESOURCE_TYPES.find((t) => t.id === 'item_opcion_multiple')!;
+  const entry = RESOURCE_TYPES.find((t) => t.id === type) ?? RESOURCE_TYPES.find((t) => t.id === 'item_opcion_multiple');
+  if (!entry) throw new Error('El catálogo de recursos todavía no está disponible.');
+  return entry;
 }
 
 export function hasOptions(type: ResourceType): boolean {
-  return type === 'item_opcion_multiple';
+  return typeInfo(type).hasOptions;
 }
 
 export function discardReasonLabel(reason: DiscardReason | null): string {

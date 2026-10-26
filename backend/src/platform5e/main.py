@@ -11,6 +11,9 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 
+from platform5e.application.use_cases.catalog.list_resource_types import ListResourceTypesUseCase
+from platform5e.infrastructure.http.routers.catalog import create_catalog_router
+
 from platform5e.application.services.accounts.account_service import AccountService
 from platform5e.application.services.generation.generation_service import GenerationService
 from platform5e.application.services.materials.material_service import MaterialService
@@ -77,6 +80,7 @@ Sprint 2 together with a data migration.
 """
 
 OPENAPI_TAGS = [
+    {"name": "catalog", "description": "Public resource types, labels, stages and formats."},
     {"name": "accounts", "description": "Teacher registration."},
     {"name": "sessions", "description": "Sign in, current teacher and sign out."},
     {"name": "courses", "description": "Courses with their units and learning outcomes."},
@@ -159,6 +163,7 @@ def create_application() -> FastAPI:
     app.add_exception_handler(RequestValidationError, request_validation_error_handler)
 
     # 4. Adaptadores de entrada (rutas HTTP)
+    app.include_router(create_catalog_router(ListResourceTypesUseCase()))
     app.include_router(create_accounts_router(account_service))
     app.include_router(create_courses_router(account_service))
     app.include_router(create_documents_router(account_service, material_service))
