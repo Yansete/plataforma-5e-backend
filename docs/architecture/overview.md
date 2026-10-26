@@ -27,6 +27,10 @@ backend y orienta la redacción. En la interfaz no se nombran las etapas; se mue
 En «Elegir opciones» el docente marca uno o varios tipos en cada momento de la clase y se generan todos juntos. La
 revisión los muestra agrupados en el mismo orden. Detalle de formatos, medios y respaldos en ADR-011.
 
+HU-006: el frontend obtiene los tipos, etiquetas y metadatos mediante `GET /api/v1/resource-types`. La definición
+única está en el dominio y también alimenta los formatos usados por los exportadores. Contrato, carga y reintento
+en [Catálogo de recursos](../api/resource-catalog.md).
+
 | Área | Funcionamiento actual | Límite |
 |---|---|---|
 | Cuentas y sesión | «Crear cuenta» con contraseña cifrada (PBKDF2) y sesión con token revocable de ocho horas | Sin recuperación de contraseña ni roles |
