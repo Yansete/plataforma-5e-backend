@@ -23,46 +23,108 @@
       "title": "Outcomeid"
     },
     "stage": {
-      "description": "5E stage of the requested resource.",
-      "enum": [
-        "engage",
-        "explore",
-        "explain",
-        "elaborate",
-        "evaluate"
+      "anyOf": [
+        {
+          "enum": [
+            "engage",
+            "explore",
+            "explain",
+            "elaborate",
+            "evaluate"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ],
+      "default": null,
+      "description": "5E stage of the requested resource. Required unless `resourceTypes` is sent.",
       "examples": [
         "evaluate"
       ],
-      "title": "Stage",
-      "type": "string"
+      "title": "Stage"
     },
     "resourceType": {
-      "enum": [
-        "pregunta_detonante",
-        "sondeo_diagnostico",
-        "guia_exploracion",
-        "caso_indagacion",
-        "explicacion",
-        "glosario",
-        "ejercicio_aplicacion",
-        "item_opcion_multiple",
-        "audio_detonante",
-        "imagen_ilustrativa",
-        "diagrama_proceso",
-        "mapa_conceptual",
-        "infografia",
-        "podcast_resumen",
-        "emparejamiento",
-        "ordenar_pasos",
-        "verdadero_falso",
-        "completar_espacios"
+      "anyOf": [
+        {
+          "enum": [
+            "pregunta_detonante",
+            "sondeo_diagnostico",
+            "guia_exploracion",
+            "caso_indagacion",
+            "explicacion",
+            "glosario",
+            "ejercicio_aplicacion",
+            "item_opcion_multiple",
+            "audio_detonante",
+            "imagen_ilustrativa",
+            "diagrama_proceso",
+            "mapa_conceptual",
+            "infografia",
+            "podcast_resumen",
+            "emparejamiento",
+            "ordenar_pasos",
+            "verdadero_falso",
+            "completar_espacios"
+          ],
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
       ],
+      "default": null,
+      "description": "Requested resource type. Required unless `resourceTypes` is sent.",
       "examples": [
         "item_opcion_multiple"
       ],
-      "title": "Resourcetype",
-      "type": "string"
+      "title": "Resourcetype"
+    },
+    "resourceTypes": {
+      "anyOf": [
+        {
+          "items": {
+            "enum": [
+              "pregunta_detonante",
+              "sondeo_diagnostico",
+              "guia_exploracion",
+              "caso_indagacion",
+              "explicacion",
+              "glosario",
+              "ejercicio_aplicacion",
+              "item_opcion_multiple",
+              "audio_detonante",
+              "imagen_ilustrativa",
+              "diagrama_proceso",
+              "mapa_conceptual",
+              "infografia",
+              "podcast_resumen",
+              "emparejamiento",
+              "ordenar_pasos",
+              "verdadero_falso",
+              "completar_espacios"
+            ],
+            "type": "string"
+          },
+          "maxItems": 8,
+          "minItems": 1,
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Several resource types for one class sequence (HU-003). Each type goes to the agent of its 5E stage, in the order of the class, and a resource that repeats another one of the sequence is rejected. When present, `stage` and `resourceType` are ignored.",
+      "examples": [
+        [
+          "pregunta_detonante",
+          "explicacion",
+          "item_opcion_multiple"
+        ]
+      ],
+      "title": "Resourcetypes"
     },
     "quantity": {
       "default": 1,
@@ -138,9 +200,7 @@
     }
   },
   "required": [
-    "unitId",
-    "stage",
-    "resourceType"
+    "unitId"
   ],
   "title": "GenerationRequest",
   "type": "object"
