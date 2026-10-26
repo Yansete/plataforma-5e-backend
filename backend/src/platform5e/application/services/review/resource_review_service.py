@@ -236,6 +236,15 @@ class ResourceReviewService:
             reverse=True,
         )[:MAX_DOWNLOADS_HISTORY]
 
+    def get_download_record(self, teacher_id: str, unit_id: str, download_id: str) -> dict[str, Any]:
+        """Obtiene un registro individual de descarga del historial de la unidad."""
+        self._verify_unit_access(teacher_id, unit_id)
+        records = self._review_repository.get_downloads(teacher_id, unit_id)
+        record = next((d for d in records if d.get("id") == download_id), None)
+        if record is None:
+            raise AccountConfigurationError("DOWNLOAD_NOT_FOUND", "La descarga solicitada no existe.", 404)
+        return record
+
     def register_download(
         self, teacher_id: str, unit_id: str, payload: dict[str, Any]
     ) -> dict[str, Any]:
@@ -261,3 +270,4 @@ class ResourceReviewService:
         """Elimina el registro histórico de descargas de una unidad."""
         self._verify_unit_access(teacher_id, unit_id)
         self._review_repository.delete_downloads(teacher_id, unit_id)
+
