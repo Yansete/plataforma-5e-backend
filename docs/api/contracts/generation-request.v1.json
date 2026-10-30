@@ -161,6 +161,7 @@
     },
     "evidenceThreshold": {
       "default": 0.6,
+      "description": "Minimum share of a claim's words that its cited chunks must contain (HU-016). Claims below it are removed, and a resource with less than half of its claims supported is rejected.",
       "maximum": 1.0,
       "minimum": 0.0,
       "title": "Evidencethreshold",

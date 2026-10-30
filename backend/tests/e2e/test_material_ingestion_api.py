@@ -85,6 +85,10 @@ def test_real_material_is_processed_and_generates_cited_resources(server: str):
             assert resource["source"] == "rag" and resource["status"] == "pendiente"
             assert all(set(c["fragmentIds"]) <= ids for c in resource["citations"])
             assert len(resource["options"]) == 4 and sum(o["isCorrect"] for o in resource["options"]) == 1
+            # HU-016: cada afirmación se contrastó con la evidencia; el generador por reglas cita frases del material.
+            grounding = resource["grounding"]
+            assert grounding["checkedClaims"] == len(resource["citations"]) == grounding["supportedClaims"]
+        assert data["grounding"]["hallucinationRate"] == 0.0 and data["grounding"]["rejectedResources"] == []
         assert api.get(f"/api/v1/generations/{data['request']['id']}", headers=h).json()["mode"] == "rag"
 
         explanation = api.post(

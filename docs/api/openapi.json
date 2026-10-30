@@ -2881,6 +2881,7 @@
             "maximum": 1.0,
             "minimum": 0.0,
             "title": "Evidencethreshold",
+            "description": "Minimum share of a claim's words that its cited chunks must contain (HU-016). Claims below it are removed, and a resource with less than half of its claims supported is rejected.",
             "default": 0.6
           },
           "instructions": {
@@ -3025,6 +3026,17 @@
             "title": "Documents",
             "description": "Documents those chunks come from."
           },
+          "grounding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GroundingReport"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only with the teacher's material (`rag`): grounding check of the request (HU-016)."
+          },
           "sequence": {
             "anyOf": [
               {
@@ -3105,6 +3117,53 @@
           "provider"
         ],
         "title": "GeneratorInfo"
+      },
+      "GroundingReport": {
+        "properties": {
+          "checkedClaims": {
+            "type": "integer",
+            "title": "Checkedclaims",
+            "description": "Claims checked, in kept and rejected resources."
+          },
+          "supportedClaims": {
+            "type": "integer",
+            "title": "Supportedclaims"
+          },
+          "unsupportedClaims": {
+            "type": "integer",
+            "title": "Unsupportedclaims"
+          },
+          "hallucinationRate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hallucinationrate",
+            "description": "I21: unsupported / checked claims (null when nothing was checked)."
+          },
+          "rejectedResources": {
+            "items": {
+              "$ref": "#/components/schemas/RejectedResource"
+            },
+            "type": "array",
+            "title": "Rejectedresources",
+            "description": "Resources rejected because less than half of their claims had support.",
+            "default": []
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "checkedClaims",
+          "supportedClaims",
+          "unsupportedClaims"
+        ],
+        "title": "GroundingReport",
+        "description": "HU-016: grounding check of the whole request. `hallucinationRate` is indicator I21."
       },
       "HTTPValidationError": {
         "properties": {
@@ -3375,6 +3434,103 @@
         ],
         "title": "RegistrationRequest"
       },
+      "RejectedResource": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Why it was rejected, in Spanish."
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "title",
+          "reason"
+        ],
+        "title": "RejectedResource"
+      },
+      "RemovedClaim": {
+        "properties": {
+          "claim": {
+            "type": "string",
+            "title": "Claim"
+          },
+          "support": {
+            "type": "number",
+            "title": "Support",
+            "description": "Share of the claim words found in the cited chunks (0 to 1)."
+          },
+          "supported": {
+            "type": "boolean",
+            "title": "Supported",
+            "default": false
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "Why it was removed, in Spanish."
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "claim",
+          "support"
+        ],
+        "title": "RemovedClaim"
+      },
+      "ResourceGrounding": {
+        "properties": {
+          "threshold": {
+            "type": "number",
+            "title": "Threshold",
+            "description": "Minimum support, from the request `evidenceThreshold`."
+          },
+          "checkedClaims": {
+            "type": "integer",
+            "title": "Checkedclaims"
+          },
+          "supportedClaims": {
+            "type": "integer",
+            "title": "Supportedclaims"
+          },
+          "correctedClaims": {
+            "type": "integer",
+            "title": "Correctedclaims",
+            "description": "Claims that cited the wrong chunk and were moved to the one that supports them.",
+            "default": 0
+          },
+          "removedClaims": {
+            "items": {
+              "$ref": "#/components/schemas/RemovedClaim"
+            },
+            "type": "array",
+            "title": "Removedclaims",
+            "default": []
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "threshold",
+          "checkedClaims",
+          "supportedClaims"
+        ],
+        "title": "ResourceGrounding",
+        "description": "HU-016: each claim is checked against the retrieved evidence; the unsupported ones are removed."
+      },
       "ResourceOptionResponse": {
         "properties": {
           "id": {
@@ -3616,6 +3772,17 @@
             ],
             "title": "Agent",
             "description": "Stage agent that drafted the resource in a sequence request (HU-003)."
+          },
+          "grounding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResourceGrounding"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Grounding check of its claims against the retrieved evidence (HU-016)."
           },
           "approvalBlockers": {
             "items": {
