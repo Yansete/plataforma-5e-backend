@@ -342,3 +342,11 @@ ahora el campo `reliabilityWarning` existía, pero la generación real siempre l
 - **Límites.** Las palabras no captan sinónimos, y una pregunta formulada en negativo («¿cuál no…?») puede confundir la
   regla. La coincidencia de palabras pasó de cinco a seis letras al probar esta historia: con cinco, «confirma» y
   «confiable» contaban como la misma palabra.
+
+## ADR-013 Unificación del esquema de base de datos y migraciones (30/10/2026)
+
+Se resuelve la deuda técnica de ADR-009 y la discrepancia detectada en EN-024:
+- Se centralizó `docker-compose.yml` en la raíz del repositorio para coordinar servicios de backend y base de datos con volúmenes hacia `backend/database`.
+- Se consolidó la migración inicial en `database/migrations/20261029000001_unified_schema.sql` cubriendo todas las tablas operativas del backend (`ep002_usuarios`, `ep002_sesiones`, `ep002_cursos`, `ep002_documentos`, `ep002_fragmentos`, `ep002_recursos`, `ep002_descargas`, `generaciones_demo`, `ep002_generaciones_docente` y `media_assets`).
+- La tabla `ep002_fragmentos` adopta las columnas de vectorización (`embedding vector(768)`, `modelo_embedding` y `texto_tsv tsvector`) con índices HNSW y GIN para búsqueda léxica y semántica.
+- Se eliminó la auto-creación dinámica de tablas (`table.create()`) en los repositorios cuando se ejecuta contra PostgreSQL, delegando el ciclo de vida del esquema exclusivamente a las migraciones gestionadas por `dbmate`.

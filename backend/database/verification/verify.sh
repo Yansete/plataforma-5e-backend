@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Verificación de EN-011 en una base de datos temporal:
+# VerificaciÃ³n de EN-011 en una base de datos temporal:
 #   1. crea la base en011_verificacion en el contenedor db,
-#   2. le aplica todas las migraciones con dbmate (prueba también que migran desde cero),
+#   2. le aplica todas las migraciones con dbmate (prueba tambiÃ©n que migran desde cero),
 #   3. ejecuta verify_vector_store.sql,
-#   4. elimina la base temporal (también si algo falla).
+#   4. elimina la base temporal (tambiÃ©n si algo falla).
 # La base de desarrollo no se modifica. Uso, desde backend/: ./database/verification/verify.sh
 set -euo pipefail
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/../../.."
 
 if [ ! -f .env ]; then
-  echo "Falta el archivo .env. Créalo con: cp .env.example .env" >&2
+  echo "Falta el archivo .env. CrÃ©alo con: cp .env.example .env" >&2
   exit 1
 fi
 set -a
@@ -27,7 +27,7 @@ eliminar_base_temporal() {
   psql_db -d postgres -q -c "DROP DATABASE IF EXISTS $BD_TEMPORAL" >/dev/null
 }
 
-echo "== Iniciando PostgreSQL (si no está en marcha) =="
+echo "== Iniciando PostgreSQL (si no estÃ¡ en marcha) =="
 docker compose up -d --wait db
 
 echo "== Creando la base temporal $BD_TEMPORAL =="
@@ -40,5 +40,5 @@ docker compose run --rm \
   -e DATABASE_URL="postgres://$POSTGRES_USER:$POSTGRES_PASSWORD@db:5432/$BD_TEMPORAL?sslmode=disable" \
   dbmate --no-dump-schema up
 
-echo "== Ejecutando la verificación =="
+echo "== Ejecutando la verificaciÃ³n =="
 psql_db -d "$BD_TEMPORAL" -f /verification/verify_vector_store.sql
