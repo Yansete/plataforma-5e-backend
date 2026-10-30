@@ -289,3 +289,30 @@ Hasta ahora el frontend pedía cada tipo marcado por separado y ningún recurso 
 - **Trazabilidad.** Cada recurso guarda su `agent`, y la respuesta trae `sequence` con lo que generó o rechazó cada
   agente. Los recursos comparten el id del pedido y conservan sus propios parámetros, así que «Regenerar» funciona igual.
 - El frontend todavía pide los tipos uno por uno; pasar a un solo pedido con `resourceTypes` queda como tarea aparte.
+
+## ADR-014 Verificación de anclaje de las afirmaciones (30/10/2026)
+
+HU-016 pide que cada afirmación se contraste con la evidencia recuperada (C01) y que lo que no tiene respaldo se rechace
+con su motivo (C02), para medir el indicador I21 (tasa de alucinación, meta ≤ 3 %). Hasta ahora solo se comprobaba que
+la etiqueta citada (F1, F2…) existiera; un recurso podía citar F2 para algo que F2 no dice.
+
+- **Respaldo de una afirmación.** Proporción de sus palabras útiles (sin palabras vacías, reducidas a su raíz con
+  `extract_terms`, la misma función de BM25) que aparecen en los fragmentos que cita. Dos palabras coinciden si tienen
+  la misma raíz o comparten sus cinco primeras letras («confirma» y «confirmación»). Vive en
+  `domain/generation/grounding.py` y no depende del modelo de lenguaje.
+- **Umbral.** Es el `evidenceThreshold` del pedido (0,6 por defecto; el frontend envía 0,6), que la API ya recibía pero
+  no usaba. Una afirmación con menos de dos palabras útiles no se puede contrastar y se rechaza.
+- **Cita equivocada.** Si los fragmentos citados no respaldan la afirmación pero otro fragmento recuperado sí, la cita
+  se corrige a ese fragmento y se cuenta en `correctedClaims`. No se descarta contenido verdadero por una etiqueta mal
+  puesta.
+- **Rechazo.** Las afirmaciones sin respaldo se quitan de las citas y quedan en `grounding.removedClaims` del recurso,
+  con su motivo. Si menos de la mitad de las afirmaciones de un recurso tiene respaldo, el recurso entero se rechaza:
+  no se guarda para revisión y aparece en `grounding.rejectedResources` de la respuesta (y, en una secuencia, en
+  `sequence[].rejected` del agente). Si se rechaza todo, la API responde 422 `INSUFFICIENT_EVIDENCE` con el motivo.
+- **I21.** La respuesta trae `grounding.hallucinationRate` = afirmaciones sin respaldo / afirmaciones verificadas,
+  contando las de los recursos conservados y las de los rechazados. Es la verificación automática que pide la ficha del
+  indicador; la auditoría manual por muestra sigue siendo del cierre de sprint.
+- **Límites.** Es una regla por palabras: no reconoce sinónimos ni paráfrasis lejanas, y una afirmación que reordena
+  palabras del fragmento para decir lo contrario puede pasar. La búsqueda por significado (EN-013, HU-011) podrá
+  reforzarla. Con el generador por reglas el respaldo es siempre completo, porque cita frases del material; con Gemini
+  hay que revisar en la plataforma publicada cuántos recursos se rechazan y ajustar el umbral si hace falta.

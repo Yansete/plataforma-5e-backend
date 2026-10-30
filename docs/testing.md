@@ -6,6 +6,7 @@ Este documento responde a la pregunta del asesor: *«Si van a hacer casos de pru
 unitaria, ¿cuál es el directorio?»*. Cada tipo de prueba tiene su carpeta y las pruebas corren solas en GitHub
 Actions en cada `push` (archivo `.github/workflows/ci.yml`, pestaña **Actions** del repositorio).
 
+
 ## Dónde va cada prueba
 
 ```
@@ -174,6 +175,15 @@ servicio no está activo o el recurso no está por revisar). `e2e/multimodal.spe
 Backend: 347 pruebas; frontend: 79 y las 5 pruebas en Chromium. Además se abrió en Chromium cada página de un paquete
 SCORM con los 18 tipos, con una API de SCORM 1.2 simulada: imágenes y audio cargan, las páginas de contenido quedan
 `completed`, la pregunta se califica y las cuatro actividades envían `score.raw` 100 y `passed` al responder bien.
+
+## Verificación de anclaje, HU-016 (30/10/2026)
+
+`tests/unit/test_grounding.py` cubre el respaldo de una afirmación (palabras del fragmento, raíz y prefijo), la cita
+corregida al fragmento que sí la respalda, el rechazo con motivo de una afirmación inventada o demasiado breve, el
+umbral tomado de `evidenceThreshold`, el rechazo del recurso con menos de la mitad de afirmaciones respaldadas, el
+cálculo de I21, el informe `grounding` de la respuesta (pedido simple y secuencia) y el error
+`INSUFFICIENT_EVIDENCE` con su motivo. `tests/e2e/test_material_ingestion_api.py` comprueba por HTTP que cada recurso
+trae su verificación y que, con el generador por reglas, I21 es 0.
 
 ## Evaluación gamificada por niveles, HU-051 (26/10/2026)
 

@@ -26,6 +26,7 @@ from platform5e.application.services.generation.prompt_drafting import (
     normalize_generated_resources,
 )
 from platform5e.domain.generation.errors import GenerationError
+from platform5e.domain.generation.grounding import hallucination_rate
 from platform5e.domain.generation.resource_formats import resource_format, resource_stage
 from platform5e.domain.generation.sequence import (
     SIMILARITY_THRESHOLD,
@@ -158,6 +159,7 @@ class GenerationService:
         steps: list[dict[str, Any]] = []
         warnings: list[str] = []
         generators: list[ResourceGeneratorPort] = []
+        grounding_rejections: list[dict[str, Any]] = []
 
         for resource_type in ordered_types:
             agent = stage_agent(resource_type)
@@ -177,7 +179,8 @@ class GenerationService:
                 }
                 for previous in accepted
             ]
-            drafted, generator, warning = self._draft_resources(context)
+            step_grounding: list[dict[str, Any]] = []
+            drafted, generator, warning = self._draft_resources(context, step_grounding)
             if warning:
                 warnings.append(f"{agent}: {warning}")
 
@@ -189,7 +192,9 @@ class GenerationService:
                         filter(None, [context["solicitud"]["indicaciones"], NO_REPEAT_INSTRUCTION])
                     ),
                 }
-                retried, generator_retry, _ = self._draft_resources({**context, "solicitud": retry_request})
+                retried, generator_retry, _ = self._draft_resources(
+                    {**context, "solicitud": retry_request}, step_grounding
+                )
                 generator = generator_retry or generator
                 kept_retry, rejected = self._filter_repeated(retried[: len(rejected)], accepted + kept)
                 kept += kept_retry
@@ -214,9 +219,10 @@ class GenerationService:
                     "resourceType": resource_type,
                     "agent": agent,
                     "generated": len(step_resources),
-                    "rejected": rejected,
+                    "rejected": rejected + [item["reason"] for item in step_grounding],
                 }
             )
+            grounding_rejections += step_grounding
 
             if step_resources:
                 cited = {f_id for r in step_resources for c in r["citations"] for f_id in c["fragmentIds"]}
@@ -238,7 +244,8 @@ class GenerationService:
             raise GenerationError(
                 "INSUFFICIENT_EVIDENCE",
                 "No se pudieron redactar recursos que citen el material sin repetirse. "
-                "Prueba con otros tipos de recurso o agrega más material a la unidad.",
+                "Prueba con otros tipos de recurso o agrega más material a la unidad."
+                + _rejection_detail(grounding_rejections),
             )
 
         cited_ids = {f_id for r in output_resources for c in r["citations"] for f_id in c["fragmentIds"]}
@@ -259,13 +266,15 @@ class GenerationService:
             "resourceType": ordered_types[0],
             "resourceTypes": ordered_types,
         }
-        rejected_total = sum(len(step["rejected"]) for step in steps)
+        grounding_report = build_grounding_report(output_resources, grounding_rejections)
+        rejected_total = sum(len(step["rejected"]) for step in steps) - len(grounding_rejections)
         notice = (
             f"Secuencia generada por {len({s['agent'] for s in steps if s['generated']})} agente(s) "
             f"con {main_generator.description} a partir de tu material."
         )
         if rejected_total:
             notice += f" Se descartaron {rejected_total} recurso(s) por repetir contenido de otra etapa."
+        notice += _grounding_notice(grounding_report)
         if warnings:
             notice += " " + " ".join(warnings)
 
@@ -280,6 +289,7 @@ class GenerationService:
             "request": enriched_request,
             "resources": output_resources,
             "available": len(output_resources),
+            "grounding": grounding_report,
             "sequence": steps,
             "fragments": [
                 {
@@ -368,13 +378,17 @@ class GenerationService:
             {doc_id: doc["fileName"] for doc_id, doc in documents_map.items()},
         )
 
-        resources, active_generator, warning_message = self._draft_resources(generation_context)
+        grounding_rejections: list[dict[str, Any]] = []
+        resources, active_generator, warning_message = self._draft_resources(
+            generation_context, grounding_rejections
+        )
 
         if not resources or active_generator is None:
             raise GenerationError(
                 "INSUFFICIENT_EVIDENCE",
                 "No se pudieron redactar recursos que citen el material. "
-                "Prueba con otro tipo de recurso o agrega más material a la unidad.",
+                "Prueba con otro tipo de recurso o agrega más material a la unidad."
+                + _rejection_detail(grounding_rejections),
             )
 
         current_timestamp = datetime.now(timezone.utc).isoformat()
@@ -425,11 +439,14 @@ class GenerationService:
         )
 
         suffix_notice = f" {warning_message}" if warning_message else ""
+        grounding_report = build_grounding_report(output_resources, grounding_rejections)
         result_payload: dict[str, Any] = {
             "mode": "rag",
             "notice": (
                 f"Generado con {active_generator.description} a partir de tu material.{suffix_notice}"
+                f"{_grounding_notice(grounding_report)}"
             ),
+            "grounding": grounding_report,
             "generator": {
                 "description": active_generator.description,
                 "usesAi": uses_ai,
@@ -486,9 +503,12 @@ class GenerationService:
         )
 
     def _draft_resources(
-        self, generation_context: dict[str, Any]
+        self, generation_context: dict[str, Any], rejections: list[dict[str, Any]] | None = None
     ) -> tuple[list[dict[str, Any]], ResourceGeneratorPort | None, str | None]:
-        """Pide la redacción al generador principal y, si no devuelve recursos válidos, al de respaldo."""
+        """Pide la redacción al generador principal y, si no devuelve recursos válidos, al de respaldo.
+
+        Los recursos rechazados por la verificación de anclaje (HU-016) se agregan a `rejections` con su motivo.
+        """
         resources: list[dict[str, Any]] = []
         active_generator: ResourceGeneratorPort | None = None
         warning_message: str | None = None
@@ -496,7 +516,7 @@ class GenerationService:
         if self._primary_generator is not None:
             try:
                 raw_response = self._primary_generator.generate(generation_context)
-                resources = normalize_generated_resources(raw_response, generation_context)
+                resources = normalize_generated_resources(raw_response, generation_context, rejections)
                 active_generator = self._primary_generator
                 if not resources:
                     warning_message = (
@@ -511,7 +531,7 @@ class GenerationService:
             and self._fallback_generator is not self._primary_generator
         ):
             raw_response = self._fallback_generator.generate(generation_context)
-            resources = normalize_generated_resources(raw_response, generation_context)
+            resources = normalize_generated_resources(raw_response, generation_context, rejections)
             active_generator = self._fallback_generator
             if warning_message:
                 warning_message += " Se usó el generador por reglas."
@@ -617,6 +637,7 @@ class GenerationService:
             "generator": generator_name,
             "options": options_list,
             "citations": resource_data["citas"],
+            "grounding": resource_data.get("verificacion"),
             "status": "pendiente",
             "edited": False,
             "discardReason": None,
@@ -752,3 +773,40 @@ class GenerationService:
         if result is None:
             raise GenerationError("GENERATION_NOT_FOUND", "La solicitud de generación no existe.")
         return result
+
+def build_grounding_report(
+    resources: list[dict[str, Any]], rejections: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """HU-016: resumen de la verificación de anclaje de un pedido, con el indicador I21 (tasa de alucinación).
+
+    Cuenta las afirmaciones de los recursos conservados y de los rechazados. I21 = afirmaciones sin respaldo /
+    afirmaciones verificadas.
+    """
+    summaries = [r["grounding"] for r in resources if r.get("grounding")]
+    summaries += [item["grounding"] for item in rejections if item.get("grounding")]
+    checked = sum(s["checkedClaims"] for s in summaries)
+    supported = sum(s["supportedClaims"] for s in summaries)
+    return {
+        "checkedClaims": checked,
+        "supportedClaims": supported,
+        "unsupportedClaims": checked - supported,
+        "hallucinationRate": hallucination_rate(checked, checked - supported),
+        "rejectedResources": [{"title": item["title"], "reason": item["reason"]} for item in rejections],
+    }
+
+
+def _grounding_notice(report: dict[str, Any]) -> str:
+    rejected = len(report["rejectedResources"])
+    removed = report["unsupportedClaims"]
+    if not removed:
+        return ""
+    parts = [f" Se quitaron {removed} afirmación(es) sin respaldo en el material"]
+    if rejected:
+        parts.append(f" y se rechazaron {rejected} recurso(s)")
+    return "".join(parts) + "."
+
+
+def _rejection_detail(rejections: list[dict[str, Any]]) -> str:
+    if not rejections:
+        return ""
+    return " Motivo: " + " ".join(item["reason"] for item in rejections[:3])

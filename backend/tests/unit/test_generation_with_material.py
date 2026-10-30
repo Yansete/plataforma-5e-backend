@@ -198,12 +198,15 @@ def test_generates_from_material_cites_chunks_and_saves_history():
     assert resource["source"] == "rag" and resource["status"] == "pendiente" and resource["outcomeId"] == "ra-1"
 
     real_mapping = {f["etiqueta"]: f["id"] for f in ai_gen.captured_contexts[0]["fragmentos"]}
-    assert resource["citations"] == [{"claim": "TCP garantiza la entrega", "fragmentIds": [real_mapping["F1"]]}]
+    # El modelo citó F1, que aquí es el fragmento de UDP: la verificación de anclaje (HU-016) lo corrige al de TCP.
+    assert real_mapping["F1"] == "f2"
+    assert resource["citations"] == [{"claim": "TCP garantiza la entrega", "fragmentIds": ["f1"]}]
+    assert resource["grounding"]["correctedClaims"] == 1 and resource["grounding"]["removedClaims"] == []
     assert sorted(o["text"] for o in resource["options"]) == ["IP", "TCP", "UDP"]
     assert sum(o["isCorrect"] for o in resource["options"]) == 1
 
     without_source = next(o for o in resource["options"] if o["text"] == "IP")
-    assert without_source["sourceFragmentIds"] == [real_mapping["F1"]] and without_source["feedback"]
+    assert without_source["sourceFragmentIds"] == ["f1"] and without_source["feedback"]  # la cita ya corregida
     assert {f["id"] for f in result["fragments"]} == {"f1", "f2"}
     assert result["documents"] == [MOCK_DOCUMENT]
     assert repo.saved_results[0][1] == "docente"
@@ -349,6 +352,10 @@ def test_extract_json_rejects_unreadable_output(invalid_raw: str | None):
         parse_json_response(invalid_raw)
 
 
+# Afirmación respaldada por el material de prueba (HU-016 rechaza las que no lo están).
+SUPPORTED_CLAIM = "El protocolo TCP garantiza una entrega confiable"
+
+
 def build_test_context(quantity: int = 1, options: int = 3) -> dict[str, Any]:
     return build_generation_context(
         MOCK_COURSE, MOCK_UNIT, make_request_dict(quantity=quantity, optionCount=options), MOCK_FRAGMENTS, {}
@@ -361,7 +368,7 @@ def test_normalize_accepts_joined_tags_and_key_as_text():
         {"texto": "UDP", "correcta": "false"},
         {"texto": "IP", "esCorrecta": False},
     ]
-    item_payload = {**MOCK_ITEM, "citas": [{"afirmacion": "a", "fragmentos": "Fragmentos F2 y F1"}], "alternativas": options}
+    item_payload = {**MOCK_ITEM, "citas": [{"afirmacion": SUPPORTED_CLAIM, "fragmentos": "Fragmentos F2 y F1"}], "alternativas": options}
     normalized = normalize_generated_resources({"recursos": [item_payload]}, build_test_context())[0]
     assert normalized["citas"][0]["fragmentIds"] == ["f2", "f1"]
     correct_opt = next(a for a in normalized["alternativas"] if a["correcta"])
@@ -369,7 +376,7 @@ def test_normalize_accepts_joined_tags_and_key_as_text():
 
 
 def test_normalize_accepts_tags_in_several_formats_and_trims_quantity():
-    item_payload = {**MOCK_ITEM, "citas": [{"afirmacion": "a", "fragmentos": ["f2", "[F1]", 1, "F7"]}]}
+    item_payload = {**MOCK_ITEM, "citas": [{"afirmacion": SUPPORTED_CLAIM, "fragmentos": ["f2", "[F1]", 1, "F7"]}]}
     resources = normalize_generated_resources({"recursos": [item_payload, item_payload]}, build_test_context(quantity=1))
     assert len(resources) == 1 and resources[0]["citas"][0]["fragmentIds"] == ["f2", "f1"]
     assert normalize_generated_resources([item_payload], build_test_context())[0]["titulo"] == "TCP o UDP"
@@ -396,7 +403,7 @@ def test_normalize_discards_uncited_or_empty_resources_and_fills_title():
     resources = normalize_generated_resources(
         {
             "recursos": [
-                {"contenido": "Texto", "citas": [{"afirmacion": "x", "fragmentos": "F1"}]},
+                {"contenido": "Texto", "citas": [{"afirmacion": SUPPORTED_CLAIM, "fragmentos": "F1"}]},
                 {"titulo": "Sin cita", "contenido": "Texto", "citas": []},
                 {"titulo": "Vacío", "contenido": "", "citas": [{"afirmacion": "x", "fragmentos": ["F1"]}]},
                 "basura",

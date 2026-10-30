@@ -9,6 +9,7 @@ import json
 import re
 from typing import Any
 
+from platform5e.domain.generation.grounding import DEFAULT_THRESHOLD, verify_citations
 from platform5e.domain.generation.resource_formats import (
     AUDIO,
     IMAGE,
@@ -180,6 +181,7 @@ def build_generation_context(
             "publico": request_data.get("audience", ""),
             "competencia": request_data.get("competency", ""),
             "modalidades": request_data.get("modalities", []),
+            "umbralEvidencia": request_data.get("evidenceThreshold", DEFAULT_THRESHOLD),
         },
         "fragmentos": [
             {
@@ -378,10 +380,19 @@ def _parse_is_correct(alternative: dict[str, Any]) -> bool:
     return raw_val is True
 
 
-def normalize_generated_resources(raw_payload: Any, context: dict[str, Any]) -> list[dict[str, Any]]:
-    """Valida que cada recurso tenga contenido, evidencia verificable y alternativas válidas."""
+def normalize_generated_resources(
+    raw_payload: Any, context: dict[str, Any], rejections: list[dict[str, Any]] | None = None
+) -> list[dict[str, Any]]:
+    """Valida que cada recurso tenga contenido, evidencia verificable y alternativas válidas.
+
+    HU-016: cada afirmación citada se contrasta con los fragmentos recuperados (verificación de anclaje). Las que no
+    tienen respaldo se quitan; si queda menos de la mitad, el recurso se rechaza. Cada rechazo se agrega a `rejections`
+    con su motivo, y cada recurso conservado guarda su verificación en «verificacion».
+    """
     tag_mapping = {f["etiqueta"]: f["id"] for f in context["fragmentos"]}
+    fragments_by_id = {f["id"]: f.get("texto", "") for f in context["fragmentos"]}
     req = context["solicitud"]
+    threshold = float(req.get("umbralEvidencia", DEFAULT_THRESHOLD))
     items_list = raw_payload.get("recursos") if isinstance(raw_payload, dict) else raw_payload
     if not isinstance(items_list, list):
         return []
@@ -401,13 +412,27 @@ def normalize_generated_resources(raw_payload: Any, context: dict[str, Any]) -> 
                 if matched_ids and claim:
                     valid_citations.append({"claim": claim, "fragmentIds": matched_ids})
 
-        if not body or not valid_citations:
-            continue
-
         title = (
             _clean_inline_text(raw_item.get("titulo"), MAX_TITLE_CHARS)
             or f"{RESOURCE_TYPES[req['tipo']][0]} {len(verified_resources) + 1}"
         )
+        if not body:
+            continue
+
+        grounding = verify_citations(valid_citations, fragments_by_id, threshold)
+        if not grounding.accepted:
+            if rejections is not None:
+                rejections.append(
+                    {
+                        "title": title,
+                        "reason": grounding.rejection_reason(title),
+                        "grounding": grounding.summary(),
+                    }
+                )
+            continue
+        valid_citations = [
+            {"claim": check.claim, "fragmentIds": check.fragment_ids} for check in grounding.supported
+        ]
 
         structure = None
         if req["tipo"] in STRUCTURE_INSTRUCTIONS:
@@ -433,6 +458,7 @@ def normalize_generated_resources(raw_payload: Any, context: dict[str, Any]) -> 
                 "citas": valid_citations,
                 "alternativas": alternatives,
                 "estructura": structure,
+                "verificacion": grounding.summary(),
             }
         )
 

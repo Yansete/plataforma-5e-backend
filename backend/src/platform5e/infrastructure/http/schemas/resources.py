@@ -56,6 +56,25 @@ class MediaResponse(ApiResponse):
     outdated: bool = Field(default=False, description="The teacher edited the script or description after generating.")
 
 
+class RemovedClaim(ApiResponse):
+    claim: str
+    support: float = Field(description="Share of the claim words found in the cited chunks (0 to 1).")
+    supported: bool = False
+    reason: str | None = Field(default=None, description="Why it was removed, in Spanish.")
+
+
+class ResourceGrounding(ApiResponse):
+    """HU-016: each claim is checked against the retrieved evidence; the unsupported ones are removed."""
+
+    threshold: float = Field(description="Minimum support, from the request `evidenceThreshold`.")
+    checked_claims: int
+    supported_claims: int
+    corrected_claims: int = Field(
+        default=0, description="Claims that cited the wrong chunk and were moved to the one that supports them."
+    )
+    removed_claims: list[RemovedClaim] = []
+
+
 class ResourceResponse(ApiResponse):
     id: str
     unit_id: str
@@ -82,6 +101,9 @@ class ResourceResponse(ApiResponse):
     params: dict[str, Any] | None = Field(default=None, description="Request parameters, reused by «Regenerar».")
     agent: str | None = Field(
         default=None, description="Stage agent that drafted the resource in a sequence request (HU-003)."
+    )
+    grounding: ResourceGrounding | None = Field(
+        default=None, description="Grounding check of its claims against the retrieved evidence (HU-016)."
     )
 
     @computed_field(description="Reasons that block approval, computed by the same rule that validates approval.")

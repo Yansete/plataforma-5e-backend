@@ -59,7 +59,15 @@ class GenerationRequest(ApiRequest):
     difficulty: Difficulty = "intermedia"
     option_count: int = Field(default=4, ge=2, le=5, description="Options per multiple-choice item.")
     top_k: int = Field(default=10, ge=1, le=50, description="Chunks retrieved from the material (BM25).")
-    evidence_threshold: float = Field(default=0.6, ge=0.0, le=1.0)
+    evidence_threshold: float = Field(
+        default=0.6,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Minimum share of a claim's words that its cited chunks must contain (HU-016). "
+            "Claims below it are removed, and a resource with less than half of its claims supported is rejected."
+        ),
+    )
     instructions: str = Field(default="", max_length=500, description="Free text from the teacher.")
     audience: str = Field(default="", max_length=200, examples=["Tercer ciclo"])
     competency: str = Field(default="", max_length=200)
@@ -135,6 +143,25 @@ class SequenceStep(ApiResponse):
     rejected: list[str] = Field(default=[], description="Resources rejected for repeating another one, with the reason.")
 
 
+class RejectedResource(ApiResponse):
+    title: str
+    reason: str = Field(description="Why it was rejected, in Spanish.")
+
+
+class GroundingReport(ApiResponse):
+    """HU-016: grounding check of the whole request. `hallucinationRate` is indicator I21."""
+
+    checked_claims: int = Field(description="Claims checked, in kept and rejected resources.")
+    supported_claims: int
+    unsupported_claims: int
+    hallucination_rate: float | None = Field(
+        default=None, description="I21: unsupported / checked claims (null when nothing was checked)."
+    )
+    rejected_resources: list[RejectedResource] = Field(
+        default=[], description="Resources rejected because less than half of their claims had support."
+    )
+
+
 class GenerationResult(ApiResponse):
     mode: Literal["api_demo", "rag"] = Field(description="`rag`: the teacher's material; `api_demo`: test catalog.")
     notice: str = Field(description="Message shown to the teacher.")
@@ -144,6 +171,9 @@ class GenerationResult(ApiResponse):
     available: int
     fragments: list[dict[str, Any]] = Field(description="Chunks cited by the resources.")
     documents: list[dict[str, Any]] = Field(description="Documents those chunks come from.")
+    grounding: GroundingReport | None = Field(
+        default=None, description="Only with the teacher's material (`rag`): grounding check of the request (HU-016)."
+    )
     sequence: list[SequenceStep] | None = Field(
         default=None, description="Only in sequence requests (`resourceTypes`): one step per stage agent."
     )
