@@ -1,5 +1,11 @@
 -- migrate:up
-CREATE EXTENSION IF NOT EXISTS vector;
+-- Habilitar extensión vector de forma segura si el binario está instalado en PostgreSQL
+DO $$
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS vector;
+EXCEPTION WHEN undefined_file THEN
+    RAISE NOTICE 'pgvector no disponible en el sistema. Se omite la extensión vector.';
+END $$;
 
 -- Cuentas de docentes (HU-001)
 CREATE TABLE IF NOT EXISTS ep002_usuarios (
@@ -39,7 +45,7 @@ CREATE TABLE IF NOT EXISTS ep002_documentos (
 );
 CREATE INDEX IF NOT EXISTS idx_ep002_documentos_docente_unidad ON ep002_documentos (docente, unidad);
 
--- Fragmentos de texto procesados con soporte para embeddings pgvector (EN-011 / EN-013 / ADR-009)
+-- Fragmentos de texto procesados con soporte léxico y vectorial (EN-011 / EN-013 / ADR-009 / EN-024)
 CREATE TABLE IF NOT EXISTS ep002_fragmentos (
     id TEXT PRIMARY KEY,
     docente TEXT NOT NULL,
@@ -48,23 +54,36 @@ CREATE TABLE IF NOT EXISTS ep002_fragmentos (
     orden INTEGER NOT NULL,
     ubicacion TEXT NOT NULL,
     texto TEXT NOT NULL,
-    embedding vector(768),
     modelo_embedding TEXT,
-    texto_tsv tsvector GENERATED ALWAYS AS (to_tsvector('spanish', texto)) STORED,
-    CONSTRAINT ep002_fragmentos_embedding_con_modelo CHECK ((embedding IS NULL) = (modelo_embedding IS NULL))
+    texto_tsv tsvector GENERATED ALWAYS AS (to_tsvector('spanish', texto)) STORED
 );
--- Asegurar columnas si la tabla ya existía previamente (ej. Neon)
-ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS embedding vector(768);
-ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS modelo_embedding TEXT;
-ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS texto_tsv tsvector GENERATED ALWAYS AS (to_tsvector('spanish', texto)) STORED;
+
+-- Manejo condicional y tolerante para entornos con/sin pgvector (CI, Neon, Render)
+DO $$
+BEGIN
+    -- Asegurar columnas básicas por si la tabla ya existía
+    ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS modelo_embedding TEXT;
+    
+    -- Si la extensión o el tipo vector existen en el motor, agregar embedding e índice HNSW
+    IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'vector') THEN
+        ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS embedding vector(768);
+
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint WHERE conname = 'ep002_fragmentos_embedding_con_modelo'
+        ) THEN
+            ALTER TABLE ep002_fragmentos 
+            ADD CONSTRAINT ep002_fragmentos_embedding_con_modelo 
+            CHECK ((embedding IS NULL) = (modelo_embedding IS NULL));
+        END IF;
+
+        EXECUTE 'CREATE INDEX IF NOT EXISTS ep002_fragmentos_embedding_hnsw ON ep002_fragmentos USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64)';
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_ep002_fragmentos_docente ON ep002_fragmentos (docente);
 CREATE INDEX IF NOT EXISTS idx_ep002_fragmentos_documento ON ep002_fragmentos (documento);
 CREATE INDEX IF NOT EXISTS idx_ep002_fragmentos_unidad ON ep002_fragmentos (unidad);
-CREATE INDEX IF NOT EXISTS ep002_fragmentos_embedding_hnsw ON ep002_fragmentos 
-    USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
-CREATE INDEX IF NOT EXISTS ep002_fragmentos_texto_tsv_gin ON ep002_fragmentos 
-    USING gin (texto_tsv);
+CREATE INDEX IF NOT EXISTS ep002_fragmentos_texto_tsv_gin ON ep002_fragmentos USING gin (texto_tsv);
 
 -- Recursos pedagógicos generados para una unidad
 CREATE TABLE IF NOT EXISTS ep002_recursos (
@@ -119,4 +138,9 @@ DROP TABLE IF EXISTS ep002_documentos;
 DROP TABLE IF EXISTS ep002_cursos;
 DROP TABLE IF EXISTS ep002_sesiones;
 DROP TABLE IF EXISTS ep002_usuarios;
-DROP EXTENSION IF EXISTS vector;
+DO $$
+BEGIN
+    DROP EXTENSION IF EXISTS vector;
+EXCEPTION WHEN OTHERS THEN
+    NULL;
+END $$;
