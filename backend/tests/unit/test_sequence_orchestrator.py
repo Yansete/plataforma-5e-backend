@@ -48,7 +48,7 @@ DISTINCT_RESOURCES: dict[str, dict[str, Any]] = {
     },
     "explicacion": {
         "titulo": "Entrega confiable con TCP",
-        "contenido": "TCP establece una conexión antes de enviar y confirma cada segmento recibido.",
+        "contenido": "TCP garantiza la entrega: antes de enviar datos establece una conexión.",
         "citas": [{"afirmacion": "TCP garantiza una entrega confiable", "fragmentos": ["F1"]}],
         "alternativas": [],
     },

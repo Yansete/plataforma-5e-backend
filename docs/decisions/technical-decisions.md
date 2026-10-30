@@ -342,3 +342,29 @@ ahora el campo `reliabilityWarning` existía, pero la generación real siempre l
 - **Límites.** Las palabras no captan sinónimos, y una pregunta formulada en negativo («¿cuál no…?») puede confundir la
   regla. La coincidencia de palabras pasó de cinco a seis letras al probar esta historia: con cinco, «confirma» y
   «confiable» contaban como la misma palabra.
+
+## ADR-016 El agente de Explicar contrasta su contenido párrafo por párrafo (30/10/2026)
+
+HU-049 pide que el agente de Explicar redacte la explicación (C01) y que sus afirmaciones citen su fragmento (C02). La
+explicación textual y el glosario ya existían, y desde el ADR-014 cada cita se contrasta con su fragmento. Faltaba el
+contenido: la verificación revisaba las citas que el modelo declara, pero un párrafo de la explicación podía no
+corresponder a ninguna. El recurso multimedia del C01 pasa al Sprint 2, con lo multimodal.
+
+- **Qué se contrasta.** En la explicación, cada párrafo (separado por una línea en blanco; si no hay, cada línea). En el
+  glosario, cada entrada «Término: definición». Los demás tipos no cambian. Vive en `domain/generation/grounding.py`
+  (`verify_statements`) y usa la misma regla de palabras del ADR-014.
+- **Cita de cada párrafo.** El párrafo se enlaza con el fragmento recuperado que más lo respalda y, si resume dos, con
+  el segundo que aporta palabras que el primero no tenía. Queda en `grounding.paragraphSources`, en el orden del
+  contenido.
+- **Umbral.** Un párrafo usa palabras de enlace propias de la explicación («por eso», «es decir»), así que se le exige
+  10 puntos menos que a una cita: 0,5 con el `evidenceThreshold` por defecto. Un párrafo con menos de cuatro palabras
+  útiles es un subtítulo o una transición: no se contrasta y se conserva.
+- **Rechazo.** Los párrafos sin respaldo se quitan del contenido y quedan en `grounding.removedParagraphs` con su motivo.
+  Si menos de la mitad tiene respaldo, el recurso se rechaza como en el ADR-014 y aparece en
+  `grounding.rejectedResources`. La respuesta suma los párrafos quitados en `grounding.unsupportedParagraphs` y el
+  aviso al docente los menciona.
+- **Prompt.** La explicación se pide en párrafos separados por una línea en blanco y con información solo del material;
+  el glosario, una entrada por línea con el formato «Término: definición».
+- **Límites.** Los del ADR-014: no reconoce sinónimos ni paráfrasis lejanas. Con Gemini hay que revisar en la plataforma
+  publicada cuántos párrafos se quitan; con el generador por reglas no se quita ninguno, porque cada párrafo es una
+  oración del material.

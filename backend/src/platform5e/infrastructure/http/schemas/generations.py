@@ -157,6 +157,9 @@ class GroundingReport(ApiResponse):
     hallucination_rate: float | None = Field(
         default=None, description="I21: unsupported / checked claims (null when nothing was checked)."
     )
+    unsupported_paragraphs: int = Field(
+        default=0, description="Explanation paragraphs and glossary entries removed for lack of support (HU-049)."
+    )
     rejected_resources: list[RejectedResource] = Field(
         default=[], description="Resources rejected because less than half of their claims had support."
     )
