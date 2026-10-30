@@ -53,6 +53,11 @@ CREATE TABLE IF NOT EXISTS ep002_fragmentos (
     texto_tsv tsvector GENERATED ALWAYS AS (to_tsvector('spanish', texto)) STORED,
     CONSTRAINT ep002_fragmentos_embedding_con_modelo CHECK ((embedding IS NULL) = (modelo_embedding IS NULL))
 );
+-- Asegurar columnas si la tabla ya existía previamente (ej. Neon)
+ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS embedding vector(768);
+ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS modelo_embedding TEXT;
+ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS texto_tsv tsvector GENERATED ALWAYS AS (to_tsvector('spanish', texto)) STORED;
+
 CREATE INDEX IF NOT EXISTS idx_ep002_fragmentos_docente ON ep002_fragmentos (docente);
 CREATE INDEX IF NOT EXISTS idx_ep002_fragmentos_documento ON ep002_fragmentos (documento);
 CREATE INDEX IF NOT EXISTS idx_ep002_fragmentos_unidad ON ep002_fragmentos (unidad);

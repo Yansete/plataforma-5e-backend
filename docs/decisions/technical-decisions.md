@@ -343,7 +343,7 @@ ahora el campo `reliabilityWarning` existía, pero la generación real siempre l
   regla. La coincidencia de palabras pasó de cinco a seis letras al probar esta historia: con cinco, «confirma» y
   «confiable» contaban como la misma palabra.
 
-## ADR-013 Unificación del esquema de base de datos y migraciones (30/10/2026)
+## ADR-017 Unificación del esquema de base de datos y migraciones (30/10/2026)
 
 Se resuelve la deuda técnica de ADR-009 y la discrepancia detectada en EN-024:
 - Se centralizó `docker-compose.yml` en la raíz del repositorio para coordinar servicios de backend y base de datos con volúmenes hacia `backend/database`.
