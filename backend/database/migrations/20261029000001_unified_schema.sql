@@ -1,10 +1,16 @@
 -- migrate:up
--- Habilitar extensión vector de forma segura si el binario está instalado en PostgreSQL
+-- Habilitar extensión vector de forma segura únicamente si está disponible en el motor
 DO $$
 BEGIN
-    CREATE EXTENSION IF NOT EXISTS vector;
-EXCEPTION WHEN undefined_file THEN
-    RAISE NOTICE 'pgvector no disponible en el sistema. Se omite la extensión vector.';
+    IF EXISTS (SELECT 1 FROM pg_available_extensions WHERE name = 'vector') THEN
+        BEGIN
+            CREATE EXTENSION IF NOT EXISTS vector;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE NOTICE 'No se pudo activar la extensión vector: %', SQLERRM;
+        END;
+    ELSE
+        RAISE NOTICE 'La extensión pgvector no está disponible en este sistema PostgreSQL.';
+    END IF;
 END $$;
 
 -- Cuentas de docentes (HU-001)
@@ -64,7 +70,7 @@ BEGIN
     -- Asegurar columnas básicas por si la tabla ya existía
     ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS modelo_embedding TEXT;
     
-    -- Si la extensión o el tipo vector existen en el motor, agregar embedding e índice HNSW
+    -- Si el tipo vector existe en el catálogo, agregar embedding e índice HNSW
     IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'vector') THEN
         ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS embedding vector(768);
 
