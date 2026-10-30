@@ -270,6 +270,10 @@ class RuleBasedGenerator:
                         f"Incorrecto. «{dist}» aparece en el material, pero con otro sentido. "
                         f"La afirmación original es: «{sentence}»"
                     ),
+                    "error_conceptual": (
+                        f"Confunde «{dist}» con «{key_term}»: ambos son conceptos de la unidad, pero la afirmación "
+                        f"se refiere a «{key_term}»."
+                    ),
                 }
                 for dist in distractors
             ]

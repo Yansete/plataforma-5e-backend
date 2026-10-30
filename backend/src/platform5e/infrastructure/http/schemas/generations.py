@@ -162,6 +162,16 @@ class GroundingReport(ApiResponse):
     )
 
 
+class DistractorReliability(ApiResponse):
+    """HU-019: distractors discarded before review because the material shows them as correct (indicator I5)."""
+
+    evaluated_distractors: int
+    discarded_as_correct: int
+    reliability_error_rate: float | None = Field(
+        default=None, description="discardedAsCorrect / evaluatedDistractors, detected before the teacher's review."
+    )
+
+
 class GenerationResult(ApiResponse):
     mode: Literal["api_demo", "rag"] = Field(description="`rag`: the teacher's material; `api_demo`: test catalog.")
     notice: str = Field(description="Message shown to the teacher.")
@@ -171,6 +181,9 @@ class GenerationResult(ApiResponse):
     available: int
     fragments: list[dict[str, Any]] = Field(description="Chunks cited by the resources.")
     documents: list[dict[str, Any]] = Field(description="Documents those chunks come from.")
+    distractor_reliability: DistractorReliability | None = Field(
+        default=None, description="Only with the teacher's material (`rag`): distractor reliability check (HU-019)."
+    )
     grounding: GroundingReport | None = Field(
         default=None, description="Only with the teacher's material (`rag`): grounding check of the request (HU-016)."
     )

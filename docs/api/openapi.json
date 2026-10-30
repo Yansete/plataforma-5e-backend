@@ -2290,6 +2290,38 @@
         ],
         "title": "CourseUnitInput"
       },
+      "DistractorReliability": {
+        "properties": {
+          "evaluatedDistractors": {
+            "type": "integer",
+            "title": "Evaluateddistractors"
+          },
+          "discardedAsCorrect": {
+            "type": "integer",
+            "title": "Discardedascorrect"
+          },
+          "reliabilityErrorRate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reliabilityerrorrate",
+            "description": "discardedAsCorrect / evaluatedDistractors, detected before the teacher's review."
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "evaluatedDistractors",
+          "discardedAsCorrect"
+        ],
+        "title": "DistractorReliability",
+        "description": "HU-019: distractors discarded before review because the material shows them as correct (indicator I5)."
+      },
       "DocumentOrigin": {
         "properties": {
           "source": {
@@ -3026,6 +3058,17 @@
             "title": "Documents",
             "description": "Documents those chunks come from."
           },
+          "distractorReliability": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DistractorReliability"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only with the teacher's material (`rag`): distractor reliability check (HU-019)."
+          },
           "grounding": {
             "anyOf": [
               {
@@ -3578,6 +3621,30 @@
             "type": "boolean",
             "title": "Edited",
             "default": false
+          },
+          "misconception": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Misconception",
+            "description": "Distractors only: the conceptual error the distractor represents (HU-019)."
+          },
+          "reliabilityWarning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reliabilitywarning",
+            "description": "Why the distractor was discarded automatically: the material shows it as correct (HU-019). The teacher can accept it again."
           }
         },
         "additionalProperties": true,

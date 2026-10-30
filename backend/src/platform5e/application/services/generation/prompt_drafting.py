@@ -9,6 +9,7 @@ import json
 import re
 from typing import Any
 
+from platform5e.domain.generation.distractor_reliability import assess_distractor
 from platform5e.domain.generation.grounding import DEFAULT_THRESHOLD, verify_citations
 from platform5e.domain.generation.resource_formats import (
     AUDIO,
@@ -140,6 +141,8 @@ MAX_TITLE_CHARS: int = 160
 MAX_CONTENT_CHARS: int = 8000
 MAX_CLAIM_CHARS: int = 600
 MAX_OPTION_CHARS: int = 600
+# Mínimo de distractores fiables por ítem: el mismo de la aprobación (regla R3).
+MIN_RELIABLE_DISTRACTORS: int = 2
 
 
 def format_fragment_tag(index: int) -> str:
@@ -229,6 +232,7 @@ def build_prompt_instructions(context: dict[str, Any]) -> tuple[str, str]:
         lines.append(
             f"Cada ítem debe tener exactamente {req['alternativas']} alternativas: 1 correcta y {req['alternativas'] - 1} distractores."
         )
+        lines.append(MISCONCEPTION_INSTRUCTION)
     if req["publico"]:
         lines.append(f"Público: {req['publico']}.")
     if req["competencia"]:
@@ -241,7 +245,9 @@ def build_prompt_instructions(context: dict[str, Any]) -> tuple[str, str]:
         "FORMATO DE RESPUESTA (JSON):",
         '{"recursos": [{"titulo": "...", "contenido": "...",',
         ' "citas": [{"afirmacion": "...", "fragmentos": ["F1"]}],',
-        ' "alternativas": [{"texto": "...", "correcta": true, "retroalimentacion": "...", "fragmentos": ["F2"]}]}]}',
+        ' "alternativas": [{"texto": "...", "correcta": true, "retroalimentacion": "...", "fragmentos": ["F2"]},',
+        '                  {"texto": "...", "correcta": false, "retroalimentacion": "...", "error_conceptual": "...",'
+        ' "fragmentos": ["F3"]}]}]}',
         "«alternativas» solo se llena en ítems de opción múltiple; en los demás tipos usa [].",
     ]
     if req["tipo"] in STRUCTURE_INSTRUCTIONS:
@@ -450,6 +456,20 @@ def normalize_generated_resources(
             )
             if alternatives is None:
                 continue
+            reliable = _review_distractor_reliability(alternatives, body, fragments_by_id)
+            needed = min(MIN_RELIABLE_DISTRACTORS, len(alternatives) - 1)
+            if reliable < needed:
+                if rejections is not None:
+                    rejections.append(
+                        {
+                            "title": title,
+                            "reason": (
+                                f"«{title}»: solo {reliable} distractor(es) fiable(s); el material muestra como "
+                                "correctos los demás."
+                            ),
+                        }
+                    )
+                continue
 
         verified_resources.append(
             {
@@ -463,6 +483,31 @@ def normalize_generated_resources(
         )
 
     return verified_resources
+
+
+MISCONCEPTION_KEYS: tuple[str, ...] = ("error_conceptual", "errorConceptual", "error")
+MISCONCEPTION_INSTRUCTION: str = (
+    "En cada distractor, «retroalimentacion» justifica por qué es incorrecto según el material y «error_conceptual» "
+    "nombra la concepción errónea que representa (qué confunde el estudiante que lo elige). "
+    "Un distractor nunca puede ser correcto según el material."
+)
+
+
+def _review_distractor_reliability(
+    alternatives: list[dict[str, Any]], body: str, fragments_by_id: dict[str, str]
+) -> int:
+    """HU-019 C02: marca los distractores que la evidencia muestra como correctos. Devuelve cuántos quedan fiables."""
+    key = next(alt for alt in alternatives if alt["correcta"])
+    reliable = 0
+    for alternative in alternatives:
+        if alternative["correcta"]:
+            continue
+        issue = assess_distractor(body, key["texto"], alternative["texto"], fragments_by_id)
+        if issue is None:
+            reliable += 1
+        else:
+            alternative["tambienCorrecto"] = issue.reason
+    return reliable
 
 
 def _validate_alternatives(
@@ -488,13 +533,11 @@ def _validate_alternatives(
             continue
         seen_texts.add(text.casefold())
 
+        justification = _clean_inline_text(option.get("retroalimentacion"), MAX_OPTION_CHARS)
         parsed_option = {
             "texto": text,
             "correcta": _parse_is_correct(option),
-            "retroalimentacion": (
-                _clean_inline_text(option.get("retroalimentacion"), MAX_OPTION_CHARS)
-                or "Revisa el material de la unidad."
-            ),
+            "retroalimentacion": justification or "Revisa el material de la unidad.",
             "fragmentos": _resolve_fragment_ids(option.get("fragmentos"), tag_mapping)
             or fallback_citations,
         }
@@ -504,7 +547,12 @@ def _validate_alternatives(
                 return None  # Múltiples claves: ítem inválido
             correct_key = parsed_option
         else:
-            distractors.append(parsed_option)
+            # HU-019 C01: un distractor sin justificación o sin el error conceptual que representa no se usa.
+            misconception = _clean_inline_text(
+                next((option.get(k) for k in MISCONCEPTION_KEYS if option.get(k)), ""), MAX_OPTION_CHARS
+            )
+            if justification and misconception:
+                distractors.append({**parsed_option, "errorConceptual": misconception})
 
     if correct_key is None or len(distractors) < target_count - 1:
         return None

@@ -176,6 +176,15 @@ Backend: 347 pruebas; frontend: 79 y las 5 pruebas en Chromium. Además se abri�
 SCORM con los 18 tipos, con una API de SCORM 1.2 simulada: imágenes y audio cargan, las páginas de contenido quedan
 `completed`, la pregunta se califica y las cuatro actividades envían `score.raw` 100 y `passed` al responder bien.
 
+## Distractores fiables, HU-019 (30/10/2026)
+
+`tests/unit/test_distractor_reliability.py` cubre el distractor que el material presenta como respuesta (con la
+oración y el fragmento), el que aparece en otro sentido, la oración negada, el que dice lo mismo que la clave, la
+consigna que no cuenta, el prompt que pide el error conceptual, los distractores sin justificación o sin error
+conceptual que no se usan, el generador por reglas, el descarte con motivo `tambien_correcto` en el servicio, el
+informe `distractorReliability` (I5) y el ítem rechazado por quedarse con menos de dos distractores fiables.
+`tests/e2e/test_material_ingestion_api.py` comprueba por HTTP la justificación y el error conceptual de cada distractor.
+
 ## Verificación de anclaje, HU-016 (30/10/2026)
 
 `tests/unit/test_grounding.py` cubre el respaldo de una afirmación (palabras del fragmento, raíz y prefijo), la cita

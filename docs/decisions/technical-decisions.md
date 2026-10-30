@@ -298,8 +298,8 @@ la etiqueta citada (F1, F2…) existiera; un recurso podía citar F2 para algo q
 
 - **Respaldo de una afirmación.** Proporción de sus palabras útiles (sin palabras vacías, reducidas a su raíz con
   `extract_terms`, la misma función de BM25) que aparecen en los fragmentos que cita. Dos palabras coinciden si tienen
-  la misma raíz o comparten sus cinco primeras letras («confirma» y «confirmación»). Vive en
-  `domain/generation/grounding.py` y no depende del modelo de lenguaje.
+  la misma raíz o comparten sus seis primeras letras («confirma» y «confirmación», pero no «confirma» y «confiable»).
+  Vive en `domain/generation/grounding.py` y no depende del modelo de lenguaje.
 - **Umbral.** Es el `evidenceThreshold` del pedido (0,6 por defecto; el frontend envía 0,6), que la API ya recibía pero
   no usaba. Una afirmación con menos de dos palabras útiles no se puede contrastar y se rechaza.
 - **Cita equivocada.** Si los fragmentos citados no respaldan la afirmación pero otro fragmento recuperado sí, la cita
@@ -316,3 +316,29 @@ la etiqueta citada (F1, F2…) existiera; un recurso podía citar F2 para algo q
   palabras del fragmento para decir lo contrario puede pasar. La búsqueda por significado (EN-013, HU-011) podrá
   reforzarla. Con el generador por reglas el respaldo es siempre completo, porque cita frases del material; con Gemini
   hay que revisar en la plataforma publicada cuántos recursos se rechazan y ajustar el umbral si hace falta.
+
+## ADR-015 Distractores con su error conceptual y descarte de los que también son correctos (30/10/2026)
+
+HU-019 pide que cada distractor traiga su justificación y el error conceptual que representa (C01) y que se descarten
+los que la evidencia muestra como correctos (C02), para medir el indicador I5 (error de fiabilidad, meta ≤ 5 %). Hasta
+ahora el campo `reliabilityWarning` existía, pero la generación real siempre lo dejaba vacío.
+
+- **Justificación y error conceptual.** El prompt pide, por distractor, «retroalimentacion» (por qué es incorrecto
+  según el material) y «error_conceptual» (qué confunde quien lo elige). Un distractor sin alguno de los dos no se usa;
+  si el ítem se queda sin distractores suficientes, se descarta como antes. El generador por reglas explica el error
+  como la confusión entre el término elegido y el correcto. Se guardan en `options[].feedback` y
+  `options[].misconception`.
+- **Distractor también correcto.** Vive en `domain/generation/distractor_reliability.py`. Un distractor es correcto
+  según el material si una oración de los fragmentos recuperados contiene todas sus palabras y al menos el 60 % de las
+  palabras del enunciado, sin negación («no», «nunca», «sin»…); o si dice prácticamente lo mismo que la respuesta
+  correcta (similitud ≥ 0,8). Del enunciado solo cuentan las palabras que existen en el material, para que la consigna
+  («según el material, ¿qué término completa…?») no baje la cobertura. Usa las mismas reglas de palabras que el ADR-014.
+- **Descarte.** El distractor detectado llega a la revisión ya descartado, con el motivo `tambien_correcto` y la
+  oración del material en `reliabilityWarning`. El docente lo ve y puede volver a aceptarlo. Si quedan menos de dos
+  distractores fiables (regla R3), el ítem se rechaza con su motivo, igual que los recursos sin respaldo del ADR-014.
+- **I5.** La respuesta trae `distractorReliability`: distractores evaluados, descartados por ser correctos y su
+  proporción. Es la detección automática antes de la revisión; el I5 del sprint sigue saliendo de la rúbrica sobre lo
+  que el docente aprobó.
+- **Límites.** Las palabras no captan sinónimos, y una pregunta formulada en negativo («¿cuál no…?») puede confundir la
+  regla. La coincidencia de palabras pasó de cinco a seis letras al probar esta historia: con cinco, «confirma» y
+  «confiable» contaban como la misma palabra.

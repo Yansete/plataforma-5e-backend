@@ -42,6 +42,16 @@ class ResourceOptionResponse(ApiResponse):
     decision: str = Field(description="Only distractors are decided: `pendiente`, `aceptado` or `descartado`.")
     discard_reason: str | None = None
     edited: bool = False
+    misconception: str | None = Field(
+        default=None, description="Distractors only: the conceptual error the distractor represents (HU-019)."
+    )
+    reliability_warning: str | None = Field(
+        default=None,
+        description=(
+            "Why the distractor was discarded automatically: the material shows it as correct (HU-019). "
+            "The teacher can accept it again."
+        ),
+    )
 
 
 class MediaResponse(ApiResponse):
