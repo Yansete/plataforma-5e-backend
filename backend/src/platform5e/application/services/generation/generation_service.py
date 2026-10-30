@@ -26,6 +26,7 @@ from platform5e.application.services.generation.prompt_drafting import (
     normalize_generated_resources,
 )
 from platform5e.domain.generation.errors import GenerationError
+from platform5e.domain.generation.distractor_reliability import reliability_report
 from platform5e.domain.generation.grounding import hallucination_rate
 from platform5e.domain.generation.resource_formats import resource_format, resource_stage
 from platform5e.domain.generation.sequence import (
@@ -290,6 +291,7 @@ class GenerationService:
             "resources": output_resources,
             "available": len(output_resources),
             "grounding": grounding_report,
+            "distractorReliability": reliability_report(output_resources),
             "sequence": steps,
             "fragments": [
                 {
@@ -447,6 +449,7 @@ class GenerationService:
                 f"{_grounding_notice(grounding_report)}"
             ),
             "grounding": grounding_report,
+            "distractorReliability": reliability_report(output_resources),
             "generator": {
                 "description": active_generator.description,
                 "usesAi": uses_ai,
@@ -613,10 +616,12 @@ class GenerationService:
                     "isCorrect": alt["correcta"],
                     "feedback": alt["retroalimentacion"],
                     "sourceFragmentIds": alt["fragmentos"],
-                    "decision": "pendiente",
-                    "discardReason": None,
+                    # HU-019: el distractor que el material muestra como correcto llega ya descartado, con el motivo.
+                    "decision": "descartado" if alt.get("tambienCorrecto") else "pendiente",
+                    "discardReason": "tambien_correcto" if alt.get("tambienCorrecto") else None,
                     "edited": False,
-                    "reliabilityWarning": None,
+                    "misconception": alt.get("errorConceptual"),
+                    "reliabilityWarning": alt.get("tambienCorrecto"),
                 }
                 for idx, alt in enumerate(alternatives)
             ]

@@ -3,8 +3,8 @@ Verificación de anclaje (HU-016): cada afirmación que cita el material se cont
 que no tiene respaldo se rechaza con su motivo. Alimenta el indicador I21 (tasa de alucinación).
 
 El respaldo de una afirmación es la proporción de sus palabras útiles (sin vacías, con su raíz) que aparecen en los
-fragmentos que cita. Dos palabras coinciden si tienen la misma raíz o comparten sus primeras cinco letras
-(«confirma» y «confirmación»). Es una regla por palabras y explicable: no entiende sinónimos, y la búsqueda por
+fragmentos que cita. Dos palabras coinciden si tienen la misma raíz o comparten sus seis primeras letras
+(«confirma» y «confirmación», pero no «confirma» y «confiable»). Es una regla por palabras y explicable: no entiende sinónimos, y la búsqueda por
 significado (EN-013) podrá reforzarla.
 """
 
@@ -16,7 +16,7 @@ from typing import Any
 from platform5e.domain.materials.text_analysis import extract_terms
 
 DEFAULT_THRESHOLD: float = 0.6
-SHARED_PREFIX: int = 5
+SHARED_PREFIX: int = 6
 # Un recurso se rechaza si menos de esta proporción de sus afirmaciones tiene respaldo.
 MIN_SUPPORTED_SHARE: float = 0.5
 # Una afirmación con menos palabras útiles no se puede contrastar: se rechaza.
@@ -27,15 +27,19 @@ def _matches(term: str, evidence_terms: set[str], evidence_prefixes: set[str]) -
     return term in evidence_terms or (len(term) >= SHARED_PREFIX and term[:SHARED_PREFIX] in evidence_prefixes)
 
 
-def claim_support(claim: str, evidence_texts: list[str]) -> float:
-    """Proporción (0 a 1) de las palabras útiles de la afirmación que aparecen en los textos de evidencia."""
-    claim_terms = set(extract_terms(claim))
-    if not claim_terms:
+def terms_support(terms: set[str], evidence_texts: list[str]) -> float:
+    """Proporción (0 a 1) de los términos (ya extraídos con `extract_terms`) que aparecen en los textos de evidencia."""
+    if not terms:
         return 0.0
     evidence_terms = {term for text in evidence_texts for term in extract_terms(text)}
     evidence_prefixes = {term[:SHARED_PREFIX] for term in evidence_terms if len(term) >= SHARED_PREFIX}
-    found = sum(1 for term in claim_terms if _matches(term, evidence_terms, evidence_prefixes))
-    return found / len(claim_terms)
+    found = sum(1 for term in terms if _matches(term, evidence_terms, evidence_prefixes))
+    return found / len(terms)
+
+
+def claim_support(claim: str, evidence_texts: list[str]) -> float:
+    """Proporción (0 a 1) de las palabras útiles de la afirmación que aparecen en los textos de evidencia."""
+    return terms_support(set(extract_terms(claim)), evidence_texts)
 
 
 @dataclass

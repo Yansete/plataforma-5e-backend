@@ -92,8 +92,20 @@ MOCK_ITEM = {
     "citas": [{"afirmacion": "TCP garantiza la entrega", "fragmentos": ["F1"]}],
     "alternativas": [
         {"texto": "TCP", "correcta": True, "retroalimentacion": "Correcto.", "fragmentos": ["F1"]},
-        {"texto": "UDP", "correcta": False, "retroalimentacion": "No confirma la entrega.", "fragmentos": ["F2"]},
-        {"texto": "IP", "correcta": False, "retroalimentacion": "", "fragmentos": []},
+        {
+            "texto": "UDP",
+            "correcta": False,
+            "retroalimentacion": "No confirma la entrega.",
+            "error_conceptual": "Cree que ser más rápido implica ser confiable.",
+            "fragmentos": ["F2"],
+        },
+        {
+            "texto": "IP",
+            "correcta": False,
+            "retroalimentacion": "IP no es un protocolo de transporte.",
+            "error_conceptual": "Confunde la capa de red con la de transporte.",
+            "fragmentos": [],
+        },
     ],
 }
 
@@ -365,8 +377,8 @@ def build_test_context(quantity: int = 1, options: int = 3) -> dict[str, Any]:
 def test_normalize_accepts_joined_tags_and_key_as_text():
     options = [
         {"texto": "TCP", "correcta": "true", "fragmentos": "F1, F2"},
-        {"texto": "UDP", "correcta": "false"},
-        {"texto": "IP", "esCorrecta": False},
+        {"texto": "UDP", "correcta": "false", "retroalimentacion": "No confirma.", "errorConceptual": "Rapidez = confianza."},
+        {"texto": "IP", "esCorrecta": False, "retroalimentacion": "Es de red.", "error": "Confunde las capas."},
     ]
     item_payload = {**MOCK_ITEM, "citas": [{"afirmacion": SUPPORTED_CLAIM, "fragmentos": "Fragmentos F2 y F1"}], "alternativas": options}
     normalized = normalize_generated_resources({"recursos": [item_payload]}, build_test_context())[0]

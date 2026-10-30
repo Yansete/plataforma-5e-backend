@@ -40,7 +40,7 @@ INVENTED = "El protocolo SCTP reemplazó a TCP en todos los navegadores modernos
 def test_support_counts_the_claim_words_found_in_the_evidence():
     assert claim_support("TCP garantiza una entrega confiable", [TCP]) == 1.0
     assert claim_support("TCP garantiza la entrega", [UDP]) == 0.0
-    # Misma raíz o mismas cinco primeras letras: «confiable» / «confiabilidad», «conexión» / «conexiones».
+    # Misma raíz o mismas seis primeras letras: «confiable» / «confiabilidad», «conexión» / «conexiones».
     assert claim_support("La confiabilidad de las conexiones TCP", [TCP]) == 1.0
     assert 0 < claim_support(INVENTED, [TCP]) < 0.6
 
