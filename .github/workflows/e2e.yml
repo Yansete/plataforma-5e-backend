@@ -1,4 +1,3 @@
-# Recorrido completo en el navegador (Playwright) con el backend real. Es el único workflow que usa los dos proyectos.
 name: End-to-end
 
 on:
@@ -6,6 +5,9 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: e2e-${{ github.ref }}
@@ -15,35 +17,55 @@ jobs:
   e2e:
     name: End-to-end
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          repository: Yansete/plataforma-5e-frontend
+          ref: main
+          path: .frontend-source
+          persist-credentials: false
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: .frontend-source/package-lock.json
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/pyproject.toml
-      - name: Install the frontend
+
+      - name: Install backend
+        run: python -m pip install -e ./backend
+
+      - name: Record frontend version
+        run: git -C .frontend-source rev-parse HEAD
+
+      - name: Install frontend
+        working-directory: .frontend-source
         run: npm ci
-      - name: Install the backend (Playwright starts it with a fresh SQLite database)
-        run: pip install -e ../backend
+
       - name: Install Chromium
+        working-directory: .frontend-source
         run: npx playwright install --with-deps chromium
+
       - name: Run Playwright
+        working-directory: .frontend-source
         run: npm run test:e2e
-      - name: Upload Playwright report
-        if: failure()
+        env:
+          BACKEND_DIR: ${{ github.workspace }}/backend
+          PYTHON: python
+
+      - name: Upload Playwright results
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-results
           path: |
-            frontend/playwright-report
-            frontend/test-results
+            .frontend-source/playwright-report/
+            .frontend-source/test-results/
+          if-no-files-found: ignore
           retention-days: 7
