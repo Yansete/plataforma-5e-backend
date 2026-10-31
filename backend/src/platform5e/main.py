@@ -16,6 +16,7 @@ from platform5e.infrastructure.http.routers.catalog import create_catalog_router
 
 from platform5e.application.services.accounts.account_service import AccountService
 from platform5e.application.services.generation.generation_service import GenerationService
+from platform5e.application.services.materials.chunk_embedding_service import ChunkEmbeddingService
 from platform5e.application.services.materials.material_service import MaterialService
 from platform5e.application.services.review.resource_review_service import ResourceReviewService
 from platform5e.application.use_cases.export.export_unit_resources import ExportUnitResourcesUseCase
@@ -47,6 +48,7 @@ from platform5e.infrastructure.http.routers.generations import create_generation
 from platform5e.infrastructure.http.routers.health import create_health_router
 from platform5e.infrastructure.http.routers.resources import create_resources_router
 from platform5e.infrastructure.llm.language_model_factory import (
+    create_embedding_generator,
     create_generators,
     create_media_generator,
     describe_generator,
@@ -117,6 +119,7 @@ def create_application() -> FastAPI:
     evidence_retriever = Bm25EvidenceRetriever()
     media_repository = SQLAlchemyMediaRepository()
     media_generator = create_media_generator()
+    embedding_generator = create_embedding_generator()
 
     # 2. Servicios y casos de uso de la capa de aplicación
     demo_catalog_enabled = read_flag("DEMO_CATALOG", False)
@@ -126,8 +129,15 @@ def create_application() -> FastAPI:
         seed_password=read_setting("BOOTSTRAP_TEACHER_PASSWORD", "Demo5E!2026" if demo_catalog_enabled else ""),
         seed_demo_catalog=demo_catalog_enabled,
     )
+    embedding_service = (
+        ChunkEmbeddingService(chunk_repository, embedding_generator) if embedding_generator is not None else None
+    )
     material_service = MaterialService(
-        account_repository, chunk_repository, DocumentTextExtractor(), open_resource_port=open_source
+        account_repository,
+        chunk_repository,
+        DocumentTextExtractor(),
+        open_resource_port=open_source,
+        embedding_service=embedding_service,
     )
     review_service = ResourceReviewService(account_repository, resource_repository)
     generation_service = GenerationService(
