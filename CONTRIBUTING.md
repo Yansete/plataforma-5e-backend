@@ -1,7 +1,7 @@
 # Cómo contribuir
 
 ## Ramas
-- `main` siempre se puede desplegar: Vercel y Render publican desde aquí.
+- `main` siempre se puede desplegar: Render publica el backend desde esta rama.
 - Una rama por tarea, en inglés y kebab-case: `feature/scorm-export`, `fix/hide-chunk-count`, `docs/api-reference`.
 - Mensajes de commit en inglés con Conventional Commits: `feat: add SCORM 1.2 exporter`.
 
@@ -13,6 +13,6 @@
 5. Cada lunes, el líder nuevo abre un PR que pone su usuario en `CODEOWNERS`; lo aprueba el líder saliente.
 
 ## Antes de pedir revisión
-- Frontend: `npm run typecheck`, `npm test` y `npm run build`.
-- Backend: `pytest`.
+- Frontend: los cambios y sus comprobaciones se realizan en [su repositorio](https://github.com/Yansete/plataforma-5e-frontend). El workflow End-to-end comprueba su compatibilidad con este backend.
+- Backend: ejecutar `python -m pytest` desde la carpeta `backend/`.
 - Nombres en inglés; el español queda para comentarios y textos de la interfaz.

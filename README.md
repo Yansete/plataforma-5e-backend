@@ -2,21 +2,20 @@
 
 Generación asistida de recursos educativos a partir del material del docente: modelo instruccional 5E, recuperación de evidencia (RAG), revisión docente obligatoria y exportación a Moodle (XML) y Chamilo (SCORM 1.2). Proyecto del curso Taller Integrador 1 (UPAO, 2026-II).
 
-**Monorepo con dos aplicaciones independientes.** `frontend/` y `backend/` se instalan, prueban y despliegan por separado, y solo se comunican por HTTP según el contrato [`docs/api/openapi.json`](docs/api/openapi.json). Ninguna importa código de la otra.
+**Repositorio del backend de Plataforma 5E.** La API se encuentra en `backend/`. El frontend se mantiene en [su propio repositorio](https://github.com/Yansete/plataforma-5e-frontend). Ambos se comunican por HTTP conforme al [contrato OpenAPI](docs/api/openapi.json).
 
 | Aplicación | Carpeta | Tecnología | Despliegue |
 | --- | --- | --- | --- |
-| Frontend (SPA) | [`frontend/`](frontend/README.md) | React 18, TypeScript, Vite | Vercel: https://plataforma-5e-taller-integrador.vercel.app |
+| Frontend (SPA) | [Repositorio independiente](https://github.com/Yansete/plataforma-5e-frontend) | React 18, TypeScript, Vite | Vercel: https://plataforma-5e-taller-integrador.vercel.app |
 | Backend (API REST) | [`backend/`](backend/README.md) | Python 3.12, FastAPI, SQLAlchemy, PostgreSQL + pgvector | Render ([`render.yaml`](render.yaml)), base de datos en Neon |
 
 ## Estructura
 
 ~~~text
 .
-├── frontend/     SPA React + TypeScript (Vercel)
 ├── backend/      API FastAPI con arquitectura hexagonal (Render)
 ├── docs/         Arquitectura, contrato de la API, decisiones, despliegue, pruebas, spikes y entregables
-├── .github/      CI por proyecto (Frontend CI, Backend CI) y recorrido End-to-end
+├── .github/      Backend CI y recorrido End-to-end con el repositorio del frontend
 └── render.yaml   Configuración del servicio del backend en Render
 ~~~
 
