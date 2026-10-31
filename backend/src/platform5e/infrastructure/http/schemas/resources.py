@@ -73,6 +73,13 @@ class RemovedClaim(ApiResponse):
     reason: str | None = Field(default=None, description="Why it was removed, in Spanish.")
 
 
+class RemovedParagraph(ApiResponse):
+    text: str
+    support: float = Field(description="Share of the paragraph words found in the retrieved chunks (0 to 1).")
+    supported: bool = False
+    reason: str | None = Field(default=None, description="Why it was removed, in Spanish.")
+
+
 class ResourceGrounding(ApiResponse):
     """HU-016: each claim is checked against the retrieved evidence; the unsupported ones are removed."""
 
@@ -83,6 +90,17 @@ class ResourceGrounding(ApiResponse):
         default=0, description="Claims that cited the wrong chunk and were moved to the one that supports them."
     )
     removed_claims: list[RemovedClaim] = []
+    paragraph_threshold: float | None = Field(
+        default=None, description="Explanation and glossary only: minimum support of each paragraph (HU-049)."
+    )
+    checked_paragraphs: int | None = Field(default=None, description="Paragraphs or glossary entries checked.")
+    supported_paragraphs: int | None = None
+    paragraph_sources: list[list[str]] = Field(
+        default=[], description="For each kept paragraph, in order, the chunks that support it."
+    )
+    removed_paragraphs: list[RemovedParagraph] = Field(
+        default=[], description="Paragraphs removed from the content because the material does not support them."
+    )
 
 
 class ResourceResponse(ApiResponse):

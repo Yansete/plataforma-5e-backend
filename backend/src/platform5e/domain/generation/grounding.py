@@ -4,8 +4,11 @@ que no tiene respaldo se rechaza con su motivo. Alimenta el indicador I21 (tasa 
 
 El respaldo de una afirmación es la proporción de sus palabras útiles (sin vacías, con su raíz) que aparecen en los
 fragmentos que cita. Dos palabras coinciden si tienen la misma raíz o comparten sus seis primeras letras
-(«confirma» y «confirmación», pero no «confirma» y «confiable»). Es una regla por palabras y explicable: no entiende sinónimos, y la búsqueda por
-significado (EN-013) podrá reforzarla.
+(«confirma» y «confirmación», pero no «confirma» y «confiable»). Es una regla por palabras y explicable: no entiende
+sinónimos, y la búsqueda por significado (EN-013) podrá reforzarla.
+
+HU-049: en la explicación y el glosario también se contrasta el contenido, párrafo por párrafo o entrada por entrada
+(`verify_statements`), y cada párrafo queda enlazado con los fragmentos que lo respaldan.
 """
 
 from __future__ import annotations
@@ -155,3 +158,145 @@ def verify_citations(
 def hallucination_rate(checked: int, unsupported: int) -> float | None:
     """I21: afirmaciones sin respaldo / afirmaciones verificadas (None si no se verificó ninguna)."""
     return round(unsupported / checked, 4) if checked else None
+
+
+# --- HU-049 C02: el texto de la explicación también se contrasta con el material ---------------------------------
+#
+# La verificación de arriba revisa las citas que el modelo declara, pero no el contenido: un párrafo de la explicación
+# podía no corresponder a ninguna cita. Para la explicación y el glosario, cada párrafo (o entrada del glosario) se
+# contrasta con los fragmentos recuperados y se enlaza con los que lo respaldan.
+
+# Tipos cuyo contenido se verifica párrafo por párrafo y cómo se separa cada uno.
+STATEMENT_CHECKED_TYPES: dict[str, str] = {"explicacion": "paragraph", "glosario": "line"}
+# Un párrafo usa palabras de enlace propias de la explicación («por eso», «es decir»…): se le exige este margen menos
+# que a una afirmación citada.
+PARAGRAPH_MARGIN: float = 0.1
+# Un párrafo con menos palabras útiles es un subtítulo o una transición: no se contrasta y se conserva.
+MIN_STATEMENT_TERMS: int = 4
+# Un párrafo puede resumir dos fragmentos: se contrasta con los dos que más lo respaldan.
+MAX_STATEMENT_SOURCES: int = 2
+
+
+def split_statements(body: str, mode: str) -> list[str]:
+    """Separa el contenido en párrafos (líneas en blanco) o en entradas (una por línea, como el glosario)."""
+    if mode == "line" or "\n\n" not in body:
+        parts = body.split("\n")
+    else:
+        parts = body.split("\n\n")
+    return [part.strip() for part in parts if part.strip()]
+
+
+@dataclass
+class StatementCheck:
+    """Resultado de contrastar un párrafo del contenido con los fragmentos recuperados."""
+
+    text: str
+    fragment_ids: list[str]
+    support: float
+    supported: bool
+    checked: bool = True
+    reason: str | None = None
+
+    def as_dict(self) -> dict[str, Any]:
+        data: dict[str, Any] = {"text": self.text, "support": round(self.support, 2), "supported": self.supported}
+        if self.reason:
+            data["reason"] = self.reason
+        return data
+
+
+def check_statement(statement: str, fragments_by_id: dict[str, str], threshold: float) -> StatementCheck:
+    """Busca los fragmentos recuperados que mejor respaldan el párrafo y mide su respaldo conjunto."""
+    terms = set(extract_terms(statement))
+    if len(terms) < MIN_STATEMENT_TERMS:
+        return StatementCheck(statement, [], 1.0, True, checked=False)
+
+    ranked = sorted(
+        ((terms_support(terms, [text]), fragment_id) for fragment_id, text in fragments_by_id.items()),
+        key=lambda pair: -pair[0],
+    )
+    sources: list[str] = []
+    support = 0.0
+    # Se agrega el siguiente fragmento solo si aporta palabras que el anterior no tenía.
+    for _, fragment_id in ranked[:MAX_STATEMENT_SOURCES]:
+        candidate = terms_support(terms, [fragments_by_id[f_id] for f_id in [*sources, fragment_id]])
+        if candidate > support:
+            sources.append(fragment_id)
+            support = candidate
+    if support >= threshold:
+        return StatementCheck(statement, sources, support, True)
+    return StatementCheck(
+        statement,
+        sources,
+        support,
+        False,
+        reason=(
+            f"Solo el {round(support * 100)} % de sus palabras aparece en el material "
+            f"(mínimo {round(threshold * 100)} %)."
+        ),
+    )
+
+
+@dataclass
+class StatementsResult:
+    """Verificación del contenido de un recurso, párrafo por párrafo."""
+
+    checks: list[StatementCheck] = field(default_factory=list)
+    threshold: float = DEFAULT_THRESHOLD - PARAGRAPH_MARGIN
+    separator: str = "\n\n"
+
+    @property
+    def checked(self) -> list[StatementCheck]:
+        return [check for check in self.checks if check.checked]
+
+    @property
+    def unsupported(self) -> list[StatementCheck]:
+        return [check for check in self.checks if not check.supported]
+
+    @property
+    def accepted(self) -> bool:
+        """Se conserva si no hay párrafos que contrastar o si al menos la mitad tiene respaldo."""
+        checked = self.checked
+        if not checked:
+            return True
+        supported = sum(1 for check in checked if check.supported)
+        return supported / len(checked) >= MIN_SUPPORTED_SHARE
+
+    def kept_body(self) -> str:
+        """El contenido sin los párrafos que no tienen respaldo."""
+        return self.separator.join(check.text for check in self.checks if check.supported)
+
+    def rejection_reason(self, title: str) -> str:
+        first = self.unsupported[0].text if self.unsupported else ""
+        return (
+            f"«{title}»: {len(self.unsupported)} de {len(self.checked)} párrafos sin respaldo en el material "
+            f"(p. ej. «{_short(first)}»)."
+        )
+
+    def summary(self) -> dict[str, Any]:
+        """Lo que se guarda en el recurso: cuántos párrafos se contrastaron y de qué fragmentos sale cada uno."""
+        return {
+            "paragraphThreshold": round(self.threshold, 2),
+            "checkedParagraphs": len(self.checked),
+            "supportedParagraphs": sum(1 for check in self.checked if check.supported),
+            "paragraphSources": [check.fragment_ids for check in self.checks if check.supported],
+            "removedParagraphs": [check.as_dict() for check in self.unsupported],
+        }
+
+
+def verify_statements(
+    body: str,
+    resource_type: str,
+    fragments_by_id: dict[str, str],
+    threshold: float = DEFAULT_THRESHOLD,
+) -> StatementsResult | None:
+    """Contrasta cada párrafo del contenido con la evidencia. None si el tipo de recurso no se verifica así."""
+    mode = STATEMENT_CHECKED_TYPES.get(resource_type)
+    if mode is None:
+        return None
+    paragraph_threshold = max(threshold - PARAGRAPH_MARGIN, 0.0)
+    statements = split_statements(body, mode)
+    return StatementsResult(
+        checks=[check_statement(statement, fragments_by_id, paragraph_threshold) for statement in statements],
+        threshold=paragraph_threshold,
+        separator="\n" if mode == "line" or "\n\n" not in body else "\n\n",
+    )

@@ -3188,6 +3188,12 @@
             "title": "Hallucinationrate",
             "description": "I21: unsupported / checked claims (null when nothing was checked)."
           },
+          "unsupportedParagraphs": {
+            "type": "integer",
+            "title": "Unsupportedparagraphs",
+            "description": "Explanation paragraphs and glossary entries removed for lack of support (HU-049).",
+            "default": 0
+          },
           "rejectedResources": {
             "items": {
               "$ref": "#/components/schemas/RejectedResource"
@@ -3534,6 +3540,43 @@
         ],
         "title": "RemovedClaim"
       },
+      "RemovedParagraph": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "support": {
+            "type": "number",
+            "title": "Support",
+            "description": "Share of the paragraph words found in the retrieved chunks (0 to 1)."
+          },
+          "supported": {
+            "type": "boolean",
+            "title": "Supported",
+            "default": false
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason",
+            "description": "Why it was removed, in Spanish."
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "text",
+          "support"
+        ],
+        "title": "RemovedParagraph"
+      },
       "ResourceGrounding": {
         "properties": {
           "threshold": {
@@ -3561,6 +3604,62 @@
             },
             "type": "array",
             "title": "Removedclaims",
+            "default": []
+          },
+          "paragraphThreshold": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paragraphthreshold",
+            "description": "Explanation and glossary only: minimum support of each paragraph (HU-049)."
+          },
+          "checkedParagraphs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkedparagraphs",
+            "description": "Paragraphs or glossary entries checked."
+          },
+          "supportedParagraphs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supportedparagraphs"
+          },
+          "paragraphSources": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Paragraphsources",
+            "description": "For each kept paragraph, in order, the chunks that support it.",
+            "default": []
+          },
+          "removedParagraphs": {
+            "items": {
+              "$ref": "#/components/schemas/RemovedParagraph"
+            },
+            "type": "array",
+            "title": "Removedparagraphs",
+            "description": "Paragraphs removed from the content because the material does not support them.",
             "default": []
           }
         },

@@ -189,6 +189,14 @@ conceptual que no se usan, el generador por reglas, el descarte con motivo `tamb
 informe `distractorReliability` (I5) y el ítem rechazado por quedarse con menos de dos distractores fiables.
 `tests/e2e/test_material_ingestion_api.py` comprueba por HTTP la justificación y el error conceptual de cada distractor.
 
+## Agente de Explicar, HU-049 (30/10/2026)
+
+`tests/unit/test_explain_agent.py` cubre cómo se separa la explicación en párrafos y el glosario en entradas, el
+fragmento con el que se enlaza cada párrafo (uno o dos), el párrafo sin respaldo marcado con su motivo, los subtítulos
+que no se contrastan, el umbral de párrafo (10 puntos menos que el de las citas), el contenido que queda sin los
+párrafos quitados, el rechazo con motivo cuando menos de la mitad tiene respaldo, el glosario entrada por entrada, el
+prompt, y el informe del servicio (`unsupportedParagraphs`, aviso al docente y error `INSUFFICIENT_EVIDENCE`).
+
 ## Verificación de anclaje, HU-016 (30/10/2026)
 
 `tests/unit/test_grounding.py` cubre el respaldo de una afirmación (palabras del fragmento, raíz y prefijo), la cita
