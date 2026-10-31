@@ -36,7 +36,15 @@ def create_exports_router(use_case: ExportUnitResourcesUseCase, account_service:
         - `scorm_zip`: SCORM 1.2 package for Chamilo, one page per resource in 5E order; questions are graded.
         - `moodle_xml`: Moodle question bank with the multiple-choice items.
         - `documento`: printable HTML document of the approved unit resources, with evidence.
-        """
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -X POST "$BASE_URL/api/v1/units/${UNIT_ID}/exports" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data '{"format":"scorm_zip","resourceIds":[]}' -D respuesta-headers.txt --output unidad-scorm.zip
+        ```
+
+        Expected 200 when the unit has approved resources. An empty resourceIds selects every approved resource compatible with scorm_zip."""
         exported = use_case.execute(teacher_id, unit_id, body.format, body.resource_ids)
         return Response(
             exported.content,

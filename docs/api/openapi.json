@@ -12,7 +12,7 @@
           "catalog"
         ],
         "summary": "List supported resource types in teaching order",
-        "description": "Public metadata only: no teacher data, session or external AI calls.",
+        "description": "Public metadata only: no teacher data, session or external AI calls.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X GET \"$BASE_URL/api/v1/resource-types\"\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "list_resource_types_api_v1_resource_types_get",
         "responses": {
           "200": {
@@ -38,7 +38,7 @@
           "accounts"
         ],
         "summary": "Register a teacher account",
-        "description": "Creates the account (PBKDF2 password hash) and opens a session right away. 409 if the e-mail is taken.",
+        "description": "Creates the account (PBKDF2 password hash) and opens a session right away. 409 if the e-mail is taken.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X POST \"$BASE_URL/api/v1/accounts\" -H 'Content-Type: application/json' --data '{\"name\":\"Ana Pérez\",\"email\":\"ana@example.com\",\"password\":\"clave-segura-1\"}'\n```\n\nExpected 201. Use a new e-mail; save the returned token for private calls.",
         "operationId": "register_account_api_v1_accounts_post",
         "requestBody": {
           "content": {
@@ -100,7 +100,7 @@
           "sessions"
         ],
         "summary": "Sign in",
-        "description": "Checks e-mail and password and returns a bearer token valid for 8 hours.",
+        "description": "Checks e-mail and password and returns a bearer token valid for 8 hours.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X POST \"$BASE_URL/api/v1/sessions\" -H 'Content-Type: application/json' --data '{\"email\":\"ana@example.com\",\"password\":\"clave-segura-1\"}'\n```\n\nExpected 200 with a token when the registered e-mail and password match.",
         "operationId": "login_api_v1_sessions_post",
         "requestBody": {
           "content": {
@@ -152,7 +152,7 @@
           "sessions"
         ],
         "summary": "Get the signed-in teacher",
-        "description": "Returns the e-mail and name of the teacher who owns the token.",
+        "description": "Returns the e-mail and name of the teacher who owns the token.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X GET \"$BASE_URL/api/v1/sessions/current\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "get_current_session_api_v1_sessions_current_get",
         "responses": {
           "200": {
@@ -187,7 +187,7 @@
           "sessions"
         ],
         "summary": "Sign out",
-        "description": "Revokes the token: later requests with it get 401.",
+        "description": "Revokes the token: later requests with it get 401.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X DELETE \"$BASE_URL/api/v1/sessions/current\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nExpected 204 with an empty body; the token is revoked.",
         "operationId": "logout_api_v1_sessions_current_delete",
         "responses": {
           "204": {
@@ -217,7 +217,7 @@
           "courses"
         ],
         "summary": "List my courses",
-        "description": "Courses of the signed-in teacher with their units and learning outcomes.",
+        "description": "Courses of the signed-in teacher with their units and learning outcomes.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X GET \"$BASE_URL/api/v1/courses\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "list_courses_api_v1_courses_get",
         "responses": {
           "200": {
@@ -256,7 +256,7 @@
           "courses"
         ],
         "summary": "Create a course",
-        "description": "Creates the course with at least one unit. The code is stored in uppercase and must be unique (409).",
+        "description": "Creates the course with at least one unit. The code is stored in uppercase and must be unique (409).\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X POST \"$BASE_URL/api/v1/courses\" -H \"Authorization: Bearer $TOKEN\" -H 'Content-Type: application/json' --data '{\"code\":\"RED-301\",\"name\":\"Redes de computadoras\",\"term\":\"2026-II\",\"units\":[{\"title\":\"Capa de transporte\",\"outcomes\":[{\"code\":\"RA1\",\"text\":\"Distingue los protocolos TCP y UDP.\"}]}]}'\n```\n\nExpected 201. Use a different code if RED-301 already exists for this teacher.",
         "operationId": "create_course_api_v1_courses_post",
         "requestBody": {
           "content": {
@@ -333,7 +333,7 @@
           "courses"
         ],
         "summary": "Update a course",
-        "description": "Replaces the course data. Existing units must be sent back with their id; new units have none.",
+        "description": "Replaces the course data. Existing units must be sent back with their id; new units have none.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X PUT \"$BASE_URL/api/v1/courses/${COURSE_ID}\" -H \"Authorization: Bearer $TOKEN\" -H 'Content-Type: application/json' --data '{\"code\":\"RED-301\",\"name\":\"Redes de computadoras\",\"term\":\"2026-II\",\"units\":[{\"title\":\"Capa de transporte\",\"outcomes\":[{\"code\":\"RA1\",\"text\":\"Distingue los protocolos TCP y UDP.\"}],\"id\":\"unidad-1\"}]}'\n```\n\nReplace unidad-1 with an existing unit id. Copy existing unit and outcome ids from GET /courses before editing to preserve them. Expected 200.",
         "operationId": "update_course_api_v1_courses__course_id__put",
         "security": [
           {
@@ -429,7 +429,7 @@
           "courses"
         ],
         "summary": "Delete a course",
-        "description": "Deletes the course with its documents, chunks, resources and download history.",
+        "description": "Deletes the course with its documents, chunks, resources and download history.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X DELETE \"$BASE_URL/api/v1/courses/${COURSE_ID}\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nDeletes the course and its associated data. Expected 204 with an empty body.",
         "operationId": "delete_course_api_v1_courses__course_id__delete",
         "security": [
           {
@@ -490,7 +490,7 @@
           "documents"
         ],
         "summary": "List my documents",
-        "description": "Documents of every unit of the teacher, with their processing status.",
+        "description": "Documents of every unit of the teacher, with their processing status.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X GET \"$BASE_URL/api/v1/documents\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "list_documents_api_v1_documents_get",
         "responses": {
           "200": {
@@ -529,7 +529,7 @@
           "documents"
         ],
         "summary": "Upload a document",
-        "description": "Saves the file in the database with status `registrado`. Call POST /documents/{id}/process next.",
+        "description": "Saves the file in the database with status `registrado`. Call POST /documents/{id}/process next.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X POST \"$BASE_URL/api/v1/documents\" -H \"Authorization: Bearer $TOKEN\" -F \"file=@material.txt\" -F 'context={\"unitId\":\"unidad-1\",\"outcomeIds\":[],\"documentType\":\"Separata o apuntes de clase\",\"usePermission\":true}'\n```\n\nReplace material.txt with your own file. The context unitId must belong to your account. Expected 201; process the returned document id next.",
         "operationId": "upload_document_api_v1_documents_post",
         "requestBody": {
           "content": {
@@ -626,7 +626,7 @@
           "documents"
         ],
         "summary": "Add material from an open source",
-        "description": "Searches the topic in Spanish Wikipedia (CC BY-SA 4.0) and saves each article as processed material.\n\nArticles already in the unit are skipped. 503 when the topic search is disabled or the source does not answer.",
+        "description": "Searches the topic in Spanish Wikipedia (CC BY-SA 4.0) and saves each article as processed material.\n\nArticles already in the unit are skipped. 503 when the topic search is disabled or the source does not answer.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X POST \"$BASE_URL/api/v1/documents/from-topic\" -H \"Authorization: Bearer $TOKEN\" -H 'Content-Type: application/json' --data '{\"unitId\":\"unidad-1\",\"topic\":\"Protocolo de control de transmisión\",\"maxResults\":1}'\n```\n\nReplace unidad-1 with your unit id. Expected 201 when topic search is enabled; a disabled or unavailable source returns 503.",
         "operationId": "create_documents_from_topic_api_v1_documents_from_topic_post",
         "requestBody": {
           "content": {
@@ -717,7 +717,7 @@
           "documents"
         ],
         "summary": "Download the original file",
-        "description": "Returns the file as it was uploaded, with its name in Content-Disposition.",
+        "description": "Returns the file as it was uploaded, with its name in Content-Disposition.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -X GET \"$BASE_URL/api/v1/documents/${DOCUMENT_ID}/file\" -H \"Authorization: Bearer $TOKEN\" -D respuesta-headers.txt --output material.txt\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "download_document_api_v1_documents__document_id__file_get",
         "security": [
           {
@@ -783,7 +783,7 @@
           "documents"
         ],
         "summary": "Delete a document",
-        "description": "Deletes the file and its chunks. Generated resources keep their own copy of the evidence.",
+        "description": "Deletes the file and its chunks. Generated resources keep their own copy of the evidence.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X DELETE \"$BASE_URL/api/v1/documents/${DOCUMENT_ID}\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nDeletes the document and its chunks. Expected 204 with an empty body.",
         "operationId": "delete_document_api_v1_documents__document_id__delete",
         "security": [
           {
@@ -844,7 +844,7 @@
           "documents"
         ],
         "summary": "Extract the text and split it into chunks",
-        "description": "Extracts the text (PDF, PPTX or TXT) and splits it into chunks of about 220 words with their location.\n\nA file without text ends with status `error` and an explanation in `errorMessage`; it does not fail the request.",
+        "description": "Extracts the text (PDF, PPTX or TXT) and splits it into chunks of about 220 words with their location.\n\nA file without text ends with status `error` and an explanation in `errorMessage`; it does not fail the request.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X POST \"$BASE_URL/api/v1/documents/${DOCUMENT_ID}/process\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "process_document_api_v1_documents__document_id__process_post",
         "security": [
           {
@@ -912,7 +912,7 @@
           "documents"
         ],
         "summary": "List the chunks of a document",
-        "description": "Chunks in document order. They are the evidence that generated resources cite.",
+        "description": "Chunks in document order. They are the evidence that generated resources cite.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X GET \"$BASE_URL/api/v1/documents/${DOCUMENT_ID}/chunks\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "list_document_chunks_api_v1_documents__document_id__chunks_get",
         "security": [
           {
@@ -984,7 +984,7 @@
           "generations"
         ],
         "summary": "List my generation requests",
-        "description": "History of the teacher's requests, newest first.",
+        "description": "History of the teacher's requests, newest first.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X GET \"$BASE_URL/api/v1/generations\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "list_generation_requests_api_v1_generations_get",
         "responses": {
           "200": {
@@ -1023,7 +1023,7 @@
           "generations"
         ],
         "summary": "Generate resources from the unit material",
-        "description": "Retrieves the most relevant chunks of the unit (BM25) and drafts the resources with the active generator.\n\nOnly resources whose claims cite valid chunks are kept; they are saved as `pendiente` for the teacher's review.\nIf the AI fails, the rule-based generator answers and `generator.fallback` is true. Without material the\nrequest is rejected (400 NO_PROCESSED_MATERIAL) instead of inventing content.\n\nWith `resourceTypes`, the request becomes a class sequence (HU-003): each type goes to the agent of its 5E\nstage, in the order of the class; all agents share the same evidence and see what the previous ones wrote.\nA resource too similar to another one of the sequence is asked again once and, if it still repeats, rejected.\nEach resource records its `agent`, and `sequence` reports what every agent generated or rejected.",
+        "description": "Retrieves the most relevant chunks of the unit (BM25) and drafts the resources with the active generator.\n\nOnly resources whose claims cite valid chunks are kept; they are saved as `pendiente` for the teacher's review.\nIf the AI fails, the rule-based generator answers and `generator.fallback` is true. Without material the\nrequest is rejected (400 NO_PROCESSED_MATERIAL) instead of inventing content.\n\nWith `resourceTypes`, the request becomes a class sequence (HU-003): each type goes to the agent of its 5E\nstage, in the order of the class; all agents share the same evidence and see what the previous ones wrote.\nA resource too similar to another one of the sequence is asked again once and, if it still repeats, rejected.\nEach resource records its `agent`, and `sequence` reports what every agent generated or rejected.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X POST \"$BASE_URL/api/v1/generations\" -H \"Authorization: Bearer $TOKEN\" -H 'Content-Type: application/json' --data '{\"unitId\":\"unidad-1\",\"stage\":\"explain\",\"resourceType\":\"glosario\",\"quantity\":1,\"difficulty\":\"intermedia\"}'\n```\n\nReplace unidad-1 with a unit containing processed material. Expected 200; returned resources await review.",
         "operationId": "generate_resources_api_v1_generations_post",
         "requestBody": {
           "content": {
@@ -1110,7 +1110,7 @@
           "generations"
         ],
         "summary": "Get a generation",
-        "description": "Returns a saved generation exactly as it was answered. Generations of other teachers give 404.",
+        "description": "Returns a saved generation exactly as it was answered. Generations of other teachers give 404.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X GET \"$BASE_URL/api/v1/generations/${GENERATION_ID}\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "get_generation_api_v1_generations__generation_id__get",
         "security": [
           {
@@ -1178,7 +1178,7 @@
           "system"
         ],
         "summary": "Get the active generator",
-        "description": "Says whether resources are drafted by a language model (and which one) or by the rule-based generator.",
+        "description": "Says whether resources are drafted by a language model (and which one) or by the rule-based generator.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X GET \"$BASE_URL/api/v1/generator\"\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "get_generator_api_v1_generator_get",
         "responses": {
           "200": {
@@ -1200,7 +1200,7 @@
           "resources"
         ],
         "summary": "Count approved and pending resources per unit",
-        "description": "One row per unit of the teacher's courses.",
+        "description": "One row per unit of the teacher's courses.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X GET \"$BASE_URL/api/v1/review-summary\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "get_review_summary_api_v1_review_summary_get",
         "responses": {
           "200": {
@@ -1241,7 +1241,7 @@
           "resources"
         ],
         "summary": "List the resources of a unit",
-        "description": "Generated resources of the unit with their review, newest first.",
+        "description": "Generated resources of the unit with their review, newest first.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X GET \"$BASE_URL/api/v1/units/${UNIT_ID}/resources\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "list_unit_resources_api_v1_units__unit_id__resources_get",
         "security": [
           {
@@ -1313,7 +1313,7 @@
           "resources"
         ],
         "summary": "Save the review of a resource",
-        "description": "Saves edits and decisions. `aprobado` needs a key, no pending distractors and at least two accepted\n(409 APPROVAL_BLOCKED otherwise): the same rule the review screen shows.",
+        "description": "Saves edits and decisions. `aprobado` needs a key, no pending distractors and at least two accepted\n(409 APPROVAL_BLOCKED otherwise): the same rule the review screen shows.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X PUT \"$BASE_URL/api/v1/units/${UNIT_ID}/resources/${RESOURCE_ID}\" -H \"Authorization: Bearer $TOKEN\" -H 'Content-Type: application/json' --data '{\"title\":\"Glosario de transporte\",\"body\":\"TCP confirma la recepción de datos.\",\"status\":\"pendiente\",\"edited\":true}'\n```\n\nUse a resource in your unit; copy its actual title and content before saving. This example saves an edit as pendiente, not an approval. Expected 200.",
         "operationId": "update_resource_api_v1_units__unit_id__resources__resource_id__put",
         "security": [
           {
@@ -1418,7 +1418,7 @@
           "resources"
         ],
         "summary": "Delete a resource",
-        "description": "Deletes the resource from the unit.",
+        "description": "Deletes the resource from the unit.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X DELETE \"$BASE_URL/api/v1/units/${UNIT_ID}/resources/${RESOURCE_ID}\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nDeletes the selected resource. Expected 204 with an empty body.",
         "operationId": "delete_resource_api_v1_units__unit_id__resources__resource_id__delete",
         "security": [
           {
@@ -1488,7 +1488,7 @@
           "resources"
         ],
         "summary": "Get the image, graphic or audio of a resource",
-        "description": "Concept maps, infographics and process diagrams are drawn as SVG from their items. Illustrations and\naudio return the generated file; without one, an illustration returns a card with its description and an\naudio resource answers 404 NO_MEDIA (the review reads the script with the browser's voice).",
+        "description": "Concept maps, infographics and process diagrams are drawn as SVG from their items. Illustrations and\naudio return the generated file; without one, an illustration returns a card with its description and an\naudio resource answers 404 NO_MEDIA (the review reads the script with the browser's voice).\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -X GET \"$BASE_URL/api/v1/units/${UNIT_ID}/resources/${RESOURCE_ID}/media\" -H \"Authorization: Bearer $TOKEN\" -D respuesta-headers.txt --output recurso.bin\n```\n\nExpected 200 when media is available; its actual MIME type determines the file extension. An audio fallback without a file returns 404.",
         "operationId": "get_resource_media_api_v1_units__unit_id__resources__resource_id__media_get",
         "security": [
           {
@@ -1563,7 +1563,7 @@
           "resources"
         ],
         "summary": "Generate the image or audio of a resource again",
-        "description": "Generates the illustration or the audio again from the current description or script, for example after\nthe teacher edited it. Only for resources under review (409 RESOURCE_NOT_PENDING) and when image and voice\ngeneration is active on the server (409 MEDIA_GENERATION_DISABLED). If the service fails, the resource keeps\nits fallback: the description card or the browser's voice.",
+        "description": "Generates the illustration or the audio again from the current description or script, for example after\nthe teacher edited it. Only for resources under review (409 RESOURCE_NOT_PENDING) and when image and voice\ngeneration is active on the server (409 MEDIA_GENERATION_DISABLED). If the service fails, the resource keeps\nits fallback: the description card or the browser's voice.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X POST \"$BASE_URL/api/v1/units/${UNIT_ID}/resources/${RESOURCE_ID}/media\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nExpected 200 for a pending resource when media generation is enabled; otherwise the documented 409 applies.",
         "operationId": "regenerate_resource_media_api_v1_units__unit_id__resources__resource_id__media_post",
         "security": [
           {
@@ -1650,7 +1650,7 @@
           "downloads"
         ],
         "summary": "List the downloads of a unit",
-        "description": "The last 50 downloads, newest first.",
+        "description": "The last 50 downloads, newest first.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X GET \"$BASE_URL/api/v1/units/${UNIT_ID}/downloads\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "list_downloads_api_v1_units__unit_id__downloads_get",
         "security": [
           {
@@ -1720,7 +1720,7 @@
           "downloads"
         ],
         "summary": "Record a download",
-        "description": "Records a file built in the browser (the unit document). Exports built by the backend record themselves.",
+        "description": "Records a file built in the browser (the unit document). Exports built by the backend record themselves.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X POST \"$BASE_URL/api/v1/units/${UNIT_ID}/downloads\" -H \"Authorization: Bearer $TOKEN\" -H 'Content-Type: application/json' --data '{\"format\":\"documento\",\"fileName\":\"red-301-unidad-1-documento.html\",\"resourceCount\":1}'\n```\n\nReplace unidad-1 through UNIT_ID. This registers browser-built document metadata; it does not generate a package. Expected 201.",
         "operationId": "register_download_api_v1_units__unit_id__downloads_post",
         "security": [
           {
@@ -1796,7 +1796,7 @@
           "downloads"
         ],
         "summary": "Clear the download history",
-        "description": "Deletes the history of the unit. The files already downloaded are not affected.",
+        "description": "Deletes the history of the unit. The files already downloaded are not affected.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X DELETE \"$BASE_URL/api/v1/units/${UNIT_ID}/downloads\" -H \"Authorization: Bearer $TOKEN\"\n```\n\nDeletes the download history of the unit. Expected 204 with an empty body.",
         "operationId": "clear_downloads_api_v1_units__unit_id__downloads_delete",
         "security": [
           {
@@ -1857,7 +1857,7 @@
           "downloads"
         ],
         "summary": "Re-download an exported package",
-        "description": "Re-downloads an exported package recorded in the unit's download history (HU-010 C02).",
+        "description": "Re-downloads an exported package recorded in the unit's download history (HU-010 C02).\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -X GET \"$BASE_URL/api/v1/units/${UNIT_ID}/downloads/${DOWNLOAD_ID}\" -H \"Authorization: Bearer $TOKEN\" -D respuesta-headers.txt --output paquete.zip\n```\n\nExpected 200 for an existing history entry and resources compatible with its format. The returned MIME type determines the file extension.",
         "operationId": "redownload_package_api_v1_units__unit_id__downloads__download_id__get",
         "security": [
           {
@@ -1932,7 +1932,7 @@
           "exports"
         ],
         "summary": "Export the approved resources of a unit",
-        "description": "Builds the file in the backend from the approved resources (fixed templates, never written by the AI),\nrecords the download in the unit history and returns the file.\n\n- `scorm_zip`: SCORM 1.2 package for Chamilo, one page per resource in 5E order; questions are graded.\n- `moodle_xml`: Moodle question bank with the multiple-choice items.\n- `documento`: printable HTML document of the approved unit resources, with evidence.",
+        "description": "Builds the file in the backend from the approved resources (fixed templates, never written by the AI),\nrecords the download in the unit history and returns the file.\n\n- `scorm_zip`: SCORM 1.2 package for Chamilo, one page per resource in 5E order; questions are graded.\n- `moodle_xml`: Moodle question bank with the multiple-choice items.\n- `documento`: printable HTML document of the approved unit resources, with evidence.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -X POST \"$BASE_URL/api/v1/units/${UNIT_ID}/exports\" -H \"Authorization: Bearer $TOKEN\" -H 'Content-Type: application/json' --data '{\"format\":\"scorm_zip\",\"resourceIds\":[]}' -D respuesta-headers.txt --output unidad-scorm.zip\n```\n\nExpected 200 when the unit has approved resources. An empty resourceIds selects every approved resource compatible with scorm_zip.",
         "operationId": "export_unit_api_v1_units__unit_id__exports_post",
         "security": [
           {
@@ -2008,7 +2008,7 @@
           "system"
         ],
         "summary": "Check that the API is up",
-        "description": "Answers without touching the database, so Render can wake the service up quickly.",
+        "description": "Answers without touching the database, so Render can wake the service up quickly.\n\nExample (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.\nUse your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.\n\n```bash\ncurl --fail-with-body -i -X GET \"$BASE_URL/health\"\n```\n\nExpected 200. See the response schema below for the returned fields.",
         "operationId": "check_health_health_get",
         "responses": {
           "200": {

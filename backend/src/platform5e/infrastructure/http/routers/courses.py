@@ -25,7 +25,16 @@ def create_courses_router(account_service: AccountService) -> APIRouter:
 
     @router.get("", response_model=list[CourseResponse], summary="List my courses", responses=error_responses(401))
     def list_courses(teacher_id: str = Depends(current_teacher)) -> list[dict[str, Any]]:
-        """Courses of the signed-in teacher with their units and learning outcomes."""
+        """Courses of the signed-in teacher with their units and learning outcomes.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X GET "$BASE_URL/api/v1/courses" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Expected 200. See the response schema below for the returned fields."""
         return account_service.list_courses(teacher_id)
 
     @router.post(
@@ -36,7 +45,16 @@ def create_courses_router(account_service: AccountService) -> APIRouter:
         responses=error_responses(400, 401, 409, 422),
     )
     def create_course(body: CourseInput, teacher_id: str = Depends(current_teacher)) -> dict[str, Any]:
-        """Creates the course with at least one unit. The code is stored in uppercase and must be unique (409)."""
+        """Creates the course with at least one unit. The code is stored in uppercase and must be unique (409).
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X POST "$BASE_URL/api/v1/courses" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data '{"code":"RED-301","name":"Redes de computadoras","term":"2026-II","units":[{"title":"Capa de transporte","outcomes":[{"code":"RA1","text":"Distingue los protocolos TCP y UDP."}]}]}'
+        ```
+
+        Expected 201. Use a different code if RED-301 already exists for this teacher."""
         return account_service.save_course(teacher_id, _to_service(body))
 
     @router.put(
@@ -46,7 +64,16 @@ def create_courses_router(account_service: AccountService) -> APIRouter:
         responses=error_responses(400, 401, 404, 409, 422),
     )
     def update_course(course_id: str, body: CourseInput, teacher_id: str = Depends(current_teacher)) -> dict[str, Any]:
-        """Replaces the course data. Existing units must be sent back with their id; new units have none."""
+        """Replaces the course data. Existing units must be sent back with their id; new units have none.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X PUT "$BASE_URL/api/v1/courses/${COURSE_ID}" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data '{"code":"RED-301","name":"Redes de computadoras","term":"2026-II","units":[{"title":"Capa de transporte","outcomes":[{"code":"RA1","text":"Distingue los protocolos TCP y UDP."}],"id":"unidad-1"}]}'
+        ```
+
+        Replace unidad-1 with an existing unit id. Copy existing unit and outcome ids from GET /courses before editing to preserve them. Expected 200."""
         return account_service.save_course(teacher_id, _to_service(body), course_id)
 
     @router.delete(
@@ -56,7 +83,16 @@ def create_courses_router(account_service: AccountService) -> APIRouter:
         responses=error_responses(401, 404),
     )
     def delete_course(course_id: str, teacher_id: str = Depends(current_teacher)) -> Response:
-        """Deletes the course with its documents, chunks, resources and download history."""
+        """Deletes the course with its documents, chunks, resources and download history.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X DELETE "$BASE_URL/api/v1/courses/${COURSE_ID}" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Deletes the course and its associated data. Expected 204 with an empty body."""
         account_service.delete_course(teacher_id, course_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 

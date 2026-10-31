@@ -14,7 +14,16 @@ def create_catalog_router(use_case: ListResourceTypesUseCase) -> APIRouter:
         summary="List supported resource types in teaching order",
     )
     def list_resource_types():
-        """Public metadata only: no teacher data, session or external AI calls."""
+        """Public metadata only: no teacher data, session or external AI calls.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X GET "$BASE_URL/api/v1/resource-types"
+        ```
+
+        Expected 200. See the response schema below for the returned fields."""
         return use_case.execute()
 
     return router
