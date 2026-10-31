@@ -8,7 +8,7 @@ import os
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
-
+from platform5e.infrastructure.persistence.migration_runner import apply_database_migrations
 
 def normalize_database_url(url: str) -> str:
     """Acepta las URL de Neon, Render o dbmate (postgres:// o postgresql://) y usa psycopg 3."""
@@ -32,6 +32,7 @@ else:
         pool_recycle=300,
         connect_args={"prepare_threshold": None},
     )
+    apply_database_migrations(engine)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

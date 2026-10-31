@@ -41,4 +41,4 @@ docker compose run --rm \
   dbmate --no-dump-schema up
 
 echo "== Ejecutando la verificación =="
-psql_db -d "$BD_TEMPORAL" -f /verification/verify_vector_store.sql
+psql_db -d "$BD_TEMPORAL" < "./database/verification/verify_vector_store.sql"

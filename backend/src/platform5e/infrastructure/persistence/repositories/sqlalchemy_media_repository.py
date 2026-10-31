@@ -30,7 +30,8 @@ class SQLAlchemyMediaRepository(MediaRepositoryPort):
 
     @translate_persistence_errors
     def __init__(self) -> None:
-        MediaAssetORM.__table__.create(engine, checkfirst=True)
+        if engine.dialect.name == "sqlite":
+            MediaAssetORM.__table__.create(engine, checkfirst=True)
 
     @translate_persistence_errors
     def save_media(self, teacher_id: str, media: Mapping[str, Any], content: bytes) -> None:

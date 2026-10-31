@@ -146,8 +146,9 @@ class SQLAlchemyAccountRepository(TeacherRepositoryPort):
     @translate_persistence_errors
     def __init__(self, generation_repository: GenerationRepositoryPort) -> None:
         self._generation_repository = generation_repository
-        for table in (*TABLES_TO_REGISTER, TeacherGenerationORM):
-            table.__table__.create(engine, checkfirst=True)
+        if engine.dialect.name == "sqlite":
+            for table in (*TABLES_TO_REGISTER, TeacherGenerationORM):
+                table.__table__.create(engine, checkfirst=True)
 
     @translate_persistence_errors
     def get_user_by_email(self, email: str) -> dict[str, Any] | None:

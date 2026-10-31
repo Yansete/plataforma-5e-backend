@@ -343,6 +343,7 @@ ahora el campo `reliabilityWarning` existía, pero la generación real siempre l
   regla. La coincidencia de palabras pasó de cinco a seis letras al probar esta historia: con cinco, «confirma» y
   «confiable» contaban como la misma palabra.
 
+
 ## ADR-016 El agente de Explicar contrasta su contenido párrafo por párrafo (30/10/2026)
 
 HU-049 pide que el agente de Explicar redacte la explicación (C01) y que sus afirmaciones citen su fragmento (C02). La
@@ -368,3 +369,15 @@ corresponder a ninguna. El recurso multimedia del C01 pasa al Sprint 2, con lo m
 - **Límites.** Los del ADR-014: no reconoce sinónimos ni paráfrasis lejanas. Con Gemini hay que revisar en la plataforma
   publicada cuántos párrafos se quitan; con el generador por reglas no se quita ninguno, porque cada párrafo es una
   oración del material.
+  
+## ADR-017 Unificación del esquema de base de datos y migraciones (30/10/2026)
+
+EN-024 pide unificar el esquema de base de datos y garantizar que el backend arranque tanto en desarrollo local como en Render, Neon y los runners de CI sin depender de pasos manuales. Hasta ahora las tablas se creaban parcialmente con `table.create()` en los repositorios, las migraciones con dbmate solo se ejecutaban de forma manual en local y, al desplegar en Render o correr la suite E2E en CI, el servidor terminaba fallando porque faltaban tablas o porque el contenedor de PostgreSQL no contaba con los binarios de `pgvector`.
+
+- **Migraciones en el arranque.** Vive en `src/platform5e/infrastructure/persistence/migration_runner.py` y se llama desde `database.py` al inicializar el `engine` de PostgreSQL. Aplica los `.sql` pendientes registrando la versión en `schema_migrations`. Busca la carpeta tanto relativa al archivo como en `Path.cwd() / "database/migrations"` porque Render instala con `pip install .` (dejando el código en `site-packages`) y arranca desde `backend/`. Si el motor es PostgreSQL y la carpeta no existe, lanza un error en vez de salir en silencio.
+- **dbmate solo en desarrollo local.** La herramienta `dbmate` ya no es un requisito de despliegue en producción ni en los tests de CI. Queda restringida al flujo manual de desarrollo y a la verificación previa mediante `backend/database/verification/verify.sh` sobre una base temporal.
+- **Esquema unificado.** Se consolidó en `database/migrations/20261029000001_unified_schema.sql` con prefijo `ep002_*` para usuarios, sesiones, cursos, documentos, fragmentos, recursos y descargas, además de `generaciones_demo`, `ep002_generaciones_docente` y `media_assets`. Se eliminaron las llamadas a `table.create()` en los repositorios.
+- **Compatibilidad con Neon.** La base compartida de Neon ya tenía tablas creadas sin las columnas nuevas. La migración incluye `ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS` para `modelo_embedding` y `texto_tsv tsvector GENERATED ALWAYS AS (to_tsvector('spanish', texto)) STORED` antes de definir el índice GIN, evitando que la consulta de indexación falle al arrancar sobre esquemas previos.
+- **Tolerancia a entornos sin pgvector.** En la CI el contenedor de PostgreSQL no trae compilado el archivo de control de `vector`. La migración consulta `pg_available_extensions` antes de ejecutar `CREATE EXTENSION`, y solo agrega la columna `embedding vector(768)`, el CHECK y el índice HNSW si el tipo `vector` existe en el catálogo. Así la suite E2E pasa sin exigir pgvector en runners genéricos.
+- **Docker Compose.** El archivo `docker-compose.yml` se mantiene dentro de `backend/` para no pisar tareas transversales de infraestructura (EN-023). Monta `./database/migrations:/db/migrations` y `./database/verification` para las pruebas locales.
+

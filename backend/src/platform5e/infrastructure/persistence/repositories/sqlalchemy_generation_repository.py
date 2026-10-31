@@ -48,8 +48,9 @@ class SQLAlchemyGenerationRepository(GenerationRepositoryPort):
 
     @translate_persistence_errors
     def __init__(self) -> None:
-        GenerationORM.__table__.create(bind=engine, checkfirst=True)
-        TeacherGenerationORM.__table__.create(bind=engine, checkfirst=True)
+        if engine.dialect.name == "sqlite":
+            GenerationORM.__table__.create(bind=engine, checkfirst=True)
+            TeacherGenerationORM.__table__.create(bind=engine, checkfirst=True)
 
     @translate_persistence_errors
     def get_demo_catalog(self) -> dict[str, Any]:
