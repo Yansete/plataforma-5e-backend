@@ -11,6 +11,8 @@ from typing import Any
 from platform5e.application.ports.outbound.language_model_port import ResourceGeneratorPort
 from platform5e.application.services.generation.rule_based_generator import RuleBasedGenerator
 from platform5e.application.ports.outbound.media_port import MediaGeneratorPort
+from platform5e.application.ports.outbound.embedding_port import EmbeddingGeneratorPort
+from platform5e.infrastructure.llm.gemini_embedding_model import GeminiEmbeddingModel
 from platform5e.infrastructure.llm.gemini_language_model import GeminiLanguageModel
 from platform5e.infrastructure.llm.gemini_media_generator import GeminiMediaGenerator
 from platform5e.infrastructure.settings import read_flag, read_setting
@@ -59,6 +61,24 @@ def create_media_generator(environment: Mapping[str, str] | None = None) -> Medi
         speech_model=setting("SPEECH_MODEL") or None,
         voice=setting("SPEECH_VOICE") or None,
         timeout=float(setting("LLM_TIMEOUT_SECONDS") or 120.0),
+    )
+
+
+def create_embedding_generator(environment: Mapping[str, str] | None = None) -> EmbeddingGeneratorPort | None:
+    """EN-013: embeddings de Gemini (768 dimensiones). Sin clave de Gemini, o con EMBEDDINGS_ENABLED=false, no hay
+    vectores y la recuperación sigue solo por palabras (BM25)."""
+
+    def setting(name: str) -> str:
+        return read_setting(name, "", environment).strip()
+
+    api_key = setting("LLM_API_KEY")
+    provider = (setting("LLM_PROVIDER") or ("gemini" if api_key else "rules")).lower()
+    if provider != "gemini" or not api_key or not read_flag("EMBEDDINGS_ENABLED", True, environment):
+        return None
+    return GeminiEmbeddingModel(
+        api_key=api_key,
+        model=setting("EMBEDDING_MODEL") or None,
+        timeout=float(setting("LLM_TIMEOUT_SECONDS") or 60.0),
     )
 
 

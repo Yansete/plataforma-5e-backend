@@ -50,6 +50,13 @@ class DocumentResponse(ApiResponse):
     fragment_count: int = 0
     page_count: int | None = None
     error_message: str | None = None
+    embedded_fragment_count: int | None = Field(
+        default=None, description="Chunks with an embedding in pgvector (EN-013); null if embeddings are disabled."
+    )
+    embedding_model: str | None = Field(default=None, examples=["gemini-embedding-001"])
+    embedding_error: str | None = Field(
+        default=None, description="Why the embeddings failed; the document stays processed and BM25 still works."
+    )
     origin: DocumentOrigin | None = None
 
 
