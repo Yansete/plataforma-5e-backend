@@ -64,13 +64,26 @@ CREATE TABLE IF NOT EXISTS ep002_fragmentos (
     texto_tsv tsvector GENERATED ALWAYS AS (to_tsvector('spanish', texto)) STORED
 );
 
+-- Fragmentos de texto procesados con soporte léxico y vectorial (EN-011 / EN-013 / ADR-009 / EN-024)
+CREATE TABLE IF NOT EXISTS ep002_fragmentos (
+    id TEXT PRIMARY KEY,
+    docente TEXT NOT NULL,
+    documento TEXT NOT NULL,
+    unidad TEXT NOT NULL,
+    orden INTEGER NOT NULL,
+    ubicacion TEXT NOT NULL,
+    texto TEXT NOT NULL,
+    modelo_embedding TEXT,
+    texto_tsv tsvector GENERATED ALWAYS AS (to_tsvector('spanish', texto)) STORED
+);
+
+-- Asegurar columnas si la tabla ya existía previamente en entornos desplegados (ej. Neon)
+ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS modelo_embedding TEXT;
+ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS texto_tsv tsvector GENERATED ALWAYS AS (to_tsvector('spanish', texto)) STORED;
+
 -- Manejo condicional y tolerante para entornos con/sin pgvector (CI, Neon, Render)
 DO $$
 BEGIN
-    -- Asegurar columnas básicas por si la tabla ya existía
-    ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS modelo_embedding TEXT;
-    
-    -- Si el tipo vector existe en el catálogo, agregar embedding e índice HNSW
     IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'vector') THEN
         ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS embedding vector(768);
 
