@@ -10,7 +10,7 @@ import re
 from typing import Any
 
 from platform5e.domain.generation.distractor_reliability import assess_distractor
-from platform5e.domain.generation.grounding import DEFAULT_THRESHOLD, verify_citations
+from platform5e.domain.generation.grounding import DEFAULT_THRESHOLD, verify_citations, verify_statements
 from platform5e.domain.generation.resource_formats import (
     AUDIO,
     IMAGE,
@@ -48,11 +48,13 @@ RESOURCE_TYPES: dict[str, tuple[str, str]] = {
     ),
     "explicacion": (
         "Explicación citada",
-        "Una explicación estructurada de 3 a 5 párrafos donde cada párrafo se apoya en una cita.",
+        "Una explicación estructurada de 3 a 5 párrafos separados por una línea en blanco. Cada párrafo usa solo "
+        "información del material y se apoya en una cita.",
     ),
     "glosario": (
         "Glosario de la unidad",
-        "De 6 a 10 términos clave con su definición tomada estrictamente del material.",
+        "De 6 a 10 términos clave, uno por línea con el formato «Término: definición», con la definición tomada "
+        "estrictamente del material.",
     ),
     "ejercicio_aplicacion": (
         "Ejercicio de aplicación",
@@ -394,6 +396,9 @@ def normalize_generated_resources(
     HU-016: cada afirmación citada se contrasta con los fragmentos recuperados (verificación de anclaje). Las que no
     tienen respaldo se quitan; si queda menos de la mitad, el recurso se rechaza. Cada rechazo se agrega a `rejections`
     con su motivo, y cada recurso conservado guarda su verificación en «verificacion».
+
+    HU-049: en la explicación y el glosario también se contrasta el contenido, párrafo por párrafo. Los párrafos sin
+    respaldo se quitan del contenido y, si queda menos de la mitad, el recurso se rechaza.
     """
     tag_mapping = {f["etiqueta"]: f["id"] for f in context["fragmentos"]}
     fragments_by_id = {f["id"]: f.get("texto", "") for f in context["fragmentos"]}
@@ -439,6 +444,18 @@ def normalize_generated_resources(
         valid_citations = [
             {"claim": check.claim, "fragmentIds": check.fragment_ids} for check in grounding.supported
         ]
+        verification = grounding.summary()
+
+        statements = verify_statements(body, req["tipo"], fragments_by_id, threshold)
+        if statements is not None:
+            verification.update(statements.summary())
+            if not statements.accepted:
+                if rejections is not None:
+                    rejections.append(
+                        {"title": title, "reason": statements.rejection_reason(title), "grounding": verification}
+                    )
+                continue
+            body = statements.kept_body()
 
         structure = None
         if req["tipo"] in STRUCTURE_INSTRUCTIONS:
@@ -478,7 +495,7 @@ def normalize_generated_resources(
                 "citas": valid_citations,
                 "alternativas": alternatives,
                 "estructura": structure,
-                "verificacion": grounding.summary(),
+                "verificacion": verification,
             }
         )
 

@@ -785,7 +785,8 @@ def build_grounding_report(
     """HU-016: resumen de la verificación de anclaje de un pedido, con el indicador I21 (tasa de alucinación).
 
     Cuenta las afirmaciones de los recursos conservados y de los rechazados. I21 = afirmaciones sin respaldo /
-    afirmaciones verificadas.
+    afirmaciones verificadas. HU-049: también cuenta los párrafos de la explicación y del glosario quitados por no
+    tener respaldo.
     """
     summaries = [r["grounding"] for r in resources if r.get("grounding")]
     summaries += [item["grounding"] for item in rejections if item.get("grounding")]
@@ -796,6 +797,7 @@ def build_grounding_report(
         "supportedClaims": supported,
         "unsupportedClaims": checked - supported,
         "hallucinationRate": hallucination_rate(checked, checked - supported),
+        "unsupportedParagraphs": sum(len(s.get("removedParagraphs") or []) for s in summaries),
         "rejectedResources": [{"title": item["title"], "reason": item["reason"]} for item in rejections],
     }
 
@@ -803,9 +805,13 @@ def build_grounding_report(
 def _grounding_notice(report: dict[str, Any]) -> str:
     rejected = len(report["rejectedResources"])
     removed = report["unsupportedClaims"]
-    if not removed:
+    paragraphs = report.get("unsupportedParagraphs", 0)
+    if not removed and not paragraphs:
         return ""
-    parts = [f" Se quitaron {removed} afirmación(es) sin respaldo en el material"]
+    pieces = [f"{removed} afirmación(es)"] if removed else []
+    if paragraphs:
+        pieces.append(f"{paragraphs} párrafo(s)")
+    parts = [f" Se quitaron {' y '.join(pieces)} sin respaldo en el material"]
     if rejected:
         parts.append(f" y se rechazaron {rejected} recurso(s)")
     return "".join(parts) + "."

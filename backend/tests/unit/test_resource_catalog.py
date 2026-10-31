@@ -21,9 +21,9 @@ def test_catalog_matches_generation_validation_and_export_metadata():
         assert entry.has_options == (entry.id == "item_opcion_multiple")
 
 
-def test_public_labels_preserve_the_frontend_contract():
-    fixture_path = Path(__file__).resolve().parents[3] / "frontend/src/test/resourceCatalogFixture.ts"
-    expected = json.loads(fixture_path.read_text(encoding="utf-8").split("export const resourceCatalogFixture = ", 1)[1].rstrip(";\n"))
+def test_public_labels_preserve_the_published_contract():
+    fixture_path = Path(__file__).resolve().parents[1] / "fixtures/resource_catalog.json"
+    expected = json.loads(fixture_path.read_text(encoding="utf-8"))
     response = [ResourceTypeResponse.model_validate(entry).model_dump(mode="json", by_alias=True)
                 for entry in ListResourceTypesUseCase().execute()]
     assert response == expected

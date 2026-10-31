@@ -343,6 +343,33 @@ ahora el campo `reliabilityWarning` existía, pero la generación real siempre l
   regla. La coincidencia de palabras pasó de cinco a seis letras al probar esta historia: con cinco, «confirma» y
   «confiable» contaban como la misma palabra.
 
+
+## ADR-016 El agente de Explicar contrasta su contenido párrafo por párrafo (30/10/2026)
+
+HU-049 pide que el agente de Explicar redacte la explicación (C01) y que sus afirmaciones citen su fragmento (C02). La
+explicación textual y el glosario ya existían, y desde el ADR-014 cada cita se contrasta con su fragmento. Faltaba el
+contenido: la verificación revisaba las citas que el modelo declara, pero un párrafo de la explicación podía no
+corresponder a ninguna. El recurso multimedia del C01 pasa al Sprint 2, con lo multimodal.
+
+- **Qué se contrasta.** En la explicación, cada párrafo (separado por una línea en blanco; si no hay, cada línea). En el
+  glosario, cada entrada «Término: definición». Los demás tipos no cambian. Vive en `domain/generation/grounding.py`
+  (`verify_statements`) y usa la misma regla de palabras del ADR-014.
+- **Cita de cada párrafo.** El párrafo se enlaza con el fragmento recuperado que más lo respalda y, si resume dos, con
+  el segundo que aporta palabras que el primero no tenía. Queda en `grounding.paragraphSources`, en el orden del
+  contenido.
+- **Umbral.** Un párrafo usa palabras de enlace propias de la explicación («por eso», «es decir»), así que se le exige
+  10 puntos menos que a una cita: 0,5 con el `evidenceThreshold` por defecto. Un párrafo con menos de cuatro palabras
+  útiles es un subtítulo o una transición: no se contrasta y se conserva.
+- **Rechazo.** Los párrafos sin respaldo se quitan del contenido y quedan en `grounding.removedParagraphs` con su motivo.
+  Si menos de la mitad tiene respaldo, el recurso se rechaza como en el ADR-014 y aparece en
+  `grounding.rejectedResources`. La respuesta suma los párrafos quitados en `grounding.unsupportedParagraphs` y el
+  aviso al docente los menciona.
+- **Prompt.** La explicación se pide en párrafos separados por una línea en blanco y con información solo del material;
+  el glosario, una entrada por línea con el formato «Término: definición».
+- **Límites.** Los del ADR-014: no reconoce sinónimos ni paráfrasis lejanas. Con Gemini hay que revisar en la plataforma
+  publicada cuántos párrafos se quitan; con el generador por reglas no se quita ninguno, porque cada párrafo es una
+  oración del material.
+  
 ## ADR-017 Unificación del esquema de base de datos y migraciones (30/10/2026)
 
 EN-024 pide unificar el esquema de base de datos y garantizar que el backend arranque tanto en desarrollo local como en Render, Neon y los runners de CI sin depender de pasos manuales. Hasta ahora las tablas se creaban parcialmente con `table.create()` en los repositorios, las migraciones con dbmate solo se ejecutaban de forma manual en local y, al desplegar en Render o correr la suite E2E en CI, el servidor terminaba fallando porque faltaban tablas o porque el contenedor de PostgreSQL no contaba con los binarios de `pgvector`.
@@ -353,3 +380,4 @@ EN-024 pide unificar el esquema de base de datos y garantizar que el backend arr
 - **Compatibilidad con Neon.** La base compartida de Neon ya tenía tablas creadas sin las columnas nuevas. La migración incluye `ALTER TABLE ep002_fragmentos ADD COLUMN IF NOT EXISTS` para `modelo_embedding` y `texto_tsv tsvector GENERATED ALWAYS AS (to_tsvector('spanish', texto)) STORED` antes de definir el índice GIN, evitando que la consulta de indexación falle al arrancar sobre esquemas previos.
 - **Tolerancia a entornos sin pgvector.** En la CI el contenedor de PostgreSQL no trae compilado el archivo de control de `vector`. La migración consulta `pg_available_extensions` antes de ejecutar `CREATE EXTENSION`, y solo agrega la columna `embedding vector(768)`, el CHECK y el índice HNSW si el tipo `vector` existe en el catálogo. Así la suite E2E pasa sin exigir pgvector en runners genéricos.
 - **Docker Compose.** El archivo `docker-compose.yml` se mantiene dentro de `backend/` para no pisar tareas transversales de infraestructura (EN-023). Monta `./database/migrations:/db/migrations` y `./database/verification` para las pruebas locales.
+

@@ -4,8 +4,17 @@
 
 Este documento responde a la pregunta del asesor: *«Si van a hacer casos de prueba, por ejemplo una prueba
 unitaria, ¿cuál es el directorio?»*. Cada tipo de prueba tiene su carpeta y las pruebas corren solas en GitHub
-Actions en cada `push` (archivo `.github/workflows/ci.yml`, pestaña **Actions** del repositorio).
+Actions en cada `push` (archivo `.github/workflows/backend-ci.yml`, pestaña **Actions** del repositorio).
 
+
+## Repositorios separados (EN-033)
+
+El backend está en este repositorio. Las rutas plataforma-5e-frontend/
+corresponden al clon independiente:
+https://github.com/Yansete/plataforma-5e-frontend
+
+Los comandos de Python se ejecutan desde backend/ y los de npm desde
+la raíz del repositorio del frontend. Las verificaciones anteriores se conservan como historial.
 
 ## Dónde va cada prueba
 
@@ -36,7 +45,7 @@ backend/tests/
 ├── support/moodle_xml_validator.py       Reglas de la muestra que Moodle importó en SP-003
 └── fixtures/verified_moodle_sample.xml   Esa muestra
 
-frontend/
+plataforma-5e-frontend/
 ├── src/features/**/{api,model}/*.test.ts y src/shared/**/*.test.ts   Pruebas unitarias (vitest), junto al código que prueban
 ├── src/test/fixtures.ts     Datos de prueba y respuestas simuladas del servidor
 └── e2e/platform.spec.ts   Punta a punta en el navegador (Playwright + Chromium) con el backend real:
@@ -45,12 +54,12 @@ frontend/
 
 | Tipo | Qué comprueba | Dónde | Comando |
 |---|---|---|---|
-| Unitaria | Una pieza aislada: entidad, contrato, servicio, adaptador | `backend/tests/unit`, `frontend/src/**/*.test.ts` | `pytest tests/unit` · `npm test` |
+| Unitaria | Una pieza aislada: entidad, contrato, servicio, adaptador | `backend/tests/unit`, `plataforma-5e-frontend/src/**/*.test.ts` | `pytest tests/unit` · `npm test` |
 | Arquitectura | Que las capas respeten la regla de dependencia y que los nombres estén en inglés | `backend/tests/architecture` | `pytest tests/architecture` |
 | Integración | Los adaptadores de persistencia con una base real | `backend/tests/integration` | `pytest tests/integration` |
 | Punta a punta (backend) | Historias completas contra el servidor real y fidelidad del XML exportado (I19) | `backend/tests/e2e` | `pytest tests/e2e` |
-| Punta a punta (sistema completo) | El recorrido del docente en el navegador contra el backend real, de crear la cuenta a la descarga | `frontend/e2e` | `npm run test:e2e` |
-| Cobertura (caja blanca) | Qué parte del código ejecutan las pruebas; falla si baja del umbral | La CI y `frontend/coverage/` | `npm run test:coverage` · `pytest --cov` |
+| Punta a punta (sistema completo) | El recorrido del docente en el navegador contra el backend real, de crear la cuenta a la descarga | `plataforma-5e-frontend/e2e` | `npm run test:e2e` |
+| Cobertura (caja blanca) | Qué parte del código ejecutan las pruebas; falla si baja del umbral | La CI y `plataforma-5e-frontend/coverage/` | `npm run test:coverage` · `pytest --cov` |
 | Prueba manual con IA real | Que el proveedor configurado responda en el sistema publicado | Sistema desplegado | Ver «Prueba manual después del despliegue» |
 | Caja negra, carga, concurrencia y disponibilidad | Sistema desplegado y bajo carga | Sprint 2 (TA-005) | — |
 
@@ -80,18 +89,19 @@ E2E_DATABASE_URL=postgresql+psycopg://plataforma:plataforma@localhost:5432/plata
 
 En PowerShell: `$env:E2E_DATABASE_URL="postgresql+psycopg://..."; python -m pytest tests/e2e`.
 
-Frontend (desde `frontend/`):
+Frontend: ejecutar desde la raíz de su repositorio independiente:
 
-```bash
-npm install
-npm test                          # unitarias
-npx playwright install chromium   # solo la primera vez
-npm run test:e2e                  # navegador contra el backend real (levanta uvicorn en el 8765 y Vite en el 5174)
-```
+    npm ci
+    npm test
+    npx playwright install chromium
 
-`test:e2e` usa el Python que tenga instalado el backend (`pip install -e ../backend`) y una base SQLite nueva en la
-carpeta temporal, así que no toca tus datos. Si ese Python no es el `python` por defecto, indícalo con la variable
-`PYTHON`; en PowerShell, con el entorno del backend: `$env:PYTHON="..\backend\.venv\Scripts\python.exe"; npm run test:e2e`.
+Para Playwright, configurar BACKEND_DIR con la ruta absoluta de la carpeta backend
+y PYTHON con la ruta absoluta de su entorno virtual. Después ejecutar:
+
+    npm run test:e2e
+
+Consultar los ejemplos de configuración en:
+https://github.com/Yansete/plataforma-5e-frontend#readme
 
 Revisar un XML antes de importarlo en Moodle (desde `backend/`):
 
@@ -116,7 +126,7 @@ Si un cambio hace bajar la cobertura del umbral, la CI marca el commit en rojo. 
 - En local:
 
 ```bash
-# Frontend (desde frontend/)
+# Frontend (desde plataforma-5e-frontend/)
 npm run test:coverage            # luego abre coverage/index.html
 
 # Backend (desde backend/)
@@ -125,16 +135,10 @@ python -m pytest tests/unit tests/architecture tests/integration --cov=platform5
 
 ## Qué hace la integración continua
 
-| Trabajo | Pasos |
-|---|---|
-| Frontend | `npm ci` → tipos → unitarias con cobertura → build → instala el backend → Playwright contra el backend real |
-| Backend | unitarias y arquitectura → integración → cobertura → punta a punta con SQLite → punta a punta con PostgreSQL 16 |
-
-PostgreSQL se descarga del espejo público de Amazon ECR para evitar el límite de descargas de Docker Hub.
-Si el commit rompe algo, GitHub lo marca con ✗ y guarda los reportes (`backend-reports`, `frontend-coverage`,
-`informe-playwright`). Si alguna vez falta `backend/pyproject.toml`, el trabajo del backend se omite con un aviso.
-
-Las pruebas en navegador ya corren en la CI contra el backend real (antes usaban datos de demostración).
+- backend-ci.yml ejecuta las comprobaciones del backend.
+- e2e.yml descarga el frontend de su repositorio y ejecuta Playwright contra el backend del commit evaluado.
+- El workflow registra el commit del frontend y adjunta los resultados como playwright-results.
+- El frontend mantiene sus pruebas, cobertura y build en su propio repositorio.
 
 ## Prueba manual después del despliegue
 
@@ -184,6 +188,14 @@ consigna que no cuenta, el prompt que pide el error conceptual, los distractores
 conceptual que no se usan, el generador por reglas, el descarte con motivo `tambien_correcto` en el servicio, el
 informe `distractorReliability` (I5) y el ítem rechazado por quedarse con menos de dos distractores fiables.
 `tests/e2e/test_material_ingestion_api.py` comprueba por HTTP la justificación y el error conceptual de cada distractor.
+
+## Agente de Explicar, HU-049 (30/10/2026)
+
+`tests/unit/test_explain_agent.py` cubre cómo se separa la explicación en párrafos y el glosario en entradas, el
+fragmento con el que se enlaza cada párrafo (uno o dos), el párrafo sin respaldo marcado con su motivo, los subtítulos
+que no se contrastan, el umbral de párrafo (10 puntos menos que el de las citas), el contenido que queda sin los
+párrafos quitados, el rechazo con motivo cuando menos de la mitad tiene respaldo, el glosario entrada por entrada, el
+prompt, y el informe del servicio (`unsupportedParagraphs`, aviso al docente y error `INSUFFICIENT_EVIDENCE`).
 
 ## Verificación de anclaje, HU-016 (30/10/2026)
 
