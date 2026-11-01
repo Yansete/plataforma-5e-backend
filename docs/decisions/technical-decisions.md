@@ -381,3 +381,28 @@ EN-024 pide unificar el esquema de base de datos y garantizar que el backend arr
 - **Tolerancia a entornos sin pgvector.** En la CI el contenedor de PostgreSQL no trae compilado el archivo de control de `vector`. La migración consulta `pg_available_extensions` antes de ejecutar `CREATE EXTENSION`, y solo agrega la columna `embedding vector(768)`, el CHECK y el índice HNSW si el tipo `vector` existe en el catálogo. Así la suite E2E pasa sin exigir pgvector en runners genéricos.
 - **Docker Compose.** El archivo `docker-compose.yml` se mantiene dentro de `backend/` para no pisar tareas transversales de infraestructura (EN-023). Monta `./database/migrations:/db/migrations` y `./database/verification` para las pruebas locales.
 
+## ADR-018 Embeddings de Gemini guardados en pgvector al procesar el material (31/10/2026)
+
+EN-013 pide generar los embeddings por lote (C01), de forma incremental (C02) y con Gemini a 768 dimensiones por API,
+también en producción (C03). La columna `ep002_fragmentos.embedding vector(768)` existe desde la migración de EN-024,
+pero nadie la llenaba: la recuperación seguía solo por palabras (BM25).
+
+- **Modelo.** `gemini-embedding-001` con `outputDimensionality = 768`, por la API REST (`batchEmbedContents`, hasta
+  100 textos por llamada). No hay modelo local porque Render gratuito tiene 512 MB (SP-001 proponía e5-base). Los
+  fragmentos se piden con `RETRIEVAL_DOCUMENT` y las consultas con `RETRIEVAL_QUERY`. Gemini no normaliza los
+  vectores de menos de 3072 dimensiones, así que el adaptador los deja de largo 1. Se cambia con `EMBEDDING_MODEL` y se
+  apaga con `EMBEDDINGS_ENABLED=false`.
+- **Capas.** El puerto `EmbeddingGeneratorPort` convierte textos en vectores y `ChunkEmbeddingRepositoryPort` los
+  guarda; los dos están en `application/ports/outbound/embedding_port.py`. `ChunkEmbeddingService` (aplicación) pide
+  los pendientes por lotes de 50 y guarda los vectores. Los adaptadores son `GeminiEmbeddingModel` y
+  `SQLAlchemyChunkRepository`.
+- **Cuándo se generan.** Al procesar el material, después de guardar los fragmentos. El documento guarda
+  `embeddedFragmentCount` y `embeddingModel`. Si Gemini falla, el documento queda procesado igual, con el motivo en
+  `embeddingError`, y la búsqueda por palabras sigue funcionando.
+- **Incremental.** Solo se piden los fragmentos sin vector o con el vector de otro modelo. Al reprocesar un documento,
+  los fragmentos con el mismo texto conservan su vector. Los fragmentos subidos antes de EN-013 se vectorizan con
+  `python scripts/embed_chunks.py`, que también prueba una búsqueda por significado con `--search`.
+- **Sin pgvector.** En SQLite o en un PostgreSQL sin la extensión (la CI), el repositorio responde que no hay almacén
+  vectorial y no se llama a Gemini.
+- **Búsqueda.** `search_similar_chunks` ordena por distancia coseno (`<=>`) con el índice HNSW y filtra por unidad.
+  Queda lista para la recuperación híbrida de HU-011.

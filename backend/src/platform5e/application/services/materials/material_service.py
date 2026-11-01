@@ -1,10 +1,11 @@
 """
-Ingesta y procesamiento del material del docente (EN-007 y EN-012):
-extrae el texto, genera fragmentos con solapamiento y actualiza el estado del documento.
+Ingesta y procesamiento del material del docente (EN-007, EN-012 y EN-013):
+extrae el texto, genera fragmentos con solapamiento, los vectoriza y actualiza el estado del documento.
 """
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import datetime, timezone
 from typing import Any
@@ -16,6 +17,7 @@ from platform5e.application.ports.outbound.chunk_repository_port import (
     TextExtractorPort,
 )
 from platform5e.application.ports.outbound.teacher_repository_port import TeacherRepositoryPort
+from platform5e.application.services.materials.chunk_embedding_service import ChunkEmbeddingService
 from platform5e.domain.materials.chunking import MaterialError, chunk_pages
 
 OPEN_EDUCATIONAL_RESOURCE_TYPE: str = "Artículo de fuente abierta"
@@ -23,6 +25,8 @@ NO_TEXT_FOUND_MESSAGE: str = (
     "No se encontró texto en el archivo. Si es un PDF escaneado (solo imágenes), "
     "súbelo como PDF con texto seleccionable o copia el contenido en un TXT."
 )
+
+logger = logging.getLogger("platform5e.materials")
 
 
 def _get_utc_now() -> str:
@@ -45,11 +49,13 @@ class MaterialService:
         chunk_repository: ChunkRepositoryPort,
         text_extractor: TextExtractorPort,
         open_resource_port: OpenEducationalResourcePort | None = None,
+        embedding_service: ChunkEmbeddingService | None = None,
     ) -> None:
         self._teacher_repository = teacher_repository
         self._chunk_repository = chunk_repository
         self._text_extractor = text_extractor
         self._open_resource_port = open_resource_port
+        self._embedding_service = embedding_service
 
     def _get_document(self, teacher_id: str, document_id: str) -> tuple[dict[str, Any], bytes]:
         """Recupera los metadatos y bytes del documento validando existencia."""
@@ -100,9 +106,27 @@ class MaterialService:
             "fragmentCount": len(chunks),
             "pageCount": len(pages),
             "errorMessage": None,
+            **self._embed_document_chunks(document_id),
         }
         self._chunk_repository.update_document(teacher_id, updated_metadata)
         return updated_metadata
+
+    def _embed_document_chunks(self, document_id: str) -> dict[str, Any]:
+        """EN-013: vectoriza los fragmentos nuevos. Si falla, el documento queda procesado igual (BM25 sigue)."""
+        if self._embedding_service is None:
+            return {}
+        try:
+            run = self._embedding_service.embed_pending(document_id=document_id)
+        except Exception as exc:  # el material no se pierde por un fallo del modelo de embeddings
+            logger.warning("No se pudieron generar los embeddings de %s: %s", document_id, exc)
+            return {
+                "embeddedFragmentCount": 0,
+                "embeddingModel": self._embedding_service.model,
+                "embeddingError": str(exc)[:200],
+            }
+        if not run.available:
+            return {}
+        return {"embeddedFragmentCount": run.total, "embeddingModel": run.model, "embeddingError": None}
 
     def _mark_processing_error(
         self,

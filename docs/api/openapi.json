@@ -2444,6 +2444,44 @@
             ],
             "title": "Errormessage"
           },
+          "embeddedFragmentCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embeddedfragmentcount",
+            "description": "Chunks with an embedding in pgvector (EN-013); null if embeddings are disabled."
+          },
+          "embeddingModel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embeddingmodel",
+            "examples": [
+              "gemini-embedding-001"
+            ]
+          },
+          "embeddingError": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embeddingerror",
+            "description": "Why the embeddings failed; the document stays processed and BM25 still works."
+          },
           "origin": {
             "anyOf": [
               {

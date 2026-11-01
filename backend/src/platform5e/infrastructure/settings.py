@@ -13,6 +13,8 @@ MEDIA_GENERATION_ENABLED    true (por defecto) | false: imágenes y voz con Gemi
 IMAGE_MODEL                 opcional; por defecto gemini-3.1-flash-lite-image (requiere facturación en Google AI)
 SPEECH_MODEL                opcional; por defecto gemini-3.8-flash-tts
 SPEECH_VOICE                opcional; voz de Gemini, por defecto Kore
+EMBEDDINGS_ENABLED          true (por defecto) | false: embeddings de los fragmentos con Gemini (EN-013)
+EMBEDDING_MODEL             opcional; por defecto gemini-embedding-001 (768 dimensiones)
 BOOTSTRAP_TEACHER_EMAIL     opcional; cuenta inicial configurada en el servidor
 BOOTSTRAP_TEACHER_PASSWORD  opcional; su contraseña
 DEMO_CATALOG                solo pruebas: cuenta y curso de ejemplo

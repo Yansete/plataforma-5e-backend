@@ -180,6 +180,16 @@ Backend: 347 pruebas; frontend: 79 y las 5 pruebas en Chromium. Además se abri�
 SCORM con los 18 tipos, con una API de SCORM 1.2 simulada: imágenes y audio cargan, las páginas de contenido quedan
 `completed`, la pregunta se califica y las cuatro actividades envían `score.raw` 100 y `passed` al responder bien.
 
+## Embeddings en pgvector, EN-013 (31/10/2026)
+
+`tests/unit/test_chunk_embedding_service.py` cubre la vectorización por lotes, el límite, el filtro por documento, que
+una segunda ejecución no recalcula nada, que solo se piden los fragmentos nuevos, que un cambio de modelo recalcula los
+vectores, el rechazo de vectores con otra dimensión, la base sin pgvector y el procesamiento del material (con
+embeddings, con un fallo de Gemini y sin embeddings). `tests/unit/test_gemini_embedding_model.py` cubre el pedido a
+Gemini (modelo, `taskType`, 768 dimensiones y clave), la normalización, la división en llamadas de 100, la consulta,
+los errores (429, 400, otra dimensión, vectores faltantes y sin conexión) y la fábrica. La prueba con la base real se
+hace con `python scripts/embed_chunks.py --search "…"` sobre PostgreSQL con pgvector.
+
 ## Distractores fiables, HU-019 (30/10/2026)
 
 `tests/unit/test_distractor_reliability.py` cubre el distractor que el material presenta como respuesta (con la
