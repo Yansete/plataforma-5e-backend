@@ -39,7 +39,16 @@ def create_documents_router(account_service: AccountService, material_service: M
 
     @router.get("", response_model=list[DocumentResponse], summary="List my documents", responses=error_responses(401))
     def list_documents(teacher_id: str = Depends(current_teacher)) -> list[dict[str, Any]]:
-        """Documents of every unit of the teacher, with their processing status."""
+        """Documents of every unit of the teacher, with their processing status.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X GET "$BASE_URL/api/v1/documents" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Expected 200. See the response schema below for the returned fields."""
         return account_service.list_documents(teacher_id)
 
     @router.post(
@@ -54,7 +63,16 @@ def create_documents_router(account_service: AccountService, material_service: M
         context: str = Form(description="JSON with the unit and the use permission.", examples=[CONTEXT_EXAMPLE]),
         teacher_id: str = Depends(current_teacher),
     ) -> dict[str, Any]:
-        """Saves the file in the database with status `registrado`. Call POST /documents/{id}/process next."""
+        """Saves the file in the database with status `registrado`. Call POST /documents/{id}/process next.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X POST "$BASE_URL/api/v1/documents" -H "Authorization: Bearer $TOKEN" -F "file=@material.txt" -F 'context={"unitId":"unidad-1","outcomeIds":[],"documentType":"Separata o apuntes de clase","usePermission":true}'
+        ```
+
+        Replace material.txt with your own file. The context unitId must belong to your account. Expected 201; process the returned document id next."""
         try:
             try:
                 parsed_context = DocumentContextInput.model_validate(json.loads(context)).model_dump(by_alias=True)
@@ -76,7 +94,15 @@ def create_documents_router(account_service: AccountService, material_service: M
         """Searches the topic in Spanish Wikipedia (CC BY-SA 4.0) and saves each article as processed material.
 
         Articles already in the unit are skipped. 503 when the topic search is disabled or the source does not answer.
-        """
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X POST "$BASE_URL/api/v1/documents/from-topic" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data '{"unitId":"unidad-1","topic":"Protocolo de control de transmisión","maxResults":1}'
+        ```
+
+        Replace unidad-1 with your unit id. Expected 201 when topic search is enabled; a disabled or unavailable source returns 503."""
         return material_service.create_from_topic(teacher_id, body.unit_id, body.topic, body.max_results)
 
     @router.get(
@@ -89,7 +115,16 @@ def create_documents_router(account_service: AccountService, material_service: M
         },
     )
     def download_document(document_id: str, teacher_id: str = Depends(current_teacher)) -> Response:
-        """Returns the file as it was uploaded, with its name in Content-Disposition."""
+        """Returns the file as it was uploaded, with its name in Content-Disposition.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -X GET "$BASE_URL/api/v1/documents/${DOCUMENT_ID}/file" -H "Authorization: Bearer $TOKEN" -D respuesta-headers.txt --output material.txt
+        ```
+
+        Expected 200. See the response schema below for the returned fields."""
         metadata, content = account_service.get_document(teacher_id, document_id)
         file_name = quote(metadata["fileName"], safe="")
         return Response(
@@ -105,7 +140,16 @@ def create_documents_router(account_service: AccountService, material_service: M
         responses=error_responses(401, 404),
     )
     def delete_document(document_id: str, teacher_id: str = Depends(current_teacher)) -> Response:
-        """Deletes the file and its chunks. Generated resources keep their own copy of the evidence."""
+        """Deletes the file and its chunks. Generated resources keep their own copy of the evidence.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X DELETE "$BASE_URL/api/v1/documents/${DOCUMENT_ID}" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Deletes the document and its chunks. Expected 204 with an empty body."""
         account_service.delete_document(teacher_id, document_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -119,7 +163,15 @@ def create_documents_router(account_service: AccountService, material_service: M
         """Extracts the text (PDF, PPTX or TXT) and splits it into chunks of about 220 words with their location.
 
         A file without text ends with status `error` and an explanation in `errorMessage`; it does not fail the request.
-        """
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X POST "$BASE_URL/api/v1/documents/${DOCUMENT_ID}/process" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Expected 200. See the response schema below for the returned fields."""
         return material_service.process_material(teacher_id, document_id)
 
     @router.get(
@@ -129,7 +181,16 @@ def create_documents_router(account_service: AccountService, material_service: M
         responses=error_responses(401, 404),
     )
     def list_document_chunks(document_id: str, teacher_id: str = Depends(current_teacher)) -> list[dict[str, Any]]:
-        """Chunks in document order. They are the evidence that generated resources cite."""
+        """Chunks in document order. They are the evidence that generated resources cite.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X GET "$BASE_URL/api/v1/documents/${DOCUMENT_ID}/chunks" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Expected 200. See the response schema below for the returned fields."""
         return material_service.get_document_chunks(teacher_id, document_id)
 
     return router

@@ -51,7 +51,15 @@ def create_generations_router(
         stage, in the order of the class; all agents share the same evidence and see what the previous ones wrote.
         A resource too similar to another one of the sequence is asked again once and, if it still repeats, rejected.
         Each resource records its `agent`, and `sequence` reports what every agent generated or rejected.
-        """
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X POST "$BASE_URL/api/v1/generations" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data '{"unitId":"unidad-1","stage":"explain","resourceType":"glosario","quantity":1,"difficulty":"intermedia"}'
+        ```
+
+        Replace unidad-1 with a unit containing processed material. Expected 200; returned resources await review."""
         try:
             teacher_id = account_service.authenticate_token(authorization) if authorization else None
             if teacher_id:
@@ -76,7 +84,16 @@ def create_generations_router(
         responses=error_responses(401),
     )
     def list_generation_requests(teacher_id: str = Depends(current_teacher)) -> list[dict[str, Any]]:
-        """History of the teacher's requests, newest first."""
+        """History of the teacher's requests, newest first.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X GET "$BASE_URL/api/v1/generations" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Expected 200. See the response schema below for the returned fields."""
         return account_service.list_generation_requests(teacher_id)
 
     @router.get(
@@ -89,7 +106,16 @@ def create_generations_router(
     def get_generation(
         generation_id: str, authorization: str | None = Depends(extract_authorization_header)
     ) -> Any:
-        """Returns a saved generation exactly as it was answered. Generations of other teachers give 404."""
+        """Returns a saved generation exactly as it was answered. Generations of other teachers give 404.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X GET "$BASE_URL/api/v1/generations/${GENERATION_ID}" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Expected 200. See the response schema below for the returned fields."""
         try:
             account_service.verify_generation_ownership(generation_id, authorization)
             return generation_service.get_by_id(generation_id)
@@ -103,7 +129,16 @@ def create_generations_router(
         tags=["system"],
     )
     def get_generator() -> dict[str, Any]:
-        """Says whether resources are drafted by a language model (and which one) or by the rule-based generator."""
+        """Says whether resources are drafted by a language model (and which one) or by the rule-based generator.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X GET "$BASE_URL/api/v1/generator"
+        ```
+
+        Expected 200. See the response schema below for the returned fields."""
         return generator_info
 
     return router

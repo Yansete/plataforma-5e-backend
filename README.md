@@ -19,6 +19,29 @@ Generación asistida de recursos educativos a partir del material del docente: m
 └── render.yaml   Configuración del servicio del backend en Render
 ~~~
 
+## API publicada
+
+- [Swagger del backend publicado](https://plataforma5e-api.onrender.com/docs)
+- [OpenAPI del backend publicado](https://plataforma5e-api.onrender.com/openapi.json)
+- [Contrato OpenAPI versionado](docs/api/openapi.json)
+
+Cada operación publicada incluye su descripción y un ejemplo de llamada en Swagger y en el contrato versionado. Los ejemplos son de Bash con cURL y usan datos ilustrativos: reemplaza los identificadores por los devueltos para tu propia cuenta. Para rutas privadas, registra una cuenta o inicia sesión y conserva el `token` de la respuesta. En Swagger, pulsa **Authorize** y pega solo ese token.
+
+Para ejecutar los ejemplos con cURL en Bash, define estas variables con tus datos reales:
+
+```bash
+export BASE_URL="https://plataforma5e-api.onrender.com"
+export TOKEN="token-de-tu-sesion"
+export COURSE_ID="id-de-tu-curso"
+export UNIT_ID="id-de-tu-unidad"
+export DOCUMENT_ID="id-de-tu-documento"
+export GENERATION_ID="id-de-tu-generacion"
+export RESOURCE_ID="id-de-tu-recurso"
+export DOWNLOAD_ID="id-de-tu-descarga"
+```
+
+Los identificadores dentro de los cuerpos JSON (por ejemplo `unidad-1`) también deben sustituirse. El recorrido habitual es crear el curso, subir y procesar material, generar recursos, revisarlos y exportar los aprobados. Los ejemplos de borrado eliminan los datos indicados; ejecútalos solo con datos de prueba. Las descargas guardan el archivo y sus cabeceras por separado; una respuesta 204 no tiene cuerpo. La búsqueda por tema y la generación multimedia dependen de la configuración del servidor.
+
 ## Documentación
 
 - [Arquitectura](docs/architecture/overview.md)

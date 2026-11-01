@@ -27,7 +27,16 @@ def create_downloads_router(
 
     @router.get("", response_model=list[DownloadResponse], summary="List the downloads of a unit", responses=error_responses(401, 404))
     def list_downloads(unit_id: str, teacher_id: str = Depends(current_teacher)) -> list[dict[str, Any]]:
-        """The last 50 downloads, newest first."""
+        """The last 50 downloads, newest first.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X GET "$BASE_URL/api/v1/units/${UNIT_ID}/downloads" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Expected 200. See the response schema below for the returned fields."""
         return review_service.get_downloads_history(teacher_id, unit_id)
 
     @router.get(
@@ -47,7 +56,16 @@ def create_downloads_router(
         download_id: str,
         teacher_id: str = Depends(current_teacher),
     ) -> Response:
-        """Re-downloads an exported package recorded in the unit's download history (HU-010 C02)."""
+        """Re-downloads an exported package recorded in the unit's download history (HU-010 C02).
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -X GET "$BASE_URL/api/v1/units/${UNIT_ID}/downloads/${DOWNLOAD_ID}" -H "Authorization: Bearer $TOKEN" -D respuesta-headers.txt --output paquete.zip
+        ```
+
+        Expected 200 for an existing history entry and resources compatible with its format. The returned MIME type determines the file extension."""
         if export_use_case is None:
             raise AccountConfigurationError("SERVICE_UNAVAILABLE", "Export service not configured.", 500)
 
@@ -67,7 +85,16 @@ def create_downloads_router(
         responses=error_responses(401, 404, 422),
     )
     def register_download(unit_id: str, body: DownloadInput, teacher_id: str = Depends(current_teacher)) -> dict[str, Any]:
-        """Records a file built in the browser (the unit document). Exports built by the backend record themselves."""
+        """Records a file built in the browser (the unit document). Exports built by the backend record themselves.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X POST "$BASE_URL/api/v1/units/${UNIT_ID}/downloads" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data '{"format":"documento","fileName":"red-301-unidad-1-documento.html","resourceCount":1}'
+        ```
+
+        Replace unidad-1 through UNIT_ID. This registers browser-built document metadata; it does not generate a package. Expected 201."""
         return review_service.register_download(teacher_id, unit_id, body.model_dump(by_alias=True))
 
     @router.delete(
@@ -77,7 +104,16 @@ def create_downloads_router(
         responses=error_responses(401, 404),
     )
     def clear_downloads(unit_id: str, teacher_id: str = Depends(current_teacher)) -> Response:
-        """Deletes the history of the unit. The files already downloaded are not affected."""
+        """Deletes the history of the unit. The files already downloaded are not affected.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X DELETE "$BASE_URL/api/v1/units/${UNIT_ID}/downloads" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Deletes the download history of the unit. Expected 204 with an empty body."""
         review_service.clear_downloads_history(teacher_id, unit_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 

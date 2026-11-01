@@ -37,7 +37,16 @@ def create_resources_router(
         responses=error_responses(401),
     )
     def get_review_summary(teacher_id: str = Depends(current_teacher)) -> list[dict[str, Any]]:
-        """One row per unit of the teacher's courses."""
+        """One row per unit of the teacher's courses.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X GET "$BASE_URL/api/v1/review-summary" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Expected 200. See the response schema below for the returned fields."""
         return review_service.get_summary(teacher_id)
 
     @router.get(
@@ -47,7 +56,16 @@ def create_resources_router(
         responses=error_responses(401, 404),
     )
     def list_unit_resources(unit_id: str, teacher_id: str = Depends(current_teacher)) -> list[dict[str, Any]]:
-        """Generated resources of the unit with their review, newest first."""
+        """Generated resources of the unit with their review, newest first.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X GET "$BASE_URL/api/v1/units/${UNIT_ID}/resources" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Expected 200. See the response schema below for the returned fields."""
         return review_service.list_resources(teacher_id, unit_id)
 
     @router.put(
@@ -60,7 +78,16 @@ def create_resources_router(
         unit_id: str, resource_id: str, body: ReviewedResourceInput, teacher_id: str = Depends(current_teacher)
     ) -> dict[str, Any]:
         """Saves edits and decisions. `aprobado` needs a key, no pending distractors and at least two accepted
-        (409 APPROVAL_BLOCKED otherwise): the same rule the review screen shows."""
+        (409 APPROVAL_BLOCKED otherwise): the same rule the review screen shows.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X PUT "$BASE_URL/api/v1/units/${UNIT_ID}/resources/${RESOURCE_ID}" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data '{"title":"Glosario de transporte","body":"TCP confirma la recepción de datos.","status":"pendiente","edited":true}'
+        ```
+
+        Use a resource in your unit; copy its actual title and content before saving. This example saves an edit as pendiente, not an approval. Expected 200."""
         return review_service.update_resource(
             teacher_id, unit_id, resource_id, body.model_dump(by_alias=True, exclude_unset=True)
         )
@@ -80,7 +107,16 @@ def create_resources_router(
     def get_resource_media(unit_id: str, resource_id: str, teacher_id: str = Depends(current_teacher)) -> Response:
         """Concept maps, infographics and process diagrams are drawn as SVG from their items. Illustrations and
         audio return the generated file; without one, an illustration returns a card with its description and an
-        audio resource answers 404 NO_MEDIA (the review reads the script with the browser's voice)."""
+        audio resource answers 404 NO_MEDIA (the review reads the script with the browser's voice).
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -X GET "$BASE_URL/api/v1/units/${UNIT_ID}/resources/${RESOURCE_ID}/media" -H "Authorization: Bearer $TOKEN" -D respuesta-headers.txt --output recurso.bin
+        ```
+
+        Expected 200 when media is available; its actual MIME type determines the file extension. An audio fallback without a file returns 404."""
         media = media_use_case.execute(teacher_id, unit_id, resource_id)
         return Response(
             media.content,
@@ -98,7 +134,16 @@ def create_resources_router(
         """Generates the illustration or the audio again from the current description or script, for example after
         the teacher edited it. Only for resources under review (409 RESOURCE_NOT_PENDING) and when image and voice
         generation is active on the server (409 MEDIA_GENERATION_DISABLED). If the service fails, the resource keeps
-        its fallback: the description card or the browser's voice."""
+        its fallback: the description card or the browser's voice.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X POST "$BASE_URL/api/v1/units/${UNIT_ID}/resources/${RESOURCE_ID}/media" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Expected 200 for a pending resource when media generation is enabled; otherwise the documented 409 applies."""
         return regenerate_media_use_case.execute(teacher_id, unit_id, resource_id)
 
     @router.delete(
@@ -108,7 +153,16 @@ def create_resources_router(
         responses=error_responses(401, 404),
     )
     def delete_resource(unit_id: str, resource_id: str, teacher_id: str = Depends(current_teacher)) -> Response:
-        """Deletes the resource from the unit."""
+        """Deletes the resource from the unit.
+
+        Example (Bash/cURL). Set BASE_URL to the API URL and TOKEN to a valid bearer token.
+        Use your own ids for path variables and replace sample ids such as unidad-1 in JSON bodies.
+
+        ```bash
+        curl --fail-with-body -i -X DELETE "$BASE_URL/api/v1/units/${UNIT_ID}/resources/${RESOURCE_ID}" -H "Authorization: Bearer $TOKEN"
+        ```
+
+        Deletes the selected resource. Expected 204 with an empty body."""
         review_service.delete_resource(teacher_id, unit_id, resource_id)
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
