@@ -93,13 +93,28 @@ def _media_block(resource: Mapping, files: list[tuple[str, bytes]]) -> str:
             f'<p id="script">{_esc(script)}</p></details></section>'
         )
     if kind == INTERACTIVE:
-        data = {"type": resource.get("type"), "structure": structure}
+        data = {"type": resource.get("type"), "structure": _with_step_sources(resource, structure)}
         return (
             '<form id="activity" class="activity"><div class="activity__items"></div>'
             '<button type="submit">Comprobar</button><p class="feedback" role="status" aria-live="polite"></p></form>'
             f'<script type="application/json" id="activity-data">{_json_for_script(data)}</script>'
         )
     return ""
+
+
+def _with_step_sources(resource: Mapping, structure: Mapping) -> Mapping:
+    """HU-048: en la exploración guiada, cada paso muestra de qué parte del material sale (documento y página)."""
+    if resource.get("type") != "exploracion_guiada":
+        return structure
+    labels = {
+        evidence.get("id"): ", ".join(x for x in (evidence.get("documentName"), evidence.get("location")) if x)
+        for evidence in resource.get("evidence") or []
+    }
+    steps = [
+        {**step, "source": "; ".join(labels[f_id] for f_id in step.get("fragmentIds") or [] if labels.get(f_id))}
+        for step in structure.get("guidedSteps") or []
+    ]
+    return {**structure, "guidedSteps": steps}
 
 
 def _slug(value: str) -> str:
@@ -389,6 +404,7 @@ figcaption{font:.9rem/1.4 system-ui,sans-serif;color:#5b6470;margin-top:.5rem}
 .row select,.row input[type=text]{font:1rem system-ui,sans-serif;padding:.35rem;margin-top:.35rem;max-width:100%}
 .row .note{display:block;font-size:.9rem;margin-top:.35rem}
 .row--ok{border-color:#1a7f37}.row--bad{border-color:#b42318}
+.step textarea{width:100%;box-sizing:border-box;margin-top:.35rem;font:inherit}.step .source{font-size:.85rem;color:#555}
 .order{display:flex;gap:.5rem;align-items:center}.order span{flex:1}
 .order button{padding:.2rem .6rem;background:#eef2f6;color:#1f2328}
 h2,h3{font-family:system-ui,sans-serif}
@@ -408,7 +424,8 @@ button:disabled{background:#d0d7de;color:#57606a;cursor:not-allowed}
 .badge--oro{color:#7a5300}.badge--plata{color:#424a53}.badge--bronce{color:#8a3c0c}.badge--none{color:#5b6470}
 """
 
-ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, completar y ordenar. Envían el puntaje con scorm5e. */
+ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, completar, ordenar y exploración guiada.
+   Envían el puntaje con scorm5e. */
 (function () {
   'use strict';
   function el(tag, attrs, text) {
@@ -476,6 +493,27 @@ ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, com
         return function () { var ok = norm(input.value) === norm(b.answer); mark(row, ok, ok ? '' : 'La respuesta es «' + b.answer + '».'); return ok; };
       });
     },
+    exploracion_guiada: function (s, box) {
+      // HU-048: no hay respuesta correcta; el paso cuenta cuando el estudiante registra lo que encontró.
+      return s.guidedSteps.map(function (step, i) {
+        var row = el('fieldset', { 'class': 'row step' });
+        row.appendChild(el('legend', {}, 'Paso ' + (i + 1) + '. ' + step.title));
+        row.appendChild(el('p', {}, step.instruction));
+        if (step.source) row.appendChild(el('p', { 'class': 'source' }, 'Fuente: ' + step.source));
+        var id = 'g' + i;
+        row.appendChild(el('label', { 'for': id }, step.question));
+        var answer = el('textarea', { id: id, rows: '3' });
+        row.appendChild(answer);
+        box.appendChild(row);
+        return function () {
+          var ok = answer.value.trim().split(/\s+/).length >= 3;
+          row.className = 'row step ' + (ok ? 'row--ok' : 'row--bad');
+          var out = row.querySelector('.note') || row.appendChild(el('span', { 'class': 'note' }));
+          out.textContent = ok ? 'Registro guardado.' : 'Escribe al menos una idea con tus palabras.';
+          return ok;
+        };
+      });
+    },
     ordenar_pasos: function (s, box) {
       var list = el('ol', { 'class': 'activity__order' });
       shuffle(s.sequence).forEach(function (step) {
@@ -515,7 +553,9 @@ ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, com
       var right = checks.filter(function (check) { return check(); }).length;
       var percent = checks.length ? (100 * right) / checks.length : 0;
       var out = form.querySelector('.feedback');
-      out.textContent = right + ' de ' + checks.length + ' correctas (' + Math.round(percent) + ' %).';
+      out.textContent = activity.type === 'exploracion_guiada'
+        ? right + ' de ' + checks.length + ' pasos registrados.'
+        : right + ' de ' + checks.length + ' correctas (' + Math.round(percent) + ' %).';
       out.className = 'feedback ' + (percent >= 60 ? 'is-correct' : 'is-wrong');
       if (window.scorm5e) window.scorm5e.report(percent);
     });

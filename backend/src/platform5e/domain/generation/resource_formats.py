@@ -34,6 +34,7 @@ MIN_ITEMS: dict[str, int] = {
     "mapa_conceptual": 3,
     "infografia": 3,
     "diagrama_proceso": 3,
+    "exploracion_guiada": 3,
     "emparejamiento": 3,
     "ordenar_pasos": 3,
     "verdadero_falso": 3,
@@ -85,6 +86,23 @@ def _with_blank(sentence: str, answer: str) -> str:
     return masked if masked != sentence else ""
 
 
+def _guided_steps(value: Any) -> list[dict[str, Any]]:
+    """HU-048: pasos de la exploración guiada. Cada paso conserva los fragmentos del material que lo respaldan."""
+    steps = []
+    for item in _items(value):
+        if not isinstance(item, dict):
+            continue
+        step = {
+            "title": _short(item.get("title"), 80),
+            "instruction": _short(item.get("instruction"), MAX_LONG),
+            "question": _short(item.get("question"), MAX_LONG),
+            "fragmentIds": [f for f in (item.get("fragmentIds") or []) if isinstance(f, str) and f][:3],
+        }
+        if step["title"] and step["instruction"] and step["question"]:
+            steps.append(step)
+    return steps
+
+
 def normalize_structure(resource_type: str, raw: Any) -> dict[str, Any] | None:
     """Devuelve la estructura limpia del tipo, o None si no alcanza para un recurso útil."""
     if not needs_structure(resource_type):
@@ -105,6 +123,8 @@ def normalize_structure(resource_type: str, raw: Any) -> dict[str, Any] | None:
         structure = {"headline": _short(data.get("headline"), 120), "points": _titled_points(data.get("points"))}
     elif resource_type == "diagrama_proceso":
         structure = {"steps": _titled_points(data.get("steps"))}
+    elif resource_type == "exploracion_guiada":
+        structure = {"guidedSteps": _guided_steps(data.get("guidedSteps"))}
     elif resource_type == "ordenar_pasos":
         sequence = [_short(step, MAX_LONG) for step in _items(data.get("sequence"))]
         structure = {"sequence": [step for step in sequence if step]}

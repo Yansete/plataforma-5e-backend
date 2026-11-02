@@ -91,6 +91,19 @@
     "hasOptions": false
   },
   {
+    "id": "exploracion_guiada",
+    "name": "Exploración guiada",
+    "singular": "Exploración guiada",
+    "count": [
+      "exploración guiada",
+      "exploraciones guiadas"
+    ],
+    "stage": "explore",
+    "group": "Para explorar",
+    "format": "interactive",
+    "hasOptions": false
+  },
+  {
     "id": "explicacion",
     "name": "Explicación del tema",
     "singular": "Explicación del tema",

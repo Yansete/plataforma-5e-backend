@@ -180,6 +180,14 @@ Backend: 347 pruebas; frontend: 79 y las 5 pruebas en Chromium. Además se abri�
 SCORM con los 18 tipos, con una API de SCORM 1.2 simulada: imágenes y audio cargan, las páginas de contenido quedan
 `completed`, la pregunta se califica y las cuatro actividades envían `score.raw` 100 y `passed` al responder bien.
 
+## Exploración guiada, HU-048 (02/11/2026)
+
+`tests/unit/test_explore_agent.py` cubre el tipo nuevo (formato interactivo, pasos completos y mínimo de 3), el prompt
+y el esquema de Gemini, la traducción de los pasos del modelo con sus etiquetas, el paso que conserva su cita, la cita
+equivocada que se corrige, el paso sin cita que se enlaza, el paso inventado que se quita con su motivo, la
+normalización completa, el rechazo con menos de 3 pasos, el respaldo por reglas, la página SCORM (cada paso con su
+fuente y su campo para responder) y el documento imprimible.
+
 ## Embeddings en pgvector, EN-013 (31/10/2026)
 
 `tests/unit/test_chunk_embedding_service.py` cubre la vectorización por lotes, el límite, el filtro por documento, que

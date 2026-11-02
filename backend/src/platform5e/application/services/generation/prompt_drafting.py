@@ -10,12 +10,18 @@ import re
 from typing import Any
 
 from platform5e.domain.generation.distractor_reliability import assess_distractor
-from platform5e.domain.generation.grounding import DEFAULT_THRESHOLD, verify_citations, verify_statements
+from platform5e.domain.generation.grounding import (
+    DEFAULT_THRESHOLD,
+    link_step_sources,
+    verify_citations,
+    verify_statements,
+)
 from platform5e.domain.generation.resource_formats import (
     AUDIO,
     IMAGE,
     INTERACTIVE,
     TEXT,
+    MIN_ITEMS,
     VISUAL,
     normalize_structure,
     resource_format,
@@ -41,6 +47,11 @@ RESOURCE_TYPES: dict[str, tuple[str, str]] = {
     "guia_exploracion": (
         "Guía de exploración",
         "Objetivo, materiales y de 4 a 6 pasos de indagación guiada con preguntas de registro.",
+    ),
+    "exploracion_guiada": (
+        "Exploración guiada",
+        "Una actividad interactiva de 3 a 5 pasos para que el estudiante explore el material: en cada paso, qué "
+        "observa o hace y una pregunta guía para registrar lo que encuentra. Cada paso se apoya en un fragmento.",
     ),
     "caso_indagacion": (
         "Caso con preguntas de indagación",
@@ -115,6 +126,11 @@ STRUCTURE_INSTRUCTIONS: dict[str, str] = {
         'en la imagen", "texto_alternativo": "...", "leyenda": "..."}'
     ),
     "diagrama_proceso": '"estructura": {"pasos": [{"titulo": "...", "texto": "..."}]}',
+    "exploracion_guiada": (
+        '"estructura": {"pasos_guiados": [{"titulo": "...", "consigna": "qué observa, lee o compara el estudiante en '
+        'el material", "pregunta": "pregunta guía para registrar lo que encontró", "fragmentos": ["F1"]}]}. '
+        "Cada paso cita en «fragmentos» la etiqueta del fragmento en que se apoya"
+    ),
     "mapa_conceptual": '"estructura": {"central": "...", "nodos": [{"etiqueta": "...", "detalle": "..."}]}',
     "infografia": '"estructura": {"central": "titular", "puntos": [{"titulo": "...", "texto": "..."}]}',
     "emparejamiento": '"estructura": {"pares": [{"termino": "...", "definicion": "..."}]}',
@@ -333,8 +349,13 @@ def _list_of_dicts(value: Any) -> list[dict[str, Any]]:
     return [item for item in value if isinstance(item, dict)] if isinstance(value, list) else []
 
 
-def structure_from_model(resource_type: str, raw: Any, body: str, title: str) -> dict[str, Any] | None:
-    """Traduce la «estructura» del contrato con el modelo (claves en español) a la del recurso y la valida."""
+def structure_from_model(
+    resource_type: str, raw: Any, body: str, title: str, tag_mapping: dict[str, str] | None = None
+) -> dict[str, Any] | None:
+    """Traduce la «estructura» del contrato con el modelo (claves en español) a la del recurso y la valida.
+
+    `tag_mapping` (F1 → id del fragmento) se usa en la exploración guiada, cuyos pasos citan su fragmento (HU-048).
+    """
     data = raw if isinstance(raw, dict) else {}
     converted: dict[str, Any] = {}
     if resource_type in ("audio_detonante", "podcast_resumen"):
@@ -347,6 +368,18 @@ def structure_from_model(resource_type: str, raw: Any, body: str, title: str) ->
         }
     elif resource_type == "diagrama_proceso":
         converted = {"steps": [{"title": i.get("titulo"), "text": i.get("texto")} for i in _list_of_dicts(data.get("pasos"))]}
+    elif resource_type == "exploracion_guiada":
+        converted = {
+            "guidedSteps": [
+                {
+                    "title": i.get("titulo"),
+                    "instruction": i.get("consigna"),
+                    "question": i.get("pregunta"),
+                    "fragmentIds": _resolve_fragment_ids(i.get("fragmentos"), tag_mapping or {}),
+                }
+                for i in _list_of_dicts(data.get("pasos_guiados"))
+            ]
+        }
     elif resource_type == "mapa_conceptual":
         converted = {
             "central": data.get("central") or title,
@@ -459,9 +492,27 @@ def normalize_generated_resources(
 
         structure = None
         if req["tipo"] in STRUCTURE_INSTRUCTIONS:
-            structure = structure_from_model(req["tipo"], raw_item.get("estructura"), body, title)
+            structure = structure_from_model(req["tipo"], raw_item.get("estructura"), body, title, tag_mapping)
             if structure is None:
                 continue
+            if req["tipo"] == "exploracion_guiada":
+                # HU-048 C02: cada paso queda enlazado al fragmento que lo respalda; los que no se apoyan se quitan.
+                linked = link_step_sources(structure["guidedSteps"], fragments_by_id)
+                verification.update(linked.summary())
+                if len(linked.steps) < MIN_ITEMS["exploracion_guiada"]:
+                    if rejections is not None:
+                        rejections.append(
+                            {
+                                "title": title,
+                                "reason": (
+                                    f"«{title}»: solo {len(linked.steps)} paso(s) se apoyan en el material; "
+                                    f"la exploración necesita al menos {MIN_ITEMS['exploracion_guiada']}."
+                                ),
+                                "grounding": verification,
+                            }
+                        )
+                    continue
+                structure = {**structure, "guidedSteps": linked.steps}
 
         alternatives = None
         if req["tipo"] == "item_opcion_multiple":

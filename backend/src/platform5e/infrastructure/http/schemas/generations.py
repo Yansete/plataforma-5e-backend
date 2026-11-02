@@ -22,6 +22,7 @@ ResourceType = Literal[
     "audio_detonante",
     "imagen_ilustrativa",
     "diagrama_proceso",
+    "exploracion_guiada",
     "mapa_conceptual",
     "infografia",
     "podcast_resumen",

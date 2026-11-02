@@ -28,6 +28,7 @@ RESOURCE_LABELS = {
     "audio_detonante": ("Para iniciar la clase", "Cápsula de audio"),
     "imagen_ilustrativa": ("Para explorar", "Imagen ilustrativa"),
     "diagrama_proceso": ("Para explorar", "Diagrama de proceso"),
+    "exploracion_guiada": ("Para explorar", "Exploración guiada"),
     "mapa_conceptual": ("Para explicar", "Mapa conceptual"),
     "infografia": ("Para explicar", "Infografía"),
     "podcast_resumen": ("Para explicar", "Resumen en pódcast"),
@@ -77,6 +78,18 @@ def _media_html(resource: Mapping) -> str:
         return ""
     rows, key = [], []
     kind_type = resource.get("type")
+    if kind_type == "exploracion_guiada":
+        # HU-048: sin clave de respuestas; cada paso con su consigna, su pregunta guía, su fuente y espacio para anotar.
+        locations = {e.get("id"): e.get("location") for e in resource.get("evidence") or []}
+        items = []
+        for step in structure.get("guidedSteps") or []:
+            source = ", ".join(locations[f] for f in step.get("fragmentIds") or [] if locations.get(f))
+            source_html = f'<span class="src">Fuente: {_esc(source)}</span>' if source else ""
+            items.append(
+                f"<li><strong>{_esc(step.get('title'))}.</strong> {_esc(step.get('instruction'))}"
+                f"<br><em>{_esc(step.get('question'))}</em> {source_html}<br>__________________________</li>"
+            )
+        return f'<ol class="activity">{"".join(items)}</ol>'
     if kind_type == "emparejamiento":
         pairs = structure.get("pairs") or []
         definitions = sorted((p["definition"] for p in pairs), key=lambda d: d.casefold())
