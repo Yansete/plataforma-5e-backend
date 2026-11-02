@@ -55,6 +55,18 @@ _STRUCTURE_SCHEMA: dict[str, Any] = {
         "nodos": _object_list("etiqueta", "detalle"),
         "puntos": _object_list("titulo", "texto"),
         "pasos": _object_list("titulo", "texto"),
+        "pasos_guiados": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "titulo": _STRING_TYPE,
+                    "consigna": _STRING_TYPE,
+                    "pregunta": _STRING_TYPE,
+                    "fragmentos": _TAGS_ARRAY_TYPE,
+                },
+            },
+        },
         "pares": _object_list("termino", "definicion"),
         "secuencia": _TAGS_ARRAY_TYPE,
         "afirmaciones": _object_list("texto", "retroalimentacion", flags=("verdadera",)),

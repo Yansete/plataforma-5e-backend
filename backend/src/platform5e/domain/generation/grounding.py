@@ -300,3 +300,68 @@ def verify_statements(
         threshold=paragraph_threshold,
         separator="\n" if mode == "line" or "\n\n" not in body else "\n\n",
     )
+
+
+# --- HU-048 C02: cada paso de la exploración guiada cita su fragmento ----------------------------------------------
+#
+# Un paso mezcla el contenido del material con verbos de consigna («observa», «compara», «anota») y la forma de una
+# pregunta, así que se le exige menos que a una afirmación: al menos el 30 % de sus palabras útiles en el fragmento.
+
+STEP_MIN_SUPPORT: float = 0.3
+
+
+@dataclass
+class StepSourcesResult:
+    """Los pasos que quedaron enlazados a su fragmento y los que se quitaron por no apoyarse en el material."""
+
+    steps: list[dict[str, Any]] = field(default_factory=list)
+    removed: list[dict[str, Any]] = field(default_factory=list)
+    corrected: int = 0
+    threshold: float = STEP_MIN_SUPPORT
+
+    def summary(self) -> dict[str, Any]:
+        return {
+            "stepThreshold": self.threshold,
+            "checkedSteps": len(self.steps) + len(self.removed),
+            "supportedSteps": len(self.steps),
+            "correctedSteps": self.corrected,
+            "removedSteps": self.removed,
+        }
+
+
+def link_step_sources(
+    steps: list[dict[str, Any]],
+    fragments_by_id: dict[str, str],
+    threshold: float = STEP_MIN_SUPPORT,
+) -> StepSourcesResult:
+    """Contrasta cada paso con el fragmento que cita. Si la cita no lo respalda, lo enlaza con el fragmento recuperado
+    que más lo respalda; si ninguno llega al mínimo, el paso se quita con su motivo."""
+    result = StepSourcesResult(threshold=threshold)
+    for step in steps:
+        text = " ".join(str(step.get(key, "")) for key in ("title", "instruction", "question"))
+        terms = set(extract_terms(text))
+        cited = [f_id for f_id in step.get("fragmentIds") or [] if f_id in fragments_by_id]
+        support = terms_support(terms, [fragments_by_id[f_id] for f_id in cited]) if cited else 0.0
+        if cited and support >= threshold:
+            result.steps.append({**step, "fragmentIds": cited})
+            continue
+        best_id, best_support = None, support
+        for fragment_id, fragment_text in fragments_by_id.items():
+            candidate = terms_support(terms, [fragment_text])
+            if candidate > best_support:
+                best_id, best_support = fragment_id, candidate
+        if best_id is not None and best_support >= threshold:
+            result.steps.append({**step, "fragmentIds": [best_id]})
+            result.corrected += 1
+            continue
+        result.removed.append(
+            {
+                "title": step.get("title", ""),
+                "support": round(max(support, best_support), 2),
+                "reason": (
+                    f"Solo el {round(max(support, best_support) * 100)} % de sus palabras aparece en el material "
+                    f"(mínimo {round(threshold * 100)} %)."
+                ),
+            }
+        )
+    return result

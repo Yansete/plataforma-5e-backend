@@ -406,3 +406,27 @@ pero nadie la llenaba: la recuperación seguía solo por palabras (BM25).
   vectorial y no se llama a Gemini.
 - **Búsqueda.** `search_similar_chunks` ordena por distancia coseno (`<=>`) con el índice HNSW y filtra por unidad.
   Queda lista para la recuperación híbrida de HU-011.
+
+## ADR-019 Exploración guiada: actividad interactiva del agente de Explorar (02/11/2026)
+
+HU-048 pide que el agente de Explorar genere una actividad interactiva con pasos y preguntas guía (C01) y que cada paso
+cite su fragmento de origen (C02). La «Guía de exploración» existente es texto corrido: no tiene pasos separados ni
+cita por paso.
+
+- **Tipo nuevo, no un cambio de formato.** Se agrega `exploracion_guiada` («Exploración guiada», etapa Explorar,
+  formato `interactive`) en vez de convertir `guia_exploracion`, para no dejar sin estructura los recursos que ya están
+  guardados. El catálogo pasa de 18 a 19 tipos y el frontend lo recibe del backend (HU-006).
+- **Estructura.** `guidedSteps`: de 3 a 10 pasos con `title`, `instruction` (qué lee, observa o compara el
+  estudiante), `question` (la pregunta guía para registrar lo que encuentra) y `fragmentIds`. Al modelo se le pide
+  `pasos_guiados` con `titulo`, `consigna`, `pregunta` y `fragmentos` (etiquetas F1, F2…), también en el esquema de
+  respuesta de Gemini.
+- **Cita de cada paso.** `link_step_sources` (en `domain/generation/grounding.py`) contrasta cada paso con el fragmento
+  que cita, con la regla de palabras del ADR-014. Un paso mezcla el contenido con verbos de consigna y la forma de una
+  pregunta, así que el mínimo es 30 % de sus palabras útiles. Si la cita no lo respalda, el paso se enlaza al fragmento
+  recuperado que más lo respalda (`correctedSteps`). Si ninguno llega al mínimo, el paso se quita con su motivo
+  (`removedSteps`). Si quedan menos de 3 pasos, el recurso se rechaza con su motivo, como en el ADR-014.
+- **Sin calificación.** Las preguntas guía son abiertas: en el SCORM cada paso tiene un campo para escribir y el paso
+  cuenta cuando el estudiante registra al menos una idea. El puntaje que recibe el LMS es el porcentaje de pasos
+  registrados. Cada paso muestra su fuente (documento y página). El documento imprimible deja un espacio para anotar.
+- **Respaldo por reglas.** El generador por reglas arma de 3 a 4 pasos con oraciones del material, cada uno con su
+  etiqueta, así que siempre pasa la verificación.

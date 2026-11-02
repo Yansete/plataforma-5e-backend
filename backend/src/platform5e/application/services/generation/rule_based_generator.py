@@ -110,6 +110,7 @@ _BUILDERS_BY_TYPE: dict[str, str] = {
     "podcast_resumen": "_podcast_summary",
     "imagen_ilustrativa": "_illustration",
     "diagrama_proceso": "_process_diagram",
+    "exploracion_guiada": "_guided_exploration",
     "mapa_conceptual": "_concept_map",
     "infografia": "_infographic",
     "emparejamiento": "_matching_activity",
@@ -608,6 +609,39 @@ class RuleBasedGenerator:
             "citas": [{"afirmacion": sentence, "fragmentos": [tag]} for tag, sentence in selected],
             "alternativas": [],
             "estructura": {"pasos": steps},
+        }
+
+    def _guided_exploration(self, index, sentence_pairs, terms, context):
+        """HU-048: de 3 a 4 pasos; cada uno lleva a leer una parte del material y deja una pregunta guía."""
+        start = (index * 4) % max(1, len(sentence_pairs))
+        selected = sentence_pairs[start : start + 4]
+        if len(selected) < 3:
+            selected = sentence_pairs[:4]
+        if len(selected) < 3:
+            return None
+        steps = []
+        for n, (tag, sentence) in enumerate(selected, start=1):
+            term = _term_in(sentence, terms)
+            question = (
+                f"¿Qué dice el material sobre {term}? Anótalo con tus palabras."
+                if term
+                else "¿Qué idea principal encuentras en esta parte del material? Anótala con tus palabras."
+            )
+            steps.append(
+                {
+                    "titulo": _capitalize_first(term or f"Paso {n}"),
+                    "consigna": f"Lee esta parte del material: «{_shorten(sentence, 300)}»",
+                    "pregunta": question,
+                    "fragmentos": [tag],
+                }
+            )
+        return {
+            "titulo": f"Exploración guiada: {context['unidad']['titulo']}",
+            "contenido": "Recorre los pasos en orden: lee cada parte del material, responde la pregunta guía y "
+            "anota lo que descubriste.",
+            "citas": [{"afirmacion": sentence, "fragmentos": [tag]} for tag, sentence in selected],
+            "alternativas": [],
+            "estructura": {"pasos_guiados": steps},
         }
 
     def _concept_map(self, index, sentence_pairs, terms, context):
