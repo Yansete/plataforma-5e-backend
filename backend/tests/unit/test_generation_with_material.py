@@ -450,7 +450,9 @@ class MockEvidenceRetriever(EvidenceRetrieverPort):
     def __init__(self) -> None:
         self.calls: list[tuple[str, int]] = []
 
-    def retrieve(self, query: str, chunks: list[dict[str, Any]], top_k: int) -> list[dict[str, Any]]:
+    def retrieve(
+        self, query: str, chunks: list[dict[str, Any]], top_k: int, unit_id: str | None = None
+    ) -> list[dict[str, Any]]:
         self.calls.append((query, top_k))
         return [{**chunks[0], "relevance": 0.9}]
 
