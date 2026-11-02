@@ -144,7 +144,10 @@ class GenerationService:
 
         # Contexto compartido por todos los agentes: la misma evidencia de la unidad.
         top_k = max(3, min(int(request_data.get("topK") or 8), 12))
-        selected_chunks = self._evidence_retriever.retrieve(self._build_query(unit, request_data), chunks, top_k)
+        selected_chunks = _retrieve_chunks(
+            self._evidence_retriever, self._build_query(unit, request_data), chunks, top_k, unit["id"]
+        )
+        
         documents_map = {
             doc["id"]: doc
             for doc in self._teacher_repository.get_documents(teacher_id)
@@ -365,7 +368,9 @@ class GenerationService:
         query_text = self._build_query(unit, request_data)
 
         top_k = max(3, min(int(request_data.get("topK") or 8), 12))
-        selected_chunks = self._evidence_retriever.retrieve(query_text, chunks, top_k)
+        selected_chunks = _retrieve_chunks(
+            self._evidence_retriever, query_text, chunks, top_k, unit["id"]
+        )
 
         documents_map = {
             doc["id"]: doc
@@ -821,3 +826,10 @@ def _rejection_detail(rejections: list[dict[str, Any]]) -> str:
     if not rejections:
         return ""
     return " Motivo: " + " ".join(item["reason"] for item in rejections[:3])
+
+# Helper dentro de generation_service.py o llamada directa:
+def _retrieve_chunks(retriever, query: str, chunks: list[dict[str, Any]], top_k: int, unit_id: str):
+    try:
+        return retriever.retrieve(query, chunks, top_k, unit_id=unit_id)
+    except TypeError:
+        return retriever.retrieve(query, chunks, top_k)

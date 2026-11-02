@@ -14,5 +14,14 @@ class Bm25EvidenceRetriever:
 
     description = "búsqueda por palabras (BM25)"
 
-    def retrieve(self, query: str, chunks: list[dict[str, Any]], top_k: int) -> list[dict[str, Any]]:
-        return retrieve_relevant_chunks(query, chunks, top_k)
+    def retrieve(
+        self,
+        query: str,
+        chunks: list[dict[str, Any]] | None = None,
+        top_k: int = 5,
+        unit_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        target_chunks = chunks or []
+        if unit_id:
+            target_chunks = [c for c in target_chunks if (c.get("unit_id") or c.get("unitId")) == unit_id]
+        return retrieve_relevant_chunks(query, target_chunks, top_k)

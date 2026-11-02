@@ -55,6 +55,7 @@ from platform5e.infrastructure.llm.language_model_factory import (
 )
 from platform5e.infrastructure.persistence.repositories.sqlalchemy_account_repository import SQLAlchemyAccountRepository
 from platform5e.infrastructure.retrieval.bm25_evidence_retriever import Bm25EvidenceRetriever
+from platform5e.infrastructure.retrieval.hybrid_evidence_retriever import HybridEvidenceRetriever   
 from platform5e.infrastructure.persistence.repositories.sqlalchemy_chunk_repository import SQLAlchemyChunkRepository
 from platform5e.infrastructure.persistence.repositories.sqlalchemy_media_repository import SQLAlchemyMediaRepository
 from platform5e.infrastructure.persistence.repositories.sqlalchemy_generation_repository import (
@@ -116,10 +117,16 @@ def create_application() -> FastAPI:
     resource_repository = SQLAlchemyResourceRepository()
     open_source = WikipediaSource() if read_flag("TOPIC_SEARCH_ENABLED", True) else None
     primary_generator, fallback_generator = create_generators()
-    evidence_retriever = Bm25EvidenceRetriever()
     media_repository = SQLAlchemyMediaRepository()
     media_generator = create_media_generator()
     embedding_generator = create_embedding_generator()
+
+    # Recuperador híbrido con RRF (k=60), BM25 léxico y pgvector HNSW semántico
+    evidence_retriever = HybridEvidenceRetriever(
+    chunk_repository=chunk_repository,
+    embedding_generator=embedding_generator,
+    rrf_k=60,
+    )
 
     # 2. Servicios y casos de uso de la capa de aplicación
     demo_catalog_enabled = read_flag("DEMO_CATALOG", False)
