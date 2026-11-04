@@ -107,6 +107,7 @@ _BUILDERS_BY_TYPE: dict[str, str] = {
     "glosario": "_glossary",
     "ejercicio_aplicacion": "_application_exercise",
     "audio_detonante": "_audio_trigger",
+    "reto_prediccion": "_prediction_challenge",
     "podcast_resumen": "_podcast_summary",
     "imagen_ilustrativa": "_illustration",
     "diagrama_proceso": "_process_diagram",
@@ -642,6 +643,48 @@ class RuleBasedGenerator:
             "citas": [{"afirmacion": sentence, "fragmentos": [tag]} for tag, sentence in selected],
             "alternativas": [],
             "estructura": {"pasos_guiados": steps},
+        }
+
+    def _prediction_challenge(self, index, sentence_pairs, terms, context):
+        """HU-047: de 3 a 4 predicciones. Cada una oculta un término de una oración del material y da a elegir entre
+        ese término y otros de la unidad que no aparecen en la oración; al responder se revela la oración."""
+        predictions, citations, used = [], [], set()
+        matches = [(tag, sentence, term) for term in terms for tag, sentence in sentence_pairs if _contains_word(sentence, term)]
+        for tag, sentence, term in matches[index * 4 :] + matches[: index * 4]:
+            if sentence in used:
+                continue
+            others = [
+                other
+                for other in terms
+                if other != term and not _are_related_terms(term, other) and not _contains_word(sentence, other)
+            ]
+            masked = _mask_target_word(sentence, term)
+            if not others or masked == sentence:
+                continue
+            used.add(sentence)
+            n = len(predictions)
+            predictions.append(
+                {
+                    "pregunta": f"¿Qué crees que completa esta idea? «{_shorten(masked, 300)}»",
+                    "correcta": _capitalize_first(term),
+                    "otra": _capitalize_first(others[n % len(others)]),
+                    "extra": _capitalize_first(others[(n + 1) % len(others)]) if len(others) > 1 else "",
+                    "revelacion": f"El material dice: «{_shorten(sentence, 300)}»",
+                    "fragmentos": [tag],
+                }
+            )
+            citations.append({"afirmacion": sentence, "fragmentos": [tag]})
+            if len(predictions) == 4:
+                break
+        if len(predictions) < 3:
+            return None
+        return {
+            "titulo": f"Reto de predicción: {context['unidad']['titulo']}",
+            "contenido": "Antes de empezar la clase, elige lo que crees en cada pregunta. No importa acertar: al "
+            "responder verás lo que dice el material y sumarás puntos por cada predicción acertada.",
+            "citas": citations,
+            "alternativas": [],
+            "estructura": {"predicciones": predictions},
         }
 
     def _concept_map(self, index, sentence_pairs, terms, context):

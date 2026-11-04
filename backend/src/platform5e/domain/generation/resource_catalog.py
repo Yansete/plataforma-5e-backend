@@ -20,6 +20,7 @@ RESOURCE_TYPES: tuple[ResourceTypeDefinition, ...] = (
     ResourceTypeDefinition('pregunta_detonante', 'Pregunta detonante', 'Pregunta detonante', ('pregunta detonante', 'preguntas detonantes'), 'engage', 'Para iniciar la clase', 'text'),
     ResourceTypeDefinition('sondeo_diagnostico', 'Sondeo de ideas previas', 'Sondeo de ideas previas', ('sondeo', 'sondeos'), 'engage', 'Para iniciar la clase', 'text'),
     ResourceTypeDefinition('audio_detonante', 'Cápsula de audio detonante', 'Cápsula de audio', ('audio', 'audios'), 'engage', 'Para iniciar la clase', 'audio'),
+    ResourceTypeDefinition('reto_prediccion', 'Reto de predicción', 'Reto de predicción', ('reto de predicción', 'retos de predicción'), 'engage', 'Para iniciar la clase', 'interactive'),
     ResourceTypeDefinition('guia_exploracion', 'Guía de exploración', 'Guía de exploración', ('guía', 'guías'), 'explore', 'Para explorar', 'text'),
     ResourceTypeDefinition('caso_indagacion', 'Caso con preguntas', 'Caso con preguntas', ('caso', 'casos'), 'explore', 'Para explorar', 'text'),
     ResourceTypeDefinition('imagen_ilustrativa', 'Imagen ilustrativa', 'Imagen ilustrativa', ('imagen', 'imágenes'), 'explore', 'Para explorar', 'image'),

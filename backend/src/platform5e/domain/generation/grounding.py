@@ -302,48 +302,76 @@ def verify_statements(
     )
 
 
-# --- HU-048 C02: cada paso de la exploración guiada cita su fragmento ----------------------------------------------
+# --- HU-048 y HU-047: cada elemento de una actividad cita su fragmento ---------------------------------------------
 #
-# Un paso mezcla el contenido del material con verbos de consigna («observa», «compara», «anota») y la forma de una
-# pregunta, así que se le exige menos que a una afirmación: al menos el 30 % de sus palabras útiles en el fragmento.
+# HU-048: un paso de la exploración guiada mezcla el contenido del material con verbos de consigna («observa»,
+# «compara», «anota») y la forma de una pregunta, así que se le exige menos que a una afirmación: al menos el 30 % de
+# sus palabras útiles en el fragmento.
+#
+# HU-047: en el reto de predicción se contrasta lo que el estudiante descubre (la opción correcta y lo que dice el
+# material), no la pregunta ni las opciones equivocadas, que a propósito no están en el material. Como es una
+# afirmación redactada por el modelo, con palabras de enlace propias, se le pide lo mismo que a un párrafo (ADR-016):
+# al menos el 50 %.
 
 STEP_MIN_SUPPORT: float = 0.3
+PREDICTION_MIN_SUPPORT: float = 0.5
 
 
 @dataclass
-class StepSourcesResult:
-    """Los pasos que quedaron enlazados a su fragmento y los que se quitaron por no apoyarse en el material."""
+class LinkedSourcesResult:
+    """Los elementos que quedaron enlazados a su fragmento y los que se quitaron por no apoyarse en el material.
 
-    steps: list[dict[str, Any]] = field(default_factory=list)
+    `noun` da nombre a las llaves del resumen: «step» → `stepThreshold`, `checkedSteps`…; «prediction» →
+    `predictionThreshold`, `checkedPredictions`…
+    """
+
+    items: list[dict[str, Any]] = field(default_factory=list)
     removed: list[dict[str, Any]] = field(default_factory=list)
     corrected: int = 0
     threshold: float = STEP_MIN_SUPPORT
+    noun: str = "step"
+
+    @property
+    def steps(self) -> list[dict[str, Any]]:
+        return self.items
+
+    @property
+    def predictions(self) -> list[dict[str, Any]]:
+        return self.items
 
     def summary(self) -> dict[str, Any]:
+        plural = self.noun[:1].upper() + self.noun[1:] + "s"
         return {
-            "stepThreshold": self.threshold,
-            "checkedSteps": len(self.steps) + len(self.removed),
-            "supportedSteps": len(self.steps),
-            "correctedSteps": self.corrected,
-            "removedSteps": self.removed,
+            f"{self.noun}Threshold": self.threshold,
+            f"checked{plural}": len(self.items) + len(self.removed),
+            f"supported{plural}": len(self.items),
+            f"corrected{plural}": self.corrected,
+            f"removed{plural}": self.removed,
         }
 
 
-def link_step_sources(
-    steps: list[dict[str, Any]],
+# Nombre anterior, usado por HU-048.
+StepSourcesResult = LinkedSourcesResult
+
+
+def _link_sources(
+    items: list[dict[str, Any]],
     fragments_by_id: dict[str, str],
-    threshold: float = STEP_MIN_SUPPORT,
-) -> StepSourcesResult:
-    """Contrasta cada paso con el fragmento que cita. Si la cita no lo respalda, lo enlaza con el fragmento recuperado
-    que más lo respalda; si ninguno llega al mínimo, el paso se quita con su motivo."""
-    result = StepSourcesResult(threshold=threshold)
-    for step in steps:
-        text = " ".join(str(step.get(key, "")) for key in ("title", "instruction", "question"))
+    threshold: float,
+    text_keys: tuple[str, ...],
+    label_key: str,
+    noun: str,
+) -> LinkedSourcesResult:
+    """Contrasta cada elemento con el fragmento que cita. Si la cita no lo respalda, lo enlaza con el fragmento
+    recuperado que más lo respalda; si ninguno llega al mínimo, el elemento se quita con su motivo."""
+    result = LinkedSourcesResult(threshold=threshold, noun=noun)
+    for item in items:
+        text = " ".join(str(item.get(key, "")) for key in text_keys)
         terms = set(extract_terms(text))
-        cited = [f_id for f_id in step.get("fragmentIds") or [] if f_id in fragments_by_id]
+        cited = [f_id for f_id in item.get("fragmentIds") or [] if f_id in fragments_by_id]
         support = terms_support(terms, [fragments_by_id[f_id] for f_id in cited]) if cited else 0.0
         if cited and support >= threshold:
-            result.steps.append({**step, "fragmentIds": cited})
+            result.items.append({**item, "fragmentIds": cited})
             continue
         best_id, best_support = None, support
         for fragment_id, fragment_text in fragments_by_id.items():
@@ -351,12 +379,12 @@ def link_step_sources(
             if candidate > best_support:
                 best_id, best_support = fragment_id, candidate
         if best_id is not None and best_support >= threshold:
-            result.steps.append({**step, "fragmentIds": [best_id]})
+            result.items.append({**item, "fragmentIds": [best_id]})
             result.corrected += 1
             continue
         result.removed.append(
             {
-                "title": step.get("title", ""),
+                label_key: item.get(label_key, ""),
                 "support": round(max(support, best_support), 2),
                 "reason": (
                     f"Solo el {round(max(support, best_support) * 100)} % de sus palabras aparece en el material "
@@ -365,3 +393,24 @@ def link_step_sources(
             }
         )
     return result
+
+
+def link_step_sources(
+    steps: list[dict[str, Any]],
+    fragments_by_id: dict[str, str],
+    threshold: float = STEP_MIN_SUPPORT,
+) -> LinkedSourcesResult:
+    """HU-048: enlaza cada paso de la exploración guiada con el fragmento que lo respalda."""
+    return _link_sources(steps, fragments_by_id, threshold, ("title", "instruction", "question"), "title", "step")
+
+
+def link_prediction_sources(
+    predictions: list[dict[str, Any]],
+    fragments_by_id: dict[str, str],
+    threshold: float = PREDICTION_MIN_SUPPORT,
+) -> LinkedSourcesResult:
+    """HU-047: enlaza cada predicción con el fragmento que respalda su respuesta (la opción correcta y lo que dice el
+    material). Una predicción cuya respuesta no está en el material se quita."""
+    return _link_sources(
+        predictions, fragments_by_id, threshold, ("correctOption", "reveal"), "question", "prediction"
+    )

@@ -9,6 +9,11 @@ Gamificación (HU-051, ADR-012): los ítems de opción múltiple no van en pági
 «Evaluación por niveles». Los niveles salen de la dificultad del pedido; el nivel siguiente se desbloquea al
 responder el anterior, cada pregunta suma los puntos de su nivel, un cronómetro mide el tiempo y al final se
 muestra la insignia. El LMS recibe el porcentaje de puntos, aprobado o desaprobado y el tiempo de la sesión.
+
+Reto de predicción (HU-047, ADR-020): actividad de Enganchar. El estudiante elige una opción en cada pregunta y ve al
+instante lo que dice el material y de dónde sale; suma puntos y racha, y al final recibe una insignia. Como es para
+iniciar la clase, el LMS recibe el porcentaje de aciertos pero la actividad se marca «completada», no aprobada o
+desaprobada.
 """
 from __future__ import annotations
 
@@ -93,7 +98,9 @@ def _media_block(resource: Mapping, files: list[tuple[str, bytes]]) -> str:
             f'<p id="script">{_esc(script)}</p></details></section>'
         )
     if kind == INTERACTIVE:
-        data = {"type": resource.get("type"), "structure": _with_step_sources(resource, structure)}
+        data = {"type": resource.get("type"), "structure": _with_item_sources(resource, structure)}
+        if resource.get("type") == "reto_prediccion":
+            data["badges"] = [{"min": threshold, "name": name} for threshold, name in BADGES]
         return (
             '<form id="activity" class="activity"><div class="activity__items"></div>'
             '<button type="submit">Comprobar</button><p class="feedback" role="status" aria-live="polite"></p></form>'
@@ -102,19 +109,25 @@ def _media_block(resource: Mapping, files: list[tuple[str, bytes]]) -> str:
     return ""
 
 
-def _with_step_sources(resource: Mapping, structure: Mapping) -> Mapping:
-    """HU-048: en la exploración guiada, cada paso muestra de qué parte del material sale (documento y página)."""
-    if resource.get("type") != "exploracion_guiada":
+# Actividades cuyos elementos citan su fragmento: tipo -> llave de la lista en la estructura.
+SOURCED_LISTS = {"exploracion_guiada": "guidedSteps", "reto_prediccion": "predictions"}
+
+
+def _with_item_sources(resource: Mapping, structure: Mapping) -> Mapping:
+    """HU-048 y HU-047: cada paso de la exploración guiada y cada predicción del reto muestran de qué parte del
+    material salen (documento y página)."""
+    key = SOURCED_LISTS.get(resource.get("type", ""))
+    if not key:
         return structure
     labels = {
         evidence.get("id"): ", ".join(x for x in (evidence.get("documentName"), evidence.get("location")) if x)
         for evidence in resource.get("evidence") or []
     }
-    steps = [
-        {**step, "source": "; ".join(labels[f_id] for f_id in step.get("fragmentIds") or [] if labels.get(f_id))}
-        for step in structure.get("guidedSteps") or []
+    items = [
+        {**item, "source": "; ".join(labels[f_id] for f_id in item.get("fragmentIds") or [] if labels.get(f_id))}
+        for item in structure.get(key) or []
     ]
-    return {**structure, "guidedSteps": steps}
+    return {**structure, key: items}
 
 
 def _slug(value: str) -> str:
@@ -326,7 +339,15 @@ SCORM_JS = r"""/* API de SCORM 1.2: busca el objeto API que expone el LMS en las
   function reportTime(seconds) {
     setValue('cmi.core.session_time', pad(Math.floor(seconds / 3600)) + ':' + pad(Math.floor((seconds % 3600) / 60)) + ':' + pad(seconds % 60));
   }
-  window.scorm5e = { report: report, time: reportTime };
+  // HU-047: actividad para iniciar la clase; se registra el puntaje, pero no se aprueba ni se desaprueba.
+  function complete(percent) {
+    setValue('cmi.core.score.min', 0);
+    setValue('cmi.core.score.max', 100);
+    setValue('cmi.core.score.raw', Math.round(percent));
+    setValue('cmi.core.lesson_status', 'completed');
+    if (api) api.LMSCommit('');
+  }
+  window.scorm5e = { report: report, complete: complete, time: reportTime };
 
   function speak(button) {
     var target = document.getElementById(button.getAttribute('data-speak'));
@@ -405,6 +426,9 @@ figcaption{font:.9rem/1.4 system-ui,sans-serif;color:#5b6470;margin-top:.5rem}
 .row .note{display:block;font-size:.9rem;margin-top:.35rem}
 .row--ok{border-color:#1a7f37}.row--bad{border-color:#b42318}
 .step textarea{width:100%;box-sizing:border-box;margin-top:.35rem;font:inherit}.step .source{font-size:.85rem;color:#555}
+.prediction .option{display:inline-block;margin:.35rem .5rem 0 0;background:#eef2f6;color:#1f2328;font-weight:500}
+.prediction .option--right{background:#1a7f37;color:#fff}.prediction .option--wrong{background:#b42318;color:#fff}
+.prediction .option:disabled{cursor:default;opacity:1}.prediction .reveal{margin:.6rem 0 0}.prediction .source{display:block;font-size:.85rem;color:#555}
 .order{display:flex;gap:.5rem;align-items:center}.order span{flex:1}
 .order button{padding:.2rem .6rem;background:#eef2f6;color:#1f2328}
 h2,h3{font-family:system-ui,sans-serif}
@@ -424,7 +448,7 @@ button:disabled{background:#d0d7de;color:#57606a;cursor:not-allowed}
 .badge--oro{color:#7a5300}.badge--plata{color:#424a53}.badge--bronce{color:#8a3c0c}.badge--none{color:#5b6470}
 """
 
-ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, completar, ordenar y exploración guiada.
+ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, completar, ordenar, exploración guiada y reto de predicción.
    Envían el puntaje con scorm5e. */
 (function () {
   'use strict';
@@ -514,6 +538,71 @@ ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, com
         };
       });
     },
+    reto_prediccion: function (s, box, activity) {
+      // HU-047: el estudiante predice; al elegir ve al instante lo que dice el material y suma puntos y racha.
+      var POINTS = 100, STREAK_BONUS = 50;
+      var form = box.parentNode;
+      var submit = form.querySelector('button[type=submit]');
+      if (submit) submit.hidden = true;
+      var hud = el('div', { 'class': 'hud', role: 'status', 'aria-live': 'polite' });
+      var scoreOut = el('strong', {}, '0');
+      var streakOut = el('strong', {}, '0');
+      var pointsP = el('p', {}, 'Puntos: '); pointsP.appendChild(scoreOut);
+      var streakP = el('p', {}, 'Racha: '); streakP.appendChild(streakOut);
+      hud.appendChild(pointsP); hud.appendChild(streakP);
+      box.parentNode.insertBefore(hud, box);
+      var score = 0, streak = 0, answered = 0, hits = 0;
+      var total = s.predictions.length;
+      var maxScore = POINTS * total + STREAK_BONUS * Math.max(0, total - 1);
+      function finish() {
+        var percent = total ? (100 * hits) / total : 0;
+        var badge = null;
+        (activity.badges || []).forEach(function (b) { if (!badge && percent >= b.min) badge = b.name; });
+        var out = form.querySelector('.feedback');
+        out.className = 'feedback result';
+        out.textContent = '';
+        out.appendChild(el('strong', {}, hits + ' de ' + total + ' predicciones acertadas · ' + score + ' de ' + maxScore + ' puntos. '));
+        out.appendChild(el('span', { 'class': 'result__badge' }, badge ? 'Insignia: ' + badge + '. ' : ''));
+        out.appendChild(el('span', {}, 'No se trata de acertar: compara tus predicciones con lo que verás en la clase.'));
+        if (window.scorm5e && window.scorm5e.complete) window.scorm5e.complete(percent);
+      }
+      return s.predictions.map(function (pr, i) {
+        var row = el('fieldset', { 'class': 'row prediction' });
+        row.appendChild(el('legend', {}, (i + 1) + '. ' + pr.question));
+        var options = shuffle([pr.correctOption, pr.otherOption, pr.extraOption].filter(function (o) { return o; }));
+        var buttons = options.map(function (option) {
+          var button = el('button', { type: 'button', 'class': 'option' }, option);
+          row.appendChild(button);
+          return button;
+        });
+        var reveal = el('p', { 'class': 'reveal', hidden: 'hidden' });
+        row.appendChild(reveal);
+        box.appendChild(row);
+        var hit = false, done = false;
+        buttons.forEach(function (button) {
+          button.addEventListener('click', function () {
+            if (done) return;
+            done = true;
+            hit = button.textContent === pr.correctOption;
+            buttons.forEach(function (b) {
+              b.disabled = true;
+              if (b.textContent === pr.correctOption) b.className = 'option option--right';
+            });
+            if (!hit) button.className = 'option option--wrong';
+            if (hit) { streak += 1; hits += 1; score += POINTS + (streak > 1 ? STREAK_BONUS : 0); } else { streak = 0; }
+            scoreOut.textContent = String(score);
+            streakOut.textContent = String(streak);
+            reveal.hidden = false;
+            reveal.textContent = (hit ? '¡Acertaste! +' + (POINTS + (streak > 1 ? STREAK_BONUS : 0)) + '. ' : 'Era «' + pr.correctOption + '». ') + pr.reveal;
+            if (pr.source) reveal.appendChild(el('span', { 'class': 'source' }, ' Fuente: ' + pr.source));
+            row.className = 'row prediction ' + (hit ? 'row--ok' : 'row--bad');
+            answered += 1;
+            if (answered === total) finish();
+          });
+        });
+        return function () { return hit; };
+      });
+    },
     ordenar_pasos: function (s, box) {
       var list = el('ol', { 'class': 'activity__order' });
       shuffle(s.sequence).forEach(function (step) {
@@ -547,7 +636,7 @@ ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, com
     var activity = JSON.parse(data.textContent);
     var build = builders[activity.type];
     if (!build) return;
-    var checks = build(activity.structure, form.querySelector('.activity__items'));
+    var checks = build(activity.structure, form.querySelector('.activity__items'), activity);
     form.addEventListener('submit', function (event) {
       event.preventDefault();
       var right = checks.filter(function (check) { return check(); }).length;

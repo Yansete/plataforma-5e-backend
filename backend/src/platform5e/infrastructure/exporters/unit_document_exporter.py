@@ -26,6 +26,7 @@ RESOURCE_LABELS = {
     "ejercicio_aplicacion": ("Para aplicar", "Ejercicio de aplicación"),
     "item_opcion_multiple": ("Para evaluar", "Pregunta de opción múltiple"),
     "audio_detonante": ("Para iniciar la clase", "Cápsula de audio"),
+    "reto_prediccion": ("Para iniciar la clase", "Reto de predicción"),
     "imagen_ilustrativa": ("Para explorar", "Imagen ilustrativa"),
     "diagrama_proceso": ("Para explorar", "Diagrama de proceso"),
     "exploracion_guiada": ("Para explorar", "Exploración guiada"),
@@ -90,7 +91,23 @@ def _media_html(resource: Mapping) -> str:
                 f"<br><em>{_esc(step.get('question'))}</em> {source_html}<br>__________________________</li>"
             )
         return f'<ol class="activity">{"".join(items)}</ol>'
-    if kind_type == "emparejamiento":
+    if kind_type == "reto_prediccion":
+        # HU-047: cada pregunta con sus opciones en orden alfabético (la correcta no queda siempre primera); la clave
+        # dice la respuesta, lo que dice el material y su fuente, para comentarlo en clase.
+        locations = {e.get("id"): e.get("location") for e in resource.get("evidence") or []}
+        for prediction in structure.get("predictions") or []:
+            options = sorted(
+                (o for o in (prediction.get("correctOption"), prediction.get("otherOption"), prediction.get("extraOption")) if o),
+                key=lambda o: o.casefold(),
+            )
+            choices = " ".join(f"{LETTERS[i]}) {_esc(o)}" for i, o in enumerate(options))
+            rows.append(f"<li>{_esc(prediction.get('question'))}<br>{choices}</li>")
+            source = ", ".join(locations[f] for f in prediction.get("fragmentIds") or [] if locations.get(f))
+            key.append(
+                f"{len(key) + 1}. {_esc(prediction.get('correctOption'))}. {_esc(prediction.get('reveal'))}"
+                + (f" (Fuente: {_esc(source)})" if source else "")
+            )
+    elif kind_type == "emparejamiento":
         pairs = structure.get("pairs") or []
         definitions = sorted((p["definition"] for p in pairs), key=lambda d: d.casefold())
         rows = [f"<li>{_esc(p['term'])} → ______</li>" for p in pairs]

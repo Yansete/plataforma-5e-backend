@@ -12,6 +12,7 @@ from typing import Any
 from platform5e.domain.generation.distractor_reliability import assess_distractor
 from platform5e.domain.generation.grounding import (
     DEFAULT_THRESHOLD,
+    link_prediction_sources,
     link_step_sources,
     verify_citations,
     verify_statements,
@@ -43,6 +44,13 @@ RESOURCE_TYPES: dict[str, tuple[str, str]] = {
     "sondeo_diagnostico": (
         "Sondeo diagnóstico de ideas previas",
         "Entre 4 y 6 afirmaciones de verdadero o falso para detectar concepciones alternativas.",
+    ),
+    "reto_prediccion": (
+        "Reto de predicción",
+        "Un juego para iniciar la clase: de 3 a 5 preguntas en las que el estudiante predice qué pasa o qué es, "
+        "eligiendo entre 2 o 3 opciones, antes de ver lo que dice el material. Las preguntas deben despertar "
+        "curiosidad (una idea intuitiva o común entre las opciones equivocadas) y la respuesta correcta sale de un "
+        "fragmento.",
     ),
     "guia_exploracion": (
         "Guía de exploración",
@@ -130,6 +138,12 @@ STRUCTURE_INSTRUCTIONS: dict[str, str] = {
         '"estructura": {"pasos_guiados": [{"titulo": "...", "consigna": "qué observa, lee o compara el estudiante en '
         'el material", "pregunta": "pregunta guía para registrar lo que encontró", "fragmentos": ["F1"]}]}. '
         "Cada paso cita en «fragmentos» la etiqueta del fragmento en que se apoya"
+    ),
+    "reto_prediccion": (
+        '"estructura": {"predicciones": [{"pregunta": "¿Qué crees que pasa si…?", "correcta": "opción que dice el '
+        'material", "otra": "opción equivocada pero creíble", "extra": "otra opción equivocada (opcional)", '
+        '"revelacion": "lo que dice el material, en una o dos oraciones", "fragmentos": ["F1"]}]}. '
+        "Cada predicción cita en «fragmentos» la etiqueta del fragmento que contiene la respuesta correcta"
     ),
     "mapa_conceptual": '"estructura": {"central": "...", "nodos": [{"etiqueta": "...", "detalle": "..."}]}',
     "infografia": '"estructura": {"central": "titular", "puntos": [{"titulo": "...", "texto": "..."}]}',
@@ -354,7 +368,8 @@ def structure_from_model(
 ) -> dict[str, Any] | None:
     """Traduce la «estructura» del contrato con el modelo (claves en español) a la del recurso y la valida.
 
-    `tag_mapping` (F1 → id del fragmento) se usa en la exploración guiada, cuyos pasos citan su fragmento (HU-048).
+    `tag_mapping` (F1 → id del fragmento) se usa en la exploración guiada (HU-048) y en el reto de predicción
+    (HU-047), cuyos pasos o predicciones citan su fragmento.
     """
     data = raw if isinstance(raw, dict) else {}
     converted: dict[str, Any] = {}
@@ -378,6 +393,20 @@ def structure_from_model(
                     "fragmentIds": _resolve_fragment_ids(i.get("fragmentos"), tag_mapping or {}),
                 }
                 for i in _list_of_dicts(data.get("pasos_guiados"))
+            ]
+        }
+    elif resource_type == "reto_prediccion":
+        converted = {
+            "predictions": [
+                {
+                    "question": i.get("pregunta"),
+                    "correctOption": i.get("correcta"),
+                    "otherOption": i.get("otra"),
+                    "extraOption": i.get("extra"),
+                    "reveal": i.get("revelacion"),
+                    "fragmentIds": _resolve_fragment_ids(i.get("fragmentos"), tag_mapping or {}),
+                }
+                for i in _list_of_dicts(data.get("predicciones"))
             ]
         }
     elif resource_type == "mapa_conceptual":
@@ -513,6 +542,24 @@ def normalize_generated_resources(
                         )
                     continue
                 structure = {**structure, "guidedSteps": linked.steps}
+            if req["tipo"] == "reto_prediccion":
+                # HU-047 C02: cada predicción queda enlazada al fragmento que respalda su respuesta.
+                linked = link_prediction_sources(structure["predictions"], fragments_by_id)
+                verification.update(linked.summary())
+                if len(linked.predictions) < MIN_ITEMS["reto_prediccion"]:
+                    if rejections is not None:
+                        rejections.append(
+                            {
+                                "title": title,
+                                "reason": (
+                                    f"«{title}»: solo {len(linked.predictions)} predicción(es) tienen su respuesta "
+                                    f"en el material; el reto necesita al menos {MIN_ITEMS['reto_prediccion']}."
+                                ),
+                                "grounding": verification,
+                            }
+                        )
+                    continue
+                structure = {**structure, "predictions": linked.predictions}
 
         alternatives = None
         if req["tipo"] == "item_opcion_multiple":

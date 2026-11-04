@@ -180,6 +180,15 @@ Backend: 347 pruebas; frontend: 79 y las 5 pruebas en Chromium. Además se abri�
 SCORM con los 18 tipos, con una API de SCORM 1.2 simulada: imágenes y audio cargan, las páginas de contenido quedan
 `completed`, la pregunta se califica y las cuatro actividades envían `score.raw` 100 y `passed` al responder bien.
 
+## Reto de predicción, HU-047 (04/11/2026)
+
+`tests/unit/test_engage_agent.py` cubre el tipo nuevo junto a los textuales de Enganchar, las predicciones completas
+(pregunta, dos opciones distintas y lo que se revela) y el mínimo de 3, el prompt y el esquema de Gemini, la
+traducción de las predicciones del modelo con sus etiquetas, la cita que se conserva, la cita equivocada que se
+corrige, la predicción inventada que se quita con su motivo, que las opciones equivocadas no se contrastan, la
+normalización completa, el rechazo con menos de 3 predicciones, el respaldo por reglas, la página SCORM (puntos,
+racha, insignias, fuente de cada respuesta y actividad «completada») y el documento imprimible con su clave.
+
 ## Exploración guiada, HU-048 (02/11/2026)
 
 `tests/unit/test_explore_agent.py` cubre el tipo nuevo (formato interactivo, pasos completos y mínimo de 3), el prompt

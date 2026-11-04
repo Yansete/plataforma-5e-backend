@@ -39,6 +39,19 @@
     "hasOptions": false
   },
   {
+    "id": "reto_prediccion",
+    "name": "Reto de predicción",
+    "singular": "Reto de predicción",
+    "count": [
+      "reto de predicción",
+      "retos de predicción"
+    ],
+    "stage": "engage",
+    "group": "Para iniciar la clase",
+    "format": "interactive",
+    "hasOptions": false
+  },
+  {
     "id": "guia_exploracion",
     "name": "Guía de exploración",
     "singular": "Guía de exploración",

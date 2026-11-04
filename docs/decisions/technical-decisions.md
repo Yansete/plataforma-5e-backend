@@ -430,3 +430,34 @@ cita por paso.
   registrados. Cada paso muestra su fuente (documento y página). El documento imprimible deja un espacio para anotar.
 - **Respaldo por reglas.** El generador por reglas arma de 3 a 4 pasos con oraciones del material, cada uno con su
   etiqueta, así que siempre pasa la verificación.
+
+## ADR-020 Reto de predicción: recurso gamificado del agente de Enganchar (04/11/2026)
+
+HU-047 pide que el agente de Enganchar genere al menos un recurso gamificado y uno textual anclados a la unidad (C01) y
+que cada recurso cite su fragmento de origen (C02). Los textuales ya existían (pregunta detonante y sondeo de ideas
+previas, verificados desde el ADR-014); faltaba el gamificado. La única gamificación (ADR-012) es la evaluación por
+niveles, que es de la etapa Evaluar. La especificación está en `docs/specs/hu-047/`.
+
+- **Qué juego.** Un reto de predicción: el estudiante predice antes de la clase («¿qué crees que…?») eligiendo entre 2
+  o 3 opciones, y al responder ve al instante lo que dice el material. Predecir antes de explicar es propio de
+  Enganchar (activa ideas previas y despierta curiosidad) y lo distingue del «Verdadero o falso», que es de Evaluar.
+- **Tipo nuevo.** `reto_prediccion` («Reto de predicción», etapa Enganchar, formato `interactive`). El catálogo pasa
+  de 19 a 20 tipos y el frontend lo recibe del backend (HU-006).
+- **Estructura.** `predictions`: de 3 a 10, cada una con `question`, `correctOption`, `otherOption`, `extraOption`
+  (opcional), `reveal` (lo que dice el material) y `fragmentIds`. Las opciones son campos sueltos, no una lista, para
+  que el docente las edite con el mismo editor de las demás actividades. Dos opciones iguales no valen. Al modelo se
+  le pide `predicciones` con `pregunta`, `correcta`, `otra`, `extra`, `revelacion` y `fragmentos`.
+- **Cita de cada predicción.** `link_prediction_sources` usa la misma regla que los pasos de la exploración guiada
+  (ADR-019), pero contrasta solo la opción correcta y lo que se revela: la pregunta y las opciones equivocadas, a
+  propósito, no están en el material. Como lo que se revela es una afirmación redactada por el modelo, se le pide lo
+  mismo que a un párrafo (ADR-016): 50 %. La cita equivocada se corrige, la predicción sin respaldo se quita con su
+  motivo y con menos de 3 el recurso se rechaza. La función común de HU-048 y HU-047 es `_link_sources`.
+- **Juego en el SCORM.** Al elegir, la opción se bloquea, se marca la correcta y aparece lo que dice el material con
+  su fuente. Cada acierto suma 100 puntos y, desde el segundo acierto seguido, 50 más por la racha. Al terminar se
+  muestran los aciertos, los puntos y la insignia con los mismos umbrales del ADR-012 (Oro, Plata, Bronce).
+- **Sin aprobar ni desaprobar.** Es para iniciar la clase: el LMS recibe el porcentaje de aciertos, pero
+  `lesson_status` queda en `completed` (nueva función `scorm5e.complete`). El documento imprimible muestra las
+  opciones en orden alfabético y una clave con la respuesta, lo que dice el material y la fuente.
+- **Respaldo por reglas.** El generador por reglas oculta un término de una oración del material y da a elegir entre
+  ese término y otros de la unidad que no están en la oración; lo que se revela es la oración, así que siempre pasa la
+  verificación.
