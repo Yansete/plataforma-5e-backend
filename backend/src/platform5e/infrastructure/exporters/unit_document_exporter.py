@@ -26,12 +26,14 @@ RESOURCE_LABELS = {
     "ejercicio_aplicacion": ("Para aplicar", "Ejercicio de aplicación"),
     "item_opcion_multiple": ("Para evaluar", "Pregunta de opción múltiple"),
     "audio_detonante": ("Para iniciar la clase", "Cápsula de audio"),
+    "reto_prediccion": ("Para iniciar la clase", "Reto de predicción"),
     "imagen_ilustrativa": ("Para explorar", "Imagen ilustrativa"),
     "diagrama_proceso": ("Para explorar", "Diagrama de proceso"),
     "exploracion_guiada": ("Para explorar", "Exploración guiada"),
     "mapa_conceptual": ("Para explicar", "Mapa conceptual"),
     "infografia": ("Para explicar", "Infografía"),
     "podcast_resumen": ("Para explicar", "Resumen en pódcast"),
+    "caso_aplicado": ("Para aplicar", "Caso aplicado"),
     "emparejamiento": ("Para aplicar", "Relacionar conceptos"),
     "ordenar_pasos": ("Para aplicar", "Ordenar pasos"),
     "verdadero_falso": ("Para evaluar", "Verdadero o falso"),
@@ -90,7 +92,39 @@ def _media_html(resource: Mapping) -> str:
                 f"<br><em>{_esc(step.get('question'))}</em> {source_html}<br>__________________________</li>"
             )
         return f'<ol class="activity">{"".join(items)}</ol>'
-    if kind_type == "emparejamiento":
+    if kind_type == "caso_aplicado":
+        # HU-050: sin clave de respuestas; la situación, la consigna, un espacio para resolver y los criterios de logro
+        # con su fuente, para que el estudiante revise su solución y el docente la valore.
+        locations = {e.get("id"): e.get("location") for e in resource.get("evidence") or []}
+        criteria = []
+        for criterion in structure.get("criteria") or []:
+            source = ", ".join(locations[f] for f in criterion.get("fragmentIds") or [] if locations.get(f))
+            source_html = f' <span class="src">Fuente: {_esc(source)}</span>' if source else ""
+            criteria.append(f"<li>☐ {_esc(criterion.get('criterion'))}{source_html}</li>")
+        lines = "<br>".join("________________________________________________" for _ in range(6))
+        return (
+            f'<div class="case"><p>{_esc(structure.get("scenario"))}</p>'
+            f'<p><strong>Consigna:</strong> {_esc(structure.get("task"))}</p>'
+            f'<p class="meta">Tu solución:</p><p>{lines}</p>'
+            f'<p class="meta">Criterios de logro:</p><ul class="activity">{"".join(criteria)}</ul></div>'
+        )
+    if kind_type == "reto_prediccion":
+        # HU-047: cada pregunta con sus opciones en orden alfabético (la correcta no queda siempre primera); la clave
+        # dice la respuesta, lo que dice el material y su fuente, para comentarlo en clase.
+        locations = {e.get("id"): e.get("location") for e in resource.get("evidence") or []}
+        for prediction in structure.get("predictions") or []:
+            options = sorted(
+                (o for o in (prediction.get("correctOption"), prediction.get("otherOption"), prediction.get("extraOption")) if o),
+                key=lambda o: o.casefold(),
+            )
+            choices = " ".join(f"{LETTERS[i]}) {_esc(o)}" for i, o in enumerate(options))
+            rows.append(f"<li>{_esc(prediction.get('question'))}<br>{choices}</li>")
+            source = ", ".join(locations[f] for f in prediction.get("fragmentIds") or [] if locations.get(f))
+            key.append(
+                f"{len(key) + 1}. {_esc(prediction.get('correctOption'))}. {_esc(prediction.get('reveal'))}"
+                + (f" (Fuente: {_esc(source)})" if source else "")
+            )
+    elif kind_type == "emparejamiento":
         pairs = structure.get("pairs") or []
         definitions = sorted((p["definition"] for p in pairs), key=lambda d: d.casefold())
         rows = [f"<li>{_esc(p['term'])} → ______</li>" for p in pairs]

@@ -180,6 +180,28 @@ Backend: 347 pruebas; frontend: 79 y las 5 pruebas en Chromium. Además se abri�
 SCORM con los 18 tipos, con una API de SCORM 1.2 simulada: imágenes y audio cargan, las páginas de contenido quedan
 `completed`, la pregunta se califica y las cuatro actividades envían `score.raw` 100 y `passed` al responder bien.
 
+## Caso aplicado, HU-050 (04/11/2026)
+
+`tests/unit/test_elaborate_agent.py` cubre el tipo nuevo junto al ejercicio de aplicación de texto, el caso completo
+(situación, consigna y al menos 3 criterios distintos), el prompt (la situación es nueva, los criterios salen del
+material y la solución la califica el docente) y el esquema de Gemini, la traducción del caso del modelo con sus
+etiquetas, el criterio que conserva su cita, la cita equivocada que se corrige, el criterio inventado que se quita con
+su motivo, que la situación fuera del material no se contrasta, la normalización completa, el rechazo con menos de 3
+criterios y el respaldo por reglas. Para el C02, con el orquestador de HU-003: el caso que copia la explicación se
+pide de nuevo y se rechaza con «repetía», el reintento distinto se conserva, el caso de una secuencia de cuatro etapas
+recibe lo que redactaron Enganchar y Explicar, y del caso solo se comparan el título, la situación y la consigna.
+También cubre la página SCORM (situación, consigna, campo para la solución, fuente de cada criterio y actividad
+«completada») y el documento imprimible sin clave de respuestas.
+
+## Reto de predicción, HU-047 (04/11/2026)
+
+`tests/unit/test_engage_agent.py` cubre el tipo nuevo junto a los textuales de Enganchar, las predicciones completas
+(pregunta, dos opciones distintas y lo que se revela) y el mínimo de 3, el prompt y el esquema de Gemini, la
+traducción de las predicciones del modelo con sus etiquetas, la cita que se conserva, la cita equivocada que se
+corrige, la predicción inventada que se quita con su motivo, que las opciones equivocadas no se contrastan, la
+normalización completa, el rechazo con menos de 3 predicciones, el respaldo por reglas, la página SCORM (puntos,
+racha, insignias, fuente de cada respuesta y actividad «completada») y el documento imprimible con su clave.
+
 ## Exploración guiada, HU-048 (02/11/2026)
 
 `tests/unit/test_explore_agent.py` cubre el tipo nuevo (formato interactivo, pasos completos y mínimo de 3), el prompt

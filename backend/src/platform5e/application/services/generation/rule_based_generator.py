@@ -106,7 +106,9 @@ _BUILDERS_BY_TYPE: dict[str, str] = {
     "explicacion": "_explanation",
     "glosario": "_glossary",
     "ejercicio_aplicacion": "_application_exercise",
+    "caso_aplicado": "_applied_case",
     "audio_detonante": "_audio_trigger",
+    "reto_prediccion": "_prediction_challenge",
     "podcast_resumen": "_podcast_summary",
     "imagen_ilustrativa": "_illustration",
     "diagrama_proceso": "_process_diagram",
@@ -529,6 +531,51 @@ class RuleBasedGenerator:
             "citas": [{"afirmacion": sentence, "fragmentos": [tag]}],
             "alternativas": [],
         }
+    # HU-050: situaciones nuevas, fuera del material, donde se aplica lo aprendido (una por caso generado).
+    _APPLIED_SETTINGS: tuple[str, ...] = (
+        "La institución educativa de tu barrio quiere mejorar un servicio que hoy le da problemas y te pide ayuda. "
+        "El equipo directivo necesita una propuesta que puedan entender y poner en marcha esta semana.",
+        "Una pequeña empresa de tu ciudad está creciendo y debe decidir cómo organizar su trabajo diario. "
+        "La dueña te pide una recomendación justificada antes de invertir.",
+        "Una organización de tu comunidad prepara un proyecto para atender a más personas. "
+        "Te piden revisar el plan y proponer los cambios necesarios.",
+    )
+
+    def _applied_case(self, index, sentence_pairs, terms, context):
+        """HU-050: un caso en una situación nueva, con una consigna y de 3 a 4 criterios de logro; cada criterio
+        aplica una oración del material, así que siempre pasa la verificación."""
+        selected, used = [], set()
+        matches = [(tag, sentence, term) for term in terms for tag, sentence in sentence_pairs if _contains_word(sentence, term)]
+        for tag, sentence, term in matches[index * 4 :] + matches[: index * 4]:
+            if sentence in used or any(term == chosen[2] for chosen in selected):
+                continue
+            used.add(sentence)
+            selected.append((tag, sentence, term))
+            if len(selected) == 4:
+                break
+        if len(selected) < 3:
+            return None
+        concepts = [term for _, _, term in selected]
+        listed = ", ".join(concepts[:-1]) + f" y {concepts[-1]}"
+        unit_title = context["unidad"]["titulo"]
+        setting = self._APPLIED_SETTINGS[index % len(self._APPLIED_SETTINGS)]
+        return {
+            "titulo": f"Caso aplicado: {unit_title}",
+            "contenido": "Lee la situación, resuelve la consigna y revisa tu solución con los criterios de logro antes "
+            "de entregarla.",
+            "citas": [{"afirmacion": sentence, "fragmentos": [tag]} for tag, sentence, _ in selected],
+            "alternativas": [],
+            "estructura": {
+                "situacion": f"{setting} Para resolverlo necesitas lo que aprendiste sobre {unit_title.lower()}.",
+                "consigna": f"Propón una solución para esta situación aplicando {listed}. Explica paso a paso qué "
+                "harías y por qué, con tus palabras.",
+                "criterios": [
+                    {"criterio": f"Aplica {term} según el material: «{_shorten(sentence, 300)}»", "fragmentos": [tag]}
+                    for tag, sentence, term in selected
+                ],
+            },
+        }
+
     # ——— Recursos multimodales e interactivos (respaldo sin IA) ———
 
     def _audio_trigger(self, index, sentence_pairs, terms, context):
@@ -642,6 +689,48 @@ class RuleBasedGenerator:
             "citas": [{"afirmacion": sentence, "fragmentos": [tag]} for tag, sentence in selected],
             "alternativas": [],
             "estructura": {"pasos_guiados": steps},
+        }
+
+    def _prediction_challenge(self, index, sentence_pairs, terms, context):
+        """HU-047: de 3 a 4 predicciones. Cada una oculta un término de una oración del material y da a elegir entre
+        ese término y otros de la unidad que no aparecen en la oración; al responder se revela la oración."""
+        predictions, citations, used = [], [], set()
+        matches = [(tag, sentence, term) for term in terms for tag, sentence in sentence_pairs if _contains_word(sentence, term)]
+        for tag, sentence, term in matches[index * 4 :] + matches[: index * 4]:
+            if sentence in used:
+                continue
+            others = [
+                other
+                for other in terms
+                if other != term and not _are_related_terms(term, other) and not _contains_word(sentence, other)
+            ]
+            masked = _mask_target_word(sentence, term)
+            if not others or masked == sentence:
+                continue
+            used.add(sentence)
+            n = len(predictions)
+            predictions.append(
+                {
+                    "pregunta": f"¿Qué crees que completa esta idea? «{_shorten(masked, 300)}»",
+                    "correcta": _capitalize_first(term),
+                    "otra": _capitalize_first(others[n % len(others)]),
+                    "extra": _capitalize_first(others[(n + 1) % len(others)]) if len(others) > 1 else "",
+                    "revelacion": f"El material dice: «{_shorten(sentence, 300)}»",
+                    "fragmentos": [tag],
+                }
+            )
+            citations.append({"afirmacion": sentence, "fragmentos": [tag]})
+            if len(predictions) == 4:
+                break
+        if len(predictions) < 3:
+            return None
+        return {
+            "titulo": f"Reto de predicción: {context['unidad']['titulo']}",
+            "contenido": "Antes de empezar la clase, elige lo que crees en cada pregunta. No importa acertar: al "
+            "responder verás lo que dice el material y sumarás puntos por cada predicción acertada.",
+            "citas": citations,
+            "alternativas": [],
+            "estructura": {"predicciones": predictions},
         }
 
     def _concept_map(self, index, sentence_pairs, terms, context):

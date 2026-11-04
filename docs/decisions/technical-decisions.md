@@ -430,3 +430,65 @@ cita por paso.
   registrados. Cada paso muestra su fuente (documento y página). El documento imprimible deja un espacio para anotar.
 - **Respaldo por reglas.** El generador por reglas arma de 3 a 4 pasos con oraciones del material, cada uno con su
   etiqueta, así que siempre pasa la verificación.
+
+## ADR-020 Reto de predicción: recurso gamificado del agente de Enganchar (04/11/2026)
+
+HU-047 pide que el agente de Enganchar genere al menos un recurso gamificado y uno textual anclados a la unidad (C01) y
+que cada recurso cite su fragmento de origen (C02). Los textuales ya existían (pregunta detonante y sondeo de ideas
+previas, verificados desde el ADR-014); faltaba el gamificado. La única gamificación (ADR-012) es la evaluación por
+niveles, que es de la etapa Evaluar. La especificación está en `docs/specs/hu-047/`.
+
+- **Qué juego.** Un reto de predicción: el estudiante predice antes de la clase («¿qué crees que…?») eligiendo entre 2
+  o 3 opciones, y al responder ve al instante lo que dice el material. Predecir antes de explicar es propio de
+  Enganchar (activa ideas previas y despierta curiosidad) y lo distingue del «Verdadero o falso», que es de Evaluar.
+- **Tipo nuevo.** `reto_prediccion` («Reto de predicción», etapa Enganchar, formato `interactive`). El catálogo pasa
+  de 19 a 20 tipos y el frontend lo recibe del backend (HU-006).
+- **Estructura.** `predictions`: de 3 a 10, cada una con `question`, `correctOption`, `otherOption`, `extraOption`
+  (opcional), `reveal` (lo que dice el material) y `fragmentIds`. Las opciones son campos sueltos, no una lista, para
+  que el docente las edite con el mismo editor de las demás actividades. Dos opciones iguales no valen. Al modelo se
+  le pide `predicciones` con `pregunta`, `correcta`, `otra`, `extra`, `revelacion` y `fragmentos`.
+- **Cita de cada predicción.** `link_prediction_sources` usa la misma regla que los pasos de la exploración guiada
+  (ADR-019), pero contrasta solo la opción correcta y lo que se revela: la pregunta y las opciones equivocadas, a
+  propósito, no están en el material. Como lo que se revela es una afirmación redactada por el modelo, se le pide lo
+  mismo que a un párrafo (ADR-016): 50 %. La cita equivocada se corrige, la predicción sin respaldo se quita con su
+  motivo y con menos de 3 el recurso se rechaza. La función común de HU-048 y HU-047 es `_link_sources`.
+- **Juego en el SCORM.** Al elegir, la opción se bloquea, se marca la correcta y aparece lo que dice el material con
+  su fuente. Cada acierto suma 100 puntos y, desde el segundo acierto seguido, 50 más por la racha. Al terminar se
+  muestran los aciertos, los puntos y la insignia con los mismos umbrales del ADR-012 (Oro, Plata, Bronce).
+- **Sin aprobar ni desaprobar.** Es para iniciar la clase: el LMS recibe el porcentaje de aciertos, pero
+  `lesson_status` queda en `completed` (nueva función `scorm5e.complete`). El documento imprimible muestra las
+  opciones en orden alfabético y una clave con la respuesta, lo que dice el material y la fuente.
+- **Respaldo por reglas.** El generador por reglas oculta un término de una oración del material y da a elegir entre
+  ese término y otros de la unidad que no están en la oración; lo que se revela es la oración, así que siempre pasa la
+  verificación.
+
+## ADR-021 Caso aplicado: recurso estructurado del agente de Elaborar (04/11/2026)
+
+HU-050 pide que el agente de Elaborar genere un caso aplicado con consigna y criterios de logro (C01) y que no repita
+contenido de las etapas anteriores (C02). El «Ejercicio de aplicación» ya pedía una consigna y criterios, pero como
+texto corrido: el docente no puede revisar cada criterio ni saber de qué parte del material sale, y el estudiante no
+tiene dónde escribir su solución en el SCORM. La especificación está en `docs/specs/hu-050/`.
+
+- **Tipo nuevo, no un cambio de formato.** Se agrega `caso_aplicado` («Caso aplicado», etapa Elaborar, formato
+  `interactive`) en vez de convertir `ejercicio_aplicacion`, para no dejar sin estructura los recursos que ya están
+  guardados, como en los ADR-019 y ADR-020. El catálogo pasa de 20 a 21 tipos y el frontend lo recibe del backend
+  (HU-006). El contrato `caso_transferencia` de `schemas/elaborate.py` (16/10) no se usa: nunca entró al catálogo.
+- **Estructura.** `scenario` (la situación nueva), `task` (la consigna) y `criteria`: de 3 a 10 criterios de logro,
+  cada uno con `criterion` y `fragmentIds`. Dos criterios iguales cuentan como uno. Al modelo se le pide `situacion`,
+  `consigna` y `criterios` con `criterio` y `fragmentos` (etiquetas F1, F2…), también en el esquema de Gemini.
+- **Qué se contrasta.** `link_criterion_sources` usa `_link_sources` (ADR-020) con un mínimo de 30 %, como los pasos de
+  la exploración guiada: un criterio mezcla el concepto que aplica con verbos de desempeño («justifica», «propone»).
+  La situación y la consigna no se contrastan, porque a propósito plantean un contexto que no está en el material. La
+  cita equivocada se corrige, el criterio sin respaldo se quita con su motivo y con menos de 3 el caso se rechaza.
+- **No repetir (C02).** Lo hace el orquestador del ADR-013, pero se ajustó qué se compara del caso. Con todo su texto,
+  un caso que copiaba la explicación anterior llegaba solo al 47 % de parecido y no se rechazaba: los criterios repiten
+  conceptos del material a propósito y las instrucciones para el estudiante son las mismas en todos los casos. Ahora
+  `resource_text` toma del caso solo el título, la situación y la consigna, que es lo que debe ser nuevo. Los demás
+  tipos se comparan igual que antes.
+- **Sin calificación automática.** El estudiante escribe su solución y marca los criterios que cumple. El LMS recibe el
+  porcentaje de criterios marcados, pero la actividad queda `completed` con `scorm5e.complete` (ADR-020), porque la
+  solución la valora el docente. Por eso el prompt de este tipo no dice que la plataforma la califica sola
+  (`TYPE_FORMAT_RULES`). El documento imprimible deja un espacio para resolver y lista los criterios con su fuente.
+- **Respaldo por reglas.** El generador por reglas elige una de tres situaciones nuevas (una institución educativa,
+  una pequeña empresa o una organización de la comunidad) y arma de 3 a 4 criterios con oraciones del material, cada
+  uno con su etiqueta, así que siempre pasa la verificación.

@@ -39,6 +39,19 @@
     "hasOptions": false
   },
   {
+    "id": "reto_prediccion",
+    "name": "Reto de predicción",
+    "singular": "Reto de predicción",
+    "count": [
+      "reto de predicción",
+      "retos de predicción"
+    ],
+    "stage": "engage",
+    "group": "Para iniciar la clase",
+    "format": "interactive",
+    "hasOptions": false
+  },
+  {
     "id": "guia_exploracion",
     "name": "Guía de exploración",
     "singular": "Guía de exploración",
@@ -179,6 +192,19 @@
     "stage": "elaborate",
     "group": "Para aplicar",
     "format": "text",
+    "hasOptions": false
+  },
+  {
+    "id": "caso_aplicado",
+    "name": "Caso aplicado",
+    "singular": "Caso aplicado",
+    "count": [
+      "caso aplicado",
+      "casos aplicados"
+    ],
+    "stage": "elaborate",
+    "group": "Para aplicar",
+    "format": "interactive",
     "hasOptions": false
   },
   {

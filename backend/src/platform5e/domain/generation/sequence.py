@@ -26,6 +26,8 @@ STAGE_AGENTS: dict[str, str] = {
 # Proporción de palabras compartidas a partir de la cual dos recursos se consideran repetidos.
 SIMILARITY_THRESHOLD: float = 0.6
 MAX_SEQUENCE_TYPES: int = 8
+# HU-050: partes del caso aplicado que se comparan con los recursos de las etapas anteriores.
+CASE_FIELDS: tuple[str, ...] = ("scenario", "task")
 
 
 class SequenceError(ValueError):
@@ -51,12 +53,20 @@ def stage_agent(resource_type: str) -> str:
 
 
 def resource_text(resource: dict[str, Any]) -> str:
-    """Texto comparable de un recurso: título, contenido y textos de su estructura o alternativas."""
-    parts: list[str] = [str(resource.get("titulo") or resource.get("title") or ""),
-                        str(resource.get("contenido") or resource.get("body") or "")]
+    """Texto comparable de un recurso: título, contenido y textos de su estructura o alternativas.
+
+    HU-050: en el caso aplicado lo que debe ser nuevo es la situación y la consigna. Sus criterios de logro citan el
+    material a propósito y sus instrucciones para el estudiante son las mismas en todos los casos; si se compararan,
+    diluirían el parecido y un caso que copia la explicación de una etapa anterior no se rechazaría.
+    """
+    title = str(resource.get("titulo") or resource.get("title") or "")
+    structure = resource.get("estructura") or resource.get("structure") or {}
+    case_parts = [structure.get(key) for key in CASE_FIELDS]
+    if all(isinstance(part, str) and part for part in case_parts):
+        return " ".join([title, *case_parts])
+    parts: list[str] = [title, str(resource.get("contenido") or resource.get("body") or "")]
     for alternative in resource.get("alternativas") or resource.get("options") or []:
         parts.append(str(alternative.get("texto") or alternative.get("text") or ""))
-    structure = resource.get("estructura") or resource.get("structure") or {}
     for value in structure.values():
         if isinstance(value, str):
             parts.append(value)

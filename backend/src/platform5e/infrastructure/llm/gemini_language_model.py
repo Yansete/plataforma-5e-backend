@@ -67,6 +67,32 @@ _STRUCTURE_SCHEMA: dict[str, Any] = {
                 },
             },
         },
+        "predicciones": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "pregunta": _STRING_TYPE,
+                    "correcta": _STRING_TYPE,
+                    "otra": _STRING_TYPE,
+                    "extra": _STRING_TYPE,
+                    "revelacion": _STRING_TYPE,
+                    "fragmentos": _TAGS_ARRAY_TYPE,
+                },
+            },
+        },
+        "situacion": _STRING_TYPE,
+        "consigna": _STRING_TYPE,
+        "criterios": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "criterio": _STRING_TYPE,
+                    "fragmentos": _TAGS_ARRAY_TYPE,
+                },
+            },
+        },
         "pares": _object_list("termino", "definicion"),
         "secuencia": _TAGS_ARRAY_TYPE,
         "afirmaciones": _object_list("texto", "retroalimentacion", flags=("verdadera",)),
