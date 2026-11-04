@@ -195,6 +195,19 @@
     "hasOptions": false
   },
   {
+    "id": "caso_aplicado",
+    "name": "Caso aplicado",
+    "singular": "Caso aplicado",
+    "count": [
+      "caso aplicado",
+      "casos aplicados"
+    ],
+    "stage": "elaborate",
+    "group": "Para aplicar",
+    "format": "interactive",
+    "hasOptions": false
+  },
+  {
     "id": "emparejamiento",
     "name": "Relacionar conceptos",
     "singular": "Actividad de relacionar",

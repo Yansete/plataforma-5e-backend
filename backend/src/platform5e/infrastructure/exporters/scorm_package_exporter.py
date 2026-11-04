@@ -110,12 +110,12 @@ def _media_block(resource: Mapping, files: list[tuple[str, bytes]]) -> str:
 
 
 # Actividades cuyos elementos citan su fragmento: tipo -> llave de la lista en la estructura.
-SOURCED_LISTS = {"exploracion_guiada": "guidedSteps", "reto_prediccion": "predictions"}
+SOURCED_LISTS = {"exploracion_guiada": "guidedSteps", "reto_prediccion": "predictions", "caso_aplicado": "criteria"}
 
 
 def _with_item_sources(resource: Mapping, structure: Mapping) -> Mapping:
-    """HU-048 y HU-047: cada paso de la exploración guiada y cada predicción del reto muestran de qué parte del
-    material salen (documento y página)."""
+    """HU-048, HU-047 y HU-050: cada paso de la exploración guiada, cada predicción del reto y cada criterio del caso
+    aplicado muestran de qué parte del material salen (documento y página)."""
     key = SOURCED_LISTS.get(resource.get("type", ""))
     if not key:
         return structure
@@ -429,6 +429,10 @@ figcaption{font:.9rem/1.4 system-ui,sans-serif;color:#5b6470;margin-top:.5rem}
 .prediction .option{display:inline-block;margin:.35rem .5rem 0 0;background:#eef2f6;color:#1f2328;font-weight:500}
 .prediction .option--right{background:#1a7f37;color:#fff}.prediction .option--wrong{background:#b42318;color:#fff}
 .prediction .option:disabled{cursor:default;opacity:1}.prediction .reveal{margin:.6rem 0 0}.prediction .source{display:block;font-size:.85rem;color:#555}
+.case{margin:1rem 0;padding:1rem;border-left:4px solid #1f5fae;background:#f3f6f9;font-family:system-ui,sans-serif}
+.case p{margin:.4rem 0}.case textarea{width:100%;box-sizing:border-box;margin-top:.35rem;font:inherit}
+.criterion label{display:flex;gap:.5rem;align-items:flex-start}
+.criterion .source{display:block;font-size:.85rem;color:#555}
 .order{display:flex;gap:.5rem;align-items:center}.order span{flex:1}
 .order button{padding:.2rem .6rem;background:#eef2f6;color:#1f2328}
 h2,h3{font-family:system-ui,sans-serif}
@@ -448,7 +452,8 @@ button:disabled{background:#d0d7de;color:#57606a;cursor:not-allowed}
 .badge--oro{color:#7a5300}.badge--plata{color:#424a53}.badge--bronce{color:#8a3c0c}.badge--none{color:#5b6470}
 """
 
-ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, completar, ordenar, exploración guiada y reto de predicción.
+ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, completar, ordenar, exploración guiada,
+   reto de predicción y caso aplicado.
    Envían el puntaje con scorm5e. */
 (function () {
   'use strict';
@@ -603,6 +608,40 @@ ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, com
         return function () { return hit; };
       });
     },
+    caso_aplicado: function (s, box) {
+      // HU-050: el estudiante escribe su solución y la revisa con los criterios de logro; la califica el docente.
+      var card = el('section', { 'class': 'case' });
+      card.appendChild(el('p', {}, s.scenario));
+      var task = el('p', {});
+      task.appendChild(el('strong', {}, 'Consigna: '));
+      task.appendChild(document.createTextNode(s.task));
+      card.appendChild(task);
+      card.appendChild(el('label', { 'for': 'case-solution' }, 'Tu solución'));
+      var solution = el('textarea', { id: 'case-solution', rows: '8' });
+      card.appendChild(solution);
+      var note = el('span', { 'class': 'note' });
+      card.appendChild(note);
+      box.parentNode.insertBefore(card, box);
+      box.appendChild(el('p', {}, 'Criterios de logro: marca los que cumple tu solución.'));
+      function written() { return solution.value.trim().split(/\s+/).length >= 15; }
+      return s.criteria.map(function (c, i) {
+        var row = el('div', { 'class': 'row criterion' });
+        var id = 'c' + i;
+        var label = el('label', { 'for': id });
+        var check = el('input', { type: 'checkbox', id: id });
+        label.appendChild(check);
+        label.appendChild(el('span', {}, c.criterion));
+        row.appendChild(label);
+        if (c.source) row.appendChild(el('span', { 'class': 'source' }, 'Fuente: ' + c.source));
+        box.appendChild(row);
+        return function () {
+          var ok = written() && check.checked;
+          note.textContent = written() ? '' : 'Escribe tu solución antes de revisarla con los criterios.';
+          row.className = 'row criterion ' + (ok ? 'row--ok' : 'row--bad');
+          return ok;
+        };
+      });
+    },
     ordenar_pasos: function (s, box) {
       var list = el('ol', { 'class': 'activity__order' });
       shuffle(s.sequence).forEach(function (step) {
@@ -642,11 +681,16 @@ ACTIVITY_JS = r"""/* Actividades interactivas: emparejar, verdadero o falso, com
       var right = checks.filter(function (check) { return check(); }).length;
       var percent = checks.length ? (100 * right) / checks.length : 0;
       var out = form.querySelector('.feedback');
+      var selfAssessed = activity.type === 'caso_aplicado';
       out.textContent = activity.type === 'exploracion_guiada'
         ? right + ' de ' + checks.length + ' pasos registrados.'
-        : right + ' de ' + checks.length + ' correctas (' + Math.round(percent) + ' %).';
+        : selfAssessed
+          ? right + ' de ' + checks.length + ' criterios de logro según tu revisión. Tu docente valorará la solución.'
+          : right + ' de ' + checks.length + ' correctas (' + Math.round(percent) + ' %).';
       out.className = 'feedback ' + (percent >= 60 ? 'is-correct' : 'is-wrong');
-      if (window.scorm5e) window.scorm5e.report(percent);
+      // HU-050: el caso aplicado se registra como completado; no se aprueba ni se desaprueba con la autoevaluación.
+      if (selfAssessed && window.scorm5e && window.scorm5e.complete) window.scorm5e.complete(percent);
+      else if (window.scorm5e) window.scorm5e.report(percent);
     });
   });
 })();

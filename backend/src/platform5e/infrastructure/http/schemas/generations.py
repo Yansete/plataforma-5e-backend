@@ -27,6 +27,7 @@ ResourceType = Literal[
     "mapa_conceptual",
     "infografia",
     "podcast_resumen",
+    "caso_aplicado",
     "emparejamiento",
     "ordenar_pasos",
     "verdadero_falso",

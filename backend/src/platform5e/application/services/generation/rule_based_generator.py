@@ -106,6 +106,7 @@ _BUILDERS_BY_TYPE: dict[str, str] = {
     "explicacion": "_explanation",
     "glosario": "_glossary",
     "ejercicio_aplicacion": "_application_exercise",
+    "caso_aplicado": "_applied_case",
     "audio_detonante": "_audio_trigger",
     "reto_prediccion": "_prediction_challenge",
     "podcast_resumen": "_podcast_summary",
@@ -530,6 +531,51 @@ class RuleBasedGenerator:
             "citas": [{"afirmacion": sentence, "fragmentos": [tag]}],
             "alternativas": [],
         }
+    # HU-050: situaciones nuevas, fuera del material, donde se aplica lo aprendido (una por caso generado).
+    _APPLIED_SETTINGS: tuple[str, ...] = (
+        "La institución educativa de tu barrio quiere mejorar un servicio que hoy le da problemas y te pide ayuda. "
+        "El equipo directivo necesita una propuesta que puedan entender y poner en marcha esta semana.",
+        "Una pequeña empresa de tu ciudad está creciendo y debe decidir cómo organizar su trabajo diario. "
+        "La dueña te pide una recomendación justificada antes de invertir.",
+        "Una organización de tu comunidad prepara un proyecto para atender a más personas. "
+        "Te piden revisar el plan y proponer los cambios necesarios.",
+    )
+
+    def _applied_case(self, index, sentence_pairs, terms, context):
+        """HU-050: un caso en una situación nueva, con una consigna y de 3 a 4 criterios de logro; cada criterio
+        aplica una oración del material, así que siempre pasa la verificación."""
+        selected, used = [], set()
+        matches = [(tag, sentence, term) for term in terms for tag, sentence in sentence_pairs if _contains_word(sentence, term)]
+        for tag, sentence, term in matches[index * 4 :] + matches[: index * 4]:
+            if sentence in used or any(term == chosen[2] for chosen in selected):
+                continue
+            used.add(sentence)
+            selected.append((tag, sentence, term))
+            if len(selected) == 4:
+                break
+        if len(selected) < 3:
+            return None
+        concepts = [term for _, _, term in selected]
+        listed = ", ".join(concepts[:-1]) + f" y {concepts[-1]}"
+        unit_title = context["unidad"]["titulo"]
+        setting = self._APPLIED_SETTINGS[index % len(self._APPLIED_SETTINGS)]
+        return {
+            "titulo": f"Caso aplicado: {unit_title}",
+            "contenido": "Lee la situación, resuelve la consigna y revisa tu solución con los criterios de logro antes "
+            "de entregarla.",
+            "citas": [{"afirmacion": sentence, "fragmentos": [tag]} for tag, sentence, _ in selected],
+            "alternativas": [],
+            "estructura": {
+                "situacion": f"{setting} Para resolverlo necesitas lo que aprendiste sobre {unit_title.lower()}.",
+                "consigna": f"Propón una solución para esta situación aplicando {listed}. Explica paso a paso qué "
+                "harías y por qué, con tus palabras.",
+                "criterios": [
+                    {"criterio": f"Aplica {term} según el material: «{_shorten(sentence, 300)}»", "fragmentos": [tag]}
+                    for tag, sentence, term in selected
+                ],
+            },
+        }
+
     # ——— Recursos multimodales e interactivos (respaldo sin IA) ———
 
     def _audio_trigger(self, index, sentence_pairs, terms, context):

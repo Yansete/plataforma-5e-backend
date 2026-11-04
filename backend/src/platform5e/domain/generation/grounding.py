@@ -302,7 +302,7 @@ def verify_statements(
     )
 
 
-# --- HU-048 y HU-047: cada elemento de una actividad cita su fragmento ---------------------------------------------
+# --- HU-048, HU-047 y HU-050: cada elemento de una actividad cita su fragmento -------------------------------------
 #
 # HU-048: un paso de la exploración guiada mezcla el contenido del material con verbos de consigna («observa»,
 # «compara», «anota») y la forma de una pregunta, así que se le exige menos que a una afirmación: al menos el 30 % de
@@ -315,6 +315,14 @@ def verify_statements(
 
 STEP_MIN_SUPPORT: float = 0.3
 PREDICTION_MIN_SUPPORT: float = 0.5
+# HU-050: un criterio de logro mezcla el concepto que aplica con verbos de desempeño («justifica», «propone»), como un
+# paso de la exploración guiada, así que se le pide lo mismo: 30 %. La situación y la consigna no se contrastan,
+# porque a propósito plantean un contexto que no está en el material.
+CRITERION_MIN_SUPPORT: float = 0.3
+
+
+# Plurales que no se forman agregando «s» (para las llaves del resumen).
+IRREGULAR_PLURALS: dict[str, str] = {"criterion": "Criteria"}
 
 
 @dataclass
@@ -339,8 +347,12 @@ class LinkedSourcesResult:
     def predictions(self) -> list[dict[str, Any]]:
         return self.items
 
+    @property
+    def criteria(self) -> list[dict[str, Any]]:
+        return self.items
+
     def summary(self) -> dict[str, Any]:
-        plural = self.noun[:1].upper() + self.noun[1:] + "s"
+        plural = IRREGULAR_PLURALS.get(self.noun) or self.noun[:1].upper() + self.noun[1:] + "s"
         return {
             f"{self.noun}Threshold": self.threshold,
             f"checked{plural}": len(self.items) + len(self.removed),
@@ -414,3 +426,13 @@ def link_prediction_sources(
     return _link_sources(
         predictions, fragments_by_id, threshold, ("correctOption", "reveal"), "question", "prediction"
     )
+
+
+def link_criterion_sources(
+    criteria: list[dict[str, Any]],
+    fragments_by_id: dict[str, str],
+    threshold: float = CRITERION_MIN_SUPPORT,
+) -> LinkedSourcesResult:
+    """HU-050: enlaza cada criterio de logro del caso aplicado con el fragmento que tiene el concepto que aplica. Un
+    criterio que no se apoya en el material se quita."""
+    return _link_sources(criteria, fragments_by_id, threshold, ("criterion",), "criterion", "criterion")

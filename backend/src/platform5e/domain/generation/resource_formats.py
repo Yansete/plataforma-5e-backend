@@ -36,6 +36,7 @@ MIN_ITEMS: dict[str, int] = {
     "diagrama_proceso": 3,
     "exploracion_guiada": 3,
     "reto_prediccion": 3,
+    "caso_aplicado": 3,
     "emparejamiento": 3,
     "ordenar_pasos": 3,
     "verdadero_falso": 3,
@@ -128,6 +129,25 @@ def _predictions(value: Any) -> list[dict[str, Any]]:
     return predictions
 
 
+def _criteria(value: Any) -> list[dict[str, Any]]:
+    """HU-050: criterios de logro del caso aplicado. Cada uno conserva los fragmentos con el concepto que aplica; dos
+    criterios iguales cuentan como uno."""
+    criteria, seen = [], set()
+    for item in _items(value):
+        if not isinstance(item, dict):
+            continue
+        text = _short(item.get("criterion"), MAX_LONG)
+        if text and text.casefold() not in seen:
+            seen.add(text.casefold())
+            criteria.append(
+                {
+                    "criterion": text,
+                    "fragmentIds": [f for f in (item.get("fragmentIds") or []) if isinstance(f, str) and f][:3],
+                }
+            )
+    return criteria
+
+
 def normalize_structure(resource_type: str, raw: Any) -> dict[str, Any] | None:
     """Devuelve la estructura limpia del tipo, o None si no alcanza para un recurso útil."""
     if not needs_structure(resource_type):
@@ -152,6 +172,14 @@ def normalize_structure(resource_type: str, raw: Any) -> dict[str, Any] | None:
         structure = {"guidedSteps": _guided_steps(data.get("guidedSteps"))}
     elif resource_type == "reto_prediccion":
         structure = {"predictions": _predictions(data.get("predictions"))}
+    elif resource_type == "caso_aplicado":
+        structure = {
+            "scenario": _short(data.get("scenario"), MAX_LONG),
+            "task": _short(data.get("task"), MAX_LONG),
+            "criteria": _criteria(data.get("criteria")),
+        }
+        if not structure["scenario"] or not structure["task"]:
+            return None  # sin situación o sin consigna no hay caso que resolver
     elif resource_type == "ordenar_pasos":
         sequence = [_short(step, MAX_LONG) for step in _items(data.get("sequence"))]
         structure = {"sequence": [step for step in sequence if step]}

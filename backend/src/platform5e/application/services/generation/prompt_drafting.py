@@ -12,6 +12,7 @@ from typing import Any
 from platform5e.domain.generation.distractor_reliability import assess_distractor
 from platform5e.domain.generation.grounding import (
     DEFAULT_THRESHOLD,
+    link_criterion_sources,
     link_prediction_sources,
     link_step_sources,
     verify_citations,
@@ -79,6 +80,13 @@ RESOURCE_TYPES: dict[str, tuple[str, str]] = {
         "Ejercicio de aplicación",
         "Un ejercicio de transferencia a un contexto nuevo con consigna y criterios de logro.",
     ),
+    "caso_aplicado": (
+        "Caso aplicado",
+        "Un caso para aplicar lo aprendido a una situación nueva: una situación de 3 a 5 oraciones en un contexto que "
+        "no aparece en el material (el entorno del estudiante, una empresa, una comunidad), una consigna con lo que "
+        "debe resolver o proponer, y de 3 a 5 criterios de logro con los que el docente valora la solución. La "
+        "situación es nueva, pero los conceptos que se aplican y cada criterio salen solo de los fragmentos.",
+    ),
     "item_opcion_multiple": (
         "Ítem de opción múltiple",
         "Un enunciado con 1 respuesta correcta y distractores plausibles con retroalimentación.",
@@ -145,6 +153,12 @@ STRUCTURE_INSTRUCTIONS: dict[str, str] = {
         '"revelacion": "lo que dice el material, en una o dos oraciones", "fragmentos": ["F1"]}]}. '
         "Cada predicción cita en «fragmentos» la etiqueta del fragmento que contiene la respuesta correcta"
     ),
+    "caso_aplicado": (
+        '"estructura": {"situacion": "situación nueva donde se aplica lo aprendido", "consigna": "qué debe resolver '
+        'o proponer el estudiante", "criterios": [{"criterio": "lo que demuestra una buena solución, nombrando el '
+        'concepto del material que aplica", "fragmentos": ["F1"]}]}. '
+        "Cada criterio cita en «fragmentos» la etiqueta del fragmento con el concepto que aplica"
+    ),
     "mapa_conceptual": '"estructura": {"central": "...", "nodos": [{"etiqueta": "...", "detalle": "..."}]}',
     "infografia": '"estructura": {"central": "titular", "puntos": [{"titulo": "...", "texto": "..."}]}',
     "emparejamiento": '"estructura": {"pares": [{"termino": "...", "definicion": "..."}]}',
@@ -161,6 +175,14 @@ FORMAT_RULES: dict[str, str] = {
     IMAGE: "La imagen la dibujará un modelo de imágenes: describe la escena con detalle y sin texto escrito en ella.",
     VISUAL: "La plataforma dibuja el gráfico con tu estructura: usa títulos cortos (máximo 6 palabras).",
     INTERACTIVE: "La plataforma arma la actividad interactiva con tu estructura y la califica automáticamente.",
+}
+
+# Tipos interactivos que no se califican automáticamente: la solución la valora el docente.
+TYPE_FORMAT_RULES: dict[str, str] = {
+    "caso_aplicado": (
+        "La plataforma arma la actividad con tu estructura: el estudiante escribe su solución y la revisa con los "
+        "criterios de logro; la califica el docente."
+    ),
 }
 
 DIFFICULTY_LABELS: dict[str, str] = {
@@ -244,7 +266,7 @@ def build_prompt_instructions(context: dict[str, Any]) -> tuple[str, str]:
         "Usa SOLO la información de los FRAGMENTOS del material: no agregues datos ajenos. "
         "Cada afirmación importante debe citar las etiquetas de los fragmentos que la respaldan (F1, F2…). "
         "Si los fragmentos no alcanzan, devuelve menos recursos. "
-        f"{FORMAT_RULES[resource_format(req['tipo'])]} "
+        f"{TYPE_FORMAT_RULES.get(req['tipo']) or FORMAT_RULES[resource_format(req['tipo'])]} "
         "Responde únicamente con JSON válido, sin delimitadores adicionales."
     )
 
@@ -368,8 +390,8 @@ def structure_from_model(
 ) -> dict[str, Any] | None:
     """Traduce la «estructura» del contrato con el modelo (claves en español) a la del recurso y la valida.
 
-    `tag_mapping` (F1 → id del fragmento) se usa en la exploración guiada (HU-048) y en el reto de predicción
-    (HU-047), cuyos pasos o predicciones citan su fragmento.
+    `tag_mapping` (F1 → id del fragmento) se usa en la exploración guiada (HU-048), el reto de predicción (HU-047) y
+    el caso aplicado (HU-050), cuyos pasos, predicciones o criterios citan su fragmento.
     """
     data = raw if isinstance(raw, dict) else {}
     converted: dict[str, Any] = {}
@@ -408,6 +430,18 @@ def structure_from_model(
                 }
                 for i in _list_of_dicts(data.get("predicciones"))
             ]
+        }
+    elif resource_type == "caso_aplicado":
+        converted = {
+            "scenario": data.get("situacion"),
+            "task": data.get("consigna"),
+            "criteria": [
+                {
+                    "criterion": i.get("criterio"),
+                    "fragmentIds": _resolve_fragment_ids(i.get("fragmentos"), tag_mapping or {}),
+                }
+                for i in _list_of_dicts(data.get("criterios"))
+            ],
         }
     elif resource_type == "mapa_conceptual":
         converted = {
@@ -560,6 +594,24 @@ def normalize_generated_resources(
                         )
                     continue
                 structure = {**structure, "predictions": linked.predictions}
+            if req["tipo"] == "caso_aplicado":
+                # HU-050 C01: cada criterio de logro queda enlazado al fragmento con el concepto que aplica.
+                linked = link_criterion_sources(structure["criteria"], fragments_by_id)
+                verification.update(linked.summary())
+                if len(linked.criteria) < MIN_ITEMS["caso_aplicado"]:
+                    if rejections is not None:
+                        rejections.append(
+                            {
+                                "title": title,
+                                "reason": (
+                                    f"«{title}»: solo {len(linked.criteria)} criterio(s) de logro se apoyan en el "
+                                    f"material; el caso necesita al menos {MIN_ITEMS['caso_aplicado']}."
+                                ),
+                                "grounding": verification,
+                            }
+                        )
+                    continue
+                structure = {**structure, "criteria": linked.criteria}
 
         alternatives = None
         if req["tipo"] == "item_opcion_multiple":

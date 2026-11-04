@@ -32,6 +32,7 @@ RESOURCE_TYPES: tuple[ResourceTypeDefinition, ...] = (
     ResourceTypeDefinition('infografia', 'Infografía', 'Infografía', ('infografía', 'infografías'), 'explain', 'Para explicar', 'visual'),
     ResourceTypeDefinition('podcast_resumen', 'Resumen en pódcast', 'Resumen en pódcast', ('pódcast', 'pódcasts'), 'explain', 'Para explicar', 'audio'),
     ResourceTypeDefinition('ejercicio_aplicacion', 'Ejercicio de aplicación', 'Ejercicio de aplicación', ('ejercicio', 'ejercicios'), 'elaborate', 'Para aplicar', 'text'),
+    ResourceTypeDefinition('caso_aplicado', 'Caso aplicado', 'Caso aplicado', ('caso aplicado', 'casos aplicados'), 'elaborate', 'Para aplicar', 'interactive'),
     ResourceTypeDefinition('emparejamiento', 'Relacionar conceptos', 'Actividad de relacionar', ('actividad de relacionar', 'actividades de relacionar'), 'elaborate', 'Para aplicar', 'interactive'),
     ResourceTypeDefinition('ordenar_pasos', 'Ordenar pasos', 'Actividad de ordenar', ('actividad de ordenar', 'actividades de ordenar'), 'elaborate', 'Para aplicar', 'interactive'),
     ResourceTypeDefinition('item_opcion_multiple', 'Preguntas de opción múltiple', 'Pregunta de opción múltiple', ('pregunta', 'preguntas'), 'evaluate', 'Para evaluar', 'text', has_options=True),

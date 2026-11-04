@@ -461,3 +461,34 @@ niveles, que es de la etapa Evaluar. La especificación está en `docs/specs/hu-
 - **Respaldo por reglas.** El generador por reglas oculta un término de una oración del material y da a elegir entre
   ese término y otros de la unidad que no están en la oración; lo que se revela es la oración, así que siempre pasa la
   verificación.
+
+## ADR-021 Caso aplicado: recurso estructurado del agente de Elaborar (04/11/2026)
+
+HU-050 pide que el agente de Elaborar genere un caso aplicado con consigna y criterios de logro (C01) y que no repita
+contenido de las etapas anteriores (C02). El «Ejercicio de aplicación» ya pedía una consigna y criterios, pero como
+texto corrido: el docente no puede revisar cada criterio ni saber de qué parte del material sale, y el estudiante no
+tiene dónde escribir su solución en el SCORM. La especificación está en `docs/specs/hu-050/`.
+
+- **Tipo nuevo, no un cambio de formato.** Se agrega `caso_aplicado` («Caso aplicado», etapa Elaborar, formato
+  `interactive`) en vez de convertir `ejercicio_aplicacion`, para no dejar sin estructura los recursos que ya están
+  guardados, como en los ADR-019 y ADR-020. El catálogo pasa de 20 a 21 tipos y el frontend lo recibe del backend
+  (HU-006). El contrato `caso_transferencia` de `schemas/elaborate.py` (16/10) no se usa: nunca entró al catálogo.
+- **Estructura.** `scenario` (la situación nueva), `task` (la consigna) y `criteria`: de 3 a 10 criterios de logro,
+  cada uno con `criterion` y `fragmentIds`. Dos criterios iguales cuentan como uno. Al modelo se le pide `situacion`,
+  `consigna` y `criterios` con `criterio` y `fragmentos` (etiquetas F1, F2…), también en el esquema de Gemini.
+- **Qué se contrasta.** `link_criterion_sources` usa `_link_sources` (ADR-020) con un mínimo de 30 %, como los pasos de
+  la exploración guiada: un criterio mezcla el concepto que aplica con verbos de desempeño («justifica», «propone»).
+  La situación y la consigna no se contrastan, porque a propósito plantean un contexto que no está en el material. La
+  cita equivocada se corrige, el criterio sin respaldo se quita con su motivo y con menos de 3 el caso se rechaza.
+- **No repetir (C02).** Lo hace el orquestador del ADR-013, pero se ajustó qué se compara del caso. Con todo su texto,
+  un caso que copiaba la explicación anterior llegaba solo al 47 % de parecido y no se rechazaba: los criterios repiten
+  conceptos del material a propósito y las instrucciones para el estudiante son las mismas en todos los casos. Ahora
+  `resource_text` toma del caso solo el título, la situación y la consigna, que es lo que debe ser nuevo. Los demás
+  tipos se comparan igual que antes.
+- **Sin calificación automática.** El estudiante escribe su solución y marca los criterios que cumple. El LMS recibe el
+  porcentaje de criterios marcados, pero la actividad queda `completed` con `scorm5e.complete` (ADR-020), porque la
+  solución la valora el docente. Por eso el prompt de este tipo no dice que la plataforma la califica sola
+  (`TYPE_FORMAT_RULES`). El documento imprimible deja un espacio para resolver y lista los criterios con su fuente.
+- **Respaldo por reglas.** El generador por reglas elige una de tres situaciones nuevas (una institución educativa,
+  una pequeña empresa o una organización de la comunidad) y arma de 3 a 4 criterios con oraciones del material, cada
+  uno con su etiqueta, así que siempre pasa la verificación.
