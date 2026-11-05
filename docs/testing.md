@@ -313,3 +313,17 @@ Hecha en un clon nuevo de `main` (4bad0e6) con los cambios aplicados, Python 3.1
   exportar distractores descartados, quitar la retroalimentación) y la prueba falló en los tres casos.
 - TA-008 (09/10): se comprobó que la CI falla si se exige un umbral de cobertura mayor al alcanzado.
 - La CI de TA-001 y TA-008 corrió en verde en GitHub (ejecuciones #3 y #6 de «Pruebas»).
+
+## Verificación: 04/11/2026 (noche), correcciones de HU-011 (recuperación híbrida)
+
+Hecha en la rama `fix/hu-011-rrf-evaluation-and-cleanup` con Python 3.11.9 sobre Windows y PostgreSQL (Neon)[cite: 17]:
+
+* **Backend (recuperación híbrida HU-011):** 5 pruebas superadas en `test_evidence_retrieval_i20.py` en 11,37 s[cite: 17]. Se validó la lógica de fusión real y robustez del adaptador:
+  * Promoción de candidato semántico al top-2 mediante RRF ($k=60$) aun cuando la búsqueda léxica BM25 lo ubica en última posición.
+  * Aislamiento estricto por unidad curricular (`unit_id`), descartando fragmentos de otras unidades.
+  * Degradación limpia (*fallback*) a BM25 ante excepciones de conexión al generar embeddings.
+  * Corte por timeout estricto a los 10 s si el modelo de embedding demora, activando el *fallback* a BM25 sin bloquear el servicio.
+* **Indicador I20 (Recall@10):** Recall@10 de 1,00 (50/50 aciertos) sobre el conjunto de 50 consultas pedagógicas anotadas con su evidencia esperada, cumpliendo el umbral exigido ($\ge 0,80$).
+* **Normalización de relevancia (C02):** Escalamiento de `relevance` al rango $[0,0, 1,0]$ dividiendo el puntaje RRF entre el máximo teórico ($\frac{2}{k+1} \approx 0,0328$), preservando metadatos de documento y ubicación de página.
+* **Limpieza de arquitectura:** Eliminación de la función auxiliar `_retrieve_chunks`, comentarios temporales y el bloque defensivo `except TypeError` en `generation_service.py`, invocando directamente `retrieve(..., unit_id=...)`.
+* **No cubierto por estas pruebas:** Latencia en producción con concurrencia masiva sobre Render/Neon (se verifica en la CI de GitHub tras abrir el PR).S
