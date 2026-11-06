@@ -144,10 +144,13 @@ class GenerationService:
 
         # Contexto compartido por todos los agentes: la misma evidencia de la unidad.
         top_k = max(3, min(int(request_data.get("topK") or 8), 12))
-        selected_chunks = _retrieve_chunks(
-            self._evidence_retriever, self._build_query(unit, request_data), chunks, top_k, unit["id"]
+        selected_chunks = self._evidence_retriever.retrieve(
+            query=self._build_query(unit, request_data),
+            chunks=chunks,
+            top_k=top_k,
+            unit_id=unit["id"],
         )
-        
+
         documents_map = {
             doc["id"]: doc
             for doc in self._teacher_repository.get_documents(teacher_id)
@@ -261,7 +264,6 @@ class GenerationService:
             if doc_id in documents_map
         ]
         main_generator = generators[0]
-        # La historia guarda la primera etapa como referencia y la lista completa en resourceTypes.
         enriched_request = {
             **request_data,
             "id": request_id,
@@ -368,8 +370,11 @@ class GenerationService:
         query_text = self._build_query(unit, request_data)
 
         top_k = max(3, min(int(request_data.get("topK") or 8), 12))
-        selected_chunks = _retrieve_chunks(
-            self._evidence_retriever, query_text, chunks, top_k, unit["id"]
+        selected_chunks = self._evidence_retriever.retrieve(
+            query=query_text,
+            chunks=chunks,
+            top_k=top_k,
+            unit_id=unit["id"],
         )
 
         documents_map = {
@@ -476,7 +481,6 @@ class GenerationService:
                 for chunk in used_chunks
             ],
             "documents": associated_docs,
-            # Todo lo recuperado (no solo lo citado): lo usa la evaluación RAG. La interfaz no lo muestra.
             "retrievedChunks": [
                 {
                     "id": chunk["id"],
@@ -621,7 +625,6 @@ class GenerationService:
                     "isCorrect": alt["correcta"],
                     "feedback": alt["retroalimentacion"],
                     "sourceFragmentIds": alt["fragmentos"],
-                    # HU-019: el distractor que el material muestra como correcto llega ya descartado, con el motivo.
                     "decision": "descartado" if alt.get("tambienCorrecto") else "pendiente",
                     "discardReason": "tambien_correcto" if alt.get("tambienCorrecto") else None,
                     "edited": False,
@@ -784,6 +787,7 @@ class GenerationService:
             raise GenerationError("GENERATION_NOT_FOUND", "La solicitud de generación no existe.")
         return result
 
+
 def build_grounding_report(
     resources: list[dict[str, Any]], rejections: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -826,10 +830,3 @@ def _rejection_detail(rejections: list[dict[str, Any]]) -> str:
     if not rejections:
         return ""
     return " Motivo: " + " ".join(item["reason"] for item in rejections[:3])
-
-# Helper dentro de generation_service.py o llamada directa:
-def _retrieve_chunks(retriever, query: str, chunks: list[dict[str, Any]], top_k: int, unit_id: str):
-    try:
-        return retriever.retrieve(query, chunks, top_k, unit_id=unit_id)
-    except TypeError:
-        return retriever.retrieve(query, chunks, top_k)

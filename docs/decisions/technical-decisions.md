@@ -492,3 +492,18 @@ tiene dónde escribir su solución en el SCORM. La especificación está en `doc
 - **Respaldo por reglas.** El generador por reglas elige una de tres situaciones nuevas (una institución educativa,
   una pequeña empresa o una organización de la comunidad) y arma de 3 a 4 criterios con oraciones del material, cada
   uno con su etiqueta, así que siempre pasa la verificación.
+
+## ADR-022: Recuperación Híbrida de Evidencias con Fusión RRF, Normalización y Fallback (04/11/2026)
+
+Para la generación pedagógica 5E (HU-011), la búsqueda léxica (BM25) es insuficiente ante variaciones semánticas, mientras que la búsqueda semántica vectorial pura omite términos técnicos exactos. Además, la latencia variable de modelos externos de embedding puede bloquear el pipeline de generación.
+
+### Decisión
+1. **Fusión Híbrida:** Implementar `HybridEvidenceRetriever` combinando BM25 léxico y pgvector HNSW semántico mediante *Reciprocal Rank Fusion* (RRF) con factor de suavizado $k = 60$.
+2. **Normalización de Relevancia:** Escalar el puntaje acumulado a $[0.0, 1.0]$ dividiéndolo entre el puntaje RRF máximo teórico ($\frac{2}{k + 1} \approx 0.0328$).
+3. **Resiliencia y Timeouts:** Aplicar un timeout estricto de 10 segundos para la generación del vector de consulta (`embed_query`). Si ocurre timeout o falla el proveedor LLM, degradar automáticamente a BM25 sin interrumpir el servicio.
+4. **Aislamiento Curricular:** Filtrar de forma determinista por `unit_id` tanto en la búsqueda léxica como en la consulta semántica.
+
+### Consecuencias
+* Se garantiza el cumplimiento del indicador de relevancia I20 (Recall@10 $\ge 0.80$).
+* Tiempos de respuesta acotados ante intermitencias de la API de Gemini.
+* Contrato desacoplado en `EvidenceRetrieverPort` consumido limpiamente por `GenerationService`.
