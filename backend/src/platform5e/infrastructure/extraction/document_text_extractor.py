@@ -9,7 +9,7 @@ import io
 import re
 from typing import Any
 
-from platform5e.application.ports.outbound.chunk_repository_port import TextExtractorPort
+from platform5e.application.ports.outbound.text_extractor_port import TextExtractorPort
 from platform5e.domain.materials.chunking import MaterialError
 
 MAX_PROCESSED_PAGES: int = 400

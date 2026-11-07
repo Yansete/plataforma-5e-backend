@@ -1,28 +1,33 @@
 # Arquitectura y estado de la Plataforma Docente
 
-Actualizado el 16/10/2026: backend hexagonal en `src/platform5e/`, API en inglés documentada en OpenAPI y exportación
-SCORM. Antes, 10/10/2026: rediseño de la interfaz con cuentas reales y todo guardado en la base de datos. Este documento reúne el estado del proyecto, la integración
-con el backend y las convenciones para retomar el trabajo.
+Actualizado el 07/11/2026. El frontend y el backend se mantienen en repositorios independientes
+y se comunican por HTTP según el contrato OpenAPI. El backend procesa el material en fragmentos,
+recupera evidencia de la unidad y genera recursos textuales, multimedia e interactivos según el catálogo
+y la configuración del servidor. El docente revisa y aprueba los recursos antes de exportarlos.
 
 ## Estado actual
 
-Existe un frontend React 18, TypeScript y Vite 5 y un backend FastAPI con SQLAlchemy. El frontend siempre trabaja con
-el backend: no hay modo local ni datos de demostración. El backend extrae el texto del material, lo parte en
-fragmentos, recupera los relacionados con cada pedido (BM25) y un generador redacta los recursos citándolos (RAG).
-Solo genera texto (alcance del Sprint 1). El generador es un modelo de lenguaje si hay clave de IA o un generador por reglas si no la hay (o si la IA falla).
-La revisión docente y el historial de descargas se guardan en el servidor. Los archivos para Moodle y Chamilo se
-arman con plantillas fijas. La importación en instancias reales de Moodle y Chamilo permanece pendiente (TA-006).
+El frontend usa React 18, TypeScript y Vite. El backend usa FastAPI y SQLAlchemy.
+La recuperación de evidencia combina BM25 y búsqueda vectorial cuando pgvector y el proveedor de
+embeddings están disponibles. La generación usa un modelo de lenguaje configurado o el generador
+por reglas, según el proveedor y el resultado de la llamada. La revisión y el historial de descargas
+se guardan en el servidor. TA-006 está cerrada. Según el registro de avance de Sergio en Notion,
+se comprobó la importación de Moodle XML en Moodle y de SCORM 1.2 en Chamilo. En SCORM Cloud
+se registraron 5 de 5 pruebas exitosas.
 
 El modelo instruccional 5E sigue siendo la base: cada tipo de recurso pertenece a una etapa, que se envía al
 backend y orienta la redacción. En la interfaz no se nombran las etapas; se muestran como momentos de la clase.
 
-| Momento en la interfaz | Etapa 5E | Tipos de recurso |
-|---|---|---|
-| Para iniciar la clase | Enganchar (*engage*) | Pregunta detonante, sondeo de ideas previas, cápsula de audio detonante |
-| Para explorar | Explorar (*explore*) | Guía de exploración, caso con preguntas, imagen ilustrativa, diagrama de proceso |
-| Para explicar | Explicar (*explain*) | Explicación del tema, glosario, mapa conceptual, infografía, resumen en pódcast |
-| Para aplicar | Elaborar (*elaborate*) | Ejercicio de aplicación, relacionar conceptos, ordenar pasos |
-| Para evaluar | Evaluar (*evaluate*) | Preguntas de opción múltiple, verdadero o falso, completar espacios |
+| Momento en la interfaz | Etapa 5E |
+|---|---|
+| Para iniciar la clase | Enganchar (*engage*) |
+| Para explorar | Explorar (*explore*) |
+| Para explicar | Explicar (*explain*) |
+| Para aplicar | Elaborar (*elaborate*) |
+| Para evaluar | Evaluar (*evaluate*) |
+
+Los tipos disponibles los publica el [catálogo de recursos](../api/resource-catalog.md).
+La fuente del catálogo es `domain/generation/resource_catalog.py`.
 
 En «Elegir opciones» el docente marca uno o varios tipos en cada momento de la clase y se generan todos juntos. La
 revisión los muestra agrupados en el mismo orden. Detalle de formatos, medios y respaldos en ADR-011.
@@ -35,11 +40,11 @@ en [Catálogo de recursos](../api/resource-catalog.md).
 |---|---|---|
 | Cuentas y sesión | «Crear cuenta» con contraseña cifrada (PBKDF2) y sesión con token revocable de ocho horas | Sin recuperación de contraseña ni roles |
 | Cursos y unidades | Creación, edición y borrado (con su material, recursos y descargas), con sumilla, logro y resultados de aprendizaje | Las unidades guardadas no se quitan de un curso; se borra el curso completo |
-| Material | Archivo en la BD, extracción de PDF, PPTX y TXT, fragmentos de unas 220 palabras con su página, búsqueda por tema en Wikipedia en español. El docente no ve conteos de fragmentos: el documento queda «Listo para generar» | Los PDF escaneados (solo imágenes) no tienen texto; no hay OCR. Sin embeddings todavía (EN-013) |
+| Material | Archivo en la BD, extracción de PDF, PPTX y TXT, fragmentos de unas 220 palabras con su página, búsqueda por tema en Wikipedia en español. El docente no ve conteos de fragmentos: el documento queda «Listo para generar» | Los PDF escaneados (solo imágenes) no tienen texto; no hay OCR |
 | Pedido | «Elegir opciones» (agrupadas por momento de la clase) o «Escribir pedido»: reglas que interpretan tipo, cantidad, dificultad, alternativas y resultado, y muestran lo entendido; el texto completo va como indicación | La interpretación del pedido escrito es por reglas, no por IA |
-| Generación | Recuperación BM25 y redacción con IA (Gemini, Anthropic u OpenAI) o por reglas; solo se aceptan recursos con citas válidas. Cada recurso guarda una copia de su evidencia y los parámetros del pedido | Con `resourceTypes`, un agente por etapa redacta la secuencia sin repetir contenido (HU-003, ADR-013); el frontend aún pide los tipos uno por uno. El umbral de evidencia aún no filtra |
+| Generación | Recuperación híbrida y redacción con IA (Gemini, Anthropic u OpenAI) o por reglas; solo se aceptan recursos con citas válidas. Cada recurso guarda una copia de su evidencia y los parámetros del pedido | Con `resourceTypes`, un agente por etapa redacta la secuencia sin repetir contenido (HU-003, ADR-013); el frontend aún pide los tipos uno por uno. Desde HU-016, `evidenceThreshold` se aplica al verificar las citas en `prompt_drafting.py`. |
 | Revisión | En el servidor: aceptar, editar o descartar distractores (con motivo), aprobar con las mismas reglas que el backend, regenerar (la versión anterior pasa a «Descartados») y borrar | No hay «Aceptar todos» (decisión del equipo: se revisa uno por uno) |
-| Descargas | Moodle XML (preguntas aprobadas) y paquete SCORM 1.2 para Chamilo (todos los recursos aprobados), armados en el backend; y el documento de la unidad (HTML) con su evidencia. Nombres con el curso y la unidad. Historial en el servidor, con «Borrar historial» | SCORM probado en SCORM Cloud; importación en las instancias del curso pendiente (TA-006) |
+| Descargas | Moodle XML (preguntas aprobadas) y paquete SCORM 1.2 para Chamilo (todos los recursos aprobados), armados en el backend; y el documento de la unidad (HTML) con su evidencia. Nombres con el curso y la unidad. Historial en el servidor, con «Borrar historial» | TA-006 cerrada: importación verificada en Moodle y Chamilo y 5 de 5 pruebas exitosas en SCORM Cloud, según el registro de Sergio en Notion. |
 
 ## Backend hexagonal
 
@@ -63,7 +68,7 @@ backend/src/platform5e/
 │   ├── http/                   Rutas FastAPI (routers/), esquemas Pydantic (schemas/), errores y autenticación
 │   ├── persistence/            Repositorios SQLAlchemy (PostgreSQL en Neon o SQLite)
 │   ├── llm/                    Gemini, Anthropic u OpenAI por HTTP, imágenes y voz con Gemini, y las fábricas
-│   ├── retrieval/              Búsqueda de evidencia BM25: adaptador del puerto EvidenceRetrieverPort
+│   ├── retrieval/              Recuperación híbrida y BM25: adaptadores del puerto EvidenceRetrieverPort
 │   ├── exporters/              SCORM 1.2 multirrecurso, Moodle XML y documento HTML (UnitExporterPort); gráficos SVG
 │   │                           (VisualRendererPort)
 │   ├── html_sanitizer.py       Limpieza del HTML del editor enriquecido (nh3)
@@ -77,10 +82,41 @@ El dominio y la aplicación no leen variables de entorno ni importan frameworks:
 los adaptadores y se los pasa a los servicios por constructor. Por eso las pruebas unitarias usan puertos falsos en
 memoria y no necesitan base de datos ni red.
 
-La generación (RAG) depende de dos puertos: `EvidenceRetrieverPort` elige los fragmentos del material que sustentan el
-pedido y `ResourceGeneratorPort` redacta los recursos citándolos. Hoy los implementan `Bm25EvidenceRetriever` y
-`GeminiLanguageModel` (con `RuleBasedGenerator` de respaldo). La búsqueda por significado con pgvector (EN-013 y HU-011)
-entrará como otro adaptador del puerto de recuperación, sin tocar `GenerationService`.
+La recuperación usa `EvidenceRetrieverPort`. El punto de composición inyecta
+`HybridEvidenceRetriever`, que combina BM25 y pgvector mediante *Reciprocal Rank Fusion* (RRF)
+y acota la recuperación a la unidad. Si la búsqueda semántica no está disponible, no devuelve resultados
+o falla el embedding de la consulta, usa el ranking BM25. EN-013 incorpora los embeddings y HU-011 la
+recuperación híbrida. El límite de espera del embedding y la continuidad con BM25 se comprueban en
+[`test_evidence_retrieval_i20.py`](../../backend/tests/unit/test_evidence_retrieval_i20.py).
+
+## Orquestación de la generación por etapas
+
+El backend implementa una **orquestación centralizada y secuencial**. Con un pedido que incluye
+`resourceTypes`, [`GenerationService.generate_sequence`](../../backend/src/platform5e/application/services/generation/generation_service.py)
+ordena los tipos por etapa 5E, recupera una vez la evidencia de la unidad y llama al generador por cada
+tipo. Cada paso recibe un resumen de los recursos aceptados previamente. Si detecta repetición, reintenta
+una vez y descarta lo que siga repitiéndose. [`sequence.py`](../../backend/src/platform5e/domain/generation/sequence.py)
+contiene las reglas de orden y similitud. Las etapas se especializan por su contexto, instrucciones
+y estructura de salida. El servicio reutiliza los adaptadores de generación configurados.
+
+```mermaid
+flowchart TD
+    A["Pedido con resourceTypes"] --> B["Servicio de generación"]
+    B --> C["Recuperar evidencia de la unidad"]
+    C --> D["Generar por etapa 5E"]
+    D --> E["Validar evidencia y repetición"]
+    E -->|Siguiente tipo| D
+    E -->|Secuencia terminada| F["Recursos para revisión docente"]
+```
+
+El flujo actual cabe en un servicio de aplicación con puertos para recuperación y generación.
+Para la sustentación, esta es la justificación técnica de la implementación propia: el orden está
+definido por 5E y las reglas de cada paso se pueden probar con adaptadores falsos. La lógica de
+coordinación está en Python y no requiere un runtime de LangChain, LangGraph o CrewAI.
+Las pruebas de [orquestación](../../backend/tests/unit/test_sequence_orchestrator.py) y de
+[secuencia por HTTP](../../backend/tests/e2e/test_sequence_api.py) muestran el recorrido.
+La selección múltiple actual del frontend usa pedidos individuales por tipo. Para demostrar la
+secuencia compartida se debe usar el pedido con `resourceTypes` de la API.
 
 Las cuentas se crean con `POST /api/v1/accounts` y se guardan con su sal y la huella PBKDF2 de la contraseña.
 Opcionalmente, `main.py` pasa una cuenta inicial (`BOOTSTRAP_TEACHER_EMAIL` y `BOOTSTRAP_TEACHER_PASSWORD`).
@@ -136,8 +172,8 @@ Rutas: `/login`, `/register`, `/courses` (Mis cursos), `/courses/new`, `/courses
 `/courses/:id/units/:unitId/:tab` (`materials`, `generation`, `review`, `export`). Sin sesión, las rutas
 internas llevan a «Inicio de sesión» y luego regresan a donde estaba el docente.
 
-El código está en `frontend/src/`, organizado por funcionalidad. Cada carpeta de `features/` tiene `api/` (llamadas
-al backend), `model/` (reglas sin React), `components/` y `pages/`.
+El código está en `src/` del [repositorio frontend](https://github.com/Yansete/plataforma-5e-frontend).
+Cada funcionalidad separa `api/`, `model/`, `components/` y `pages/` según corresponda.
 
 | Parte | Qué hace |
 |---|---|
@@ -146,7 +182,7 @@ al backend), `model/` (reglas sin React), `components/` y `pages/`.
 | `features/materials` | Subir, procesar y borrar documentos; buscar un tema en fuentes abiertas |
 | `features/generation` | Formulario con selección múltiple por etapa y pedido escrito (interpretado por reglas); un `POST /generations` por tipo marcado |
 | `features/review` | Revisión agrupada por etapa; editor enriquecido (Tiptap, se carga al editar); gráficos, imágenes, audio (con la voz del navegador de respaldo) y actividades; edición de sus elementos; regeneración y evidencia |
-| `features/export` | Pide al backend el archivo para Moodle o Chamilo (`POST /units/{id}/exports`), arma el documento de la unidad (HTML) y muestra el historial |
+| `features/export` | Pide al backend el archivo para Moodle o Chamilo (`POST /units/{id}/exports`), descarga el documento de la unidad (HTML) generado por el servidor y muestra el historial |
 | `features/units` | La página de la unidad con sus cuatro pestañas; los recursos se cargan una vez y las pestañas los comparten |
 | `app/` | Rutas, sesión requerida y datos compartidos (`DataProvider`) |
 
@@ -156,14 +192,15 @@ Una edición no aprueba un recurso: solo la acción «Aprobar recurso» lo vuelv
 ## Diseño y convenciones
 
 El diseño de referencia está en `docs/design/ui-design-system.docx`. Se conservan tokens de
-`frontend/src/styles/tokens.css`, componentes compartidos en `components/ui.tsx` e iconos de trazo.
+`src/styles/tokens.css` del frontend, componentes compartidos en `src/shared/components/ui.tsx` e iconos de trazo.
 Fraunces se usa para títulos y Public Sans para texto. Hay etiquetas visibles, foco visible y controles de 44 px.
 La barra lateral pasa a menú bajo 960 px. Los textos y comentarios se escriben en español.
 
-Antes de modificar requisitos, consultar el backlog, planificación, Charter, Inception y Product Discovery de
-`docs/project-management/`. Se continúa sobre el código existente. Las decisiones y su estado se registran en
-[technical-decisions.md](../decisions/technical-decisions.md); los cambios visuales requieren revisar el sistema de diseño.
-No se atribuyen aprobaciones académicas ni pruebas con docentes sin evidencia.
+El backlog y los acuerdos del equipo se consultan en Notion. Antes de programar una tarea,
+registrar su alcance, criterios de aceptación y pruebas en `docs/specs/<tarea>/spec.md`,
+y el orden de cambios en `plan.md`. Hay ejemplos en [HU-047](../specs/hu-047/) y
+[HU-050](../specs/hu-050/). Las decisiones aceptadas se registran en
+[technical-decisions.md](../decisions/technical-decisions.md).
 
 ## Persistencia y entorno
 
@@ -189,7 +226,7 @@ pip install -e ".[dev]"
 uvicorn platform5e.main:app --reload --port 8000
 ```
 
-Desde `frontend/`, en otra terminal:
+Desde la raíz del repositorio frontend, en otra terminal:
 
 ```bash
 npm ci
@@ -199,7 +236,7 @@ npm run dev
 Comprobaciones antes de entregar:
 
 ```bash
-# En frontend/
+# En el repositorio frontend
 npm run typecheck
 npm test
 npm run build
@@ -213,34 +250,18 @@ Las pruebas e2e del backend usan HTTP y una BD temporal SQLite, o PostgreSQL si 
 para una base exclusiva de pruebas. No debe apuntar a datos de trabajo. Las pruebas de arquitectura analizan con AST
 todos los archivos Python del backend.
 
-Las capturas nuevas se generan en `frontend/test-results/`, excluido por Git, y se adjuntan a Notion.
+Las capturas nuevas se generan en `test-results/` del repositorio frontend, excluido por Git, y se adjuntan a Notion.
 Los informes de avance y las validaciones académicas también se conservan en Notion.
 
 ## Pendientes y límites
 
-Embeddings y búsqueda por significado con pgvector (EN-013, HU-011), unificación con `backend/database/migrations` (EN-024),
-agentes especializados por etapa (HU-047 a HU-050) y uso de `resourceTypes` desde el frontend, OCR de PDF escaneados, recuperación
-de contraseña, importación en LMS reales y mediciones del piloto. Indicadores (antes una pantalla con valores de
-ejemplo) se medirán con datos reales en el Sprint 2.
-Faltan validación con docentes, lectores de pantalla y pruebas amplias de rendimiento.
-
-## Investigaciones y antecedentes
-
-- [SP-001](../spikes/SP-001-embedding-models.md): propuesta de embeddings; no añade procesamiento real.
-- [SP-002](../spikes/SP-002-models-per-resource-type.md): propuesta de modelos por tipo de recurso; estimaciones,
-  no mediciones de generación con docentes.
-- [SP-003](../spikes/SP-003-export-formats.md): Moodle XML para Moodle y ZIP QTI 2.1 para Chamilo.
-- HU-045 y HU-046: sesión, catálogo y chat locales publicados; sus registros de avance están en Notion.
-- HU-053 y EP-002: solicitudes, sesión, cursos, archivos e historial conectados; mantienen ejemplos preparados.
-- HU-054: recorrido enlazado, secuencia, versiones y exportación local en los dos formatos seleccionados.
-
-Las verificaciones históricas de interfaz, contraste y base vectorial se conservan como antecedentes en Notion;
-no se presentan como nuevas mediciones del Sprint ni como aprobación académica.
-
+Queda por verificar el comportamiento con lectores de pantalla y completar las mediciones de rendimiento. Los PDF escaneados requieren una capa de texto para la extracción actual.
+La validación docente RN-004 se realizó, según el registro del equipo. Queda por confirmar el seguimiento
+de sus propuestas en el Sprint 2, en especial la correspondencia de las citas después de editar.
 
 ### Organización del frontend por funcionalidad
 
-`frontend/src/app/` reúne los proveedores, las rutas y la protección de sesión.
+`src/app/` del repositorio frontend reúne los proveedores, las rutas y la protección de sesión.
 `shared/` contiene el cliente HTTP, la sesión, los componentes, los hooks y los tipos compartidos.
 `features/` agrupa `auth`, `courses`, `units`, `materials`, `generation`, `review` y `export`;
 cada funcionalidad separa `api/`, `model/` y sus páginas o componentes según corresponda.

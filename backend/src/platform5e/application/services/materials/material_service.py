@@ -11,11 +11,9 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from platform5e.application.ports.outbound.chunk_repository_port import (
-    ChunkRepositoryPort,
-    OpenEducationalResourcePort,
-    TextExtractorPort,
-)
+from platform5e.application.ports.outbound.chunk_repository_port import ChunkRepositoryPort
+from platform5e.application.ports.outbound.open_educational_resource_port import OpenEducationalResourcePort
+from platform5e.application.ports.outbound.text_extractor_port import TextExtractorPort
 from platform5e.application.ports.outbound.teacher_repository_port import TeacherRepositoryPort
 from platform5e.application.services.materials.chunk_embedding_service import ChunkEmbeddingService
 from platform5e.domain.materials.chunking import MaterialError, chunk_pages

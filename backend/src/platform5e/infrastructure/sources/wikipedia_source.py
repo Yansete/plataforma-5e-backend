@@ -10,7 +10,7 @@ from urllib.parse import quote
 
 import httpx
 
-from platform5e.application.ports.outbound.chunk_repository_port import OpenEducationalResourcePort
+from platform5e.application.ports.outbound.open_educational_resource_port import OpenEducationalResourcePort
 
 # La política de Wikimedia exige un User-Agent con datos de contacto (https://w.wiki/4WJS); sin ellos responde 403.
 USER_AGENT_HEADER: str = (

@@ -71,6 +71,26 @@ Anthropic, OpenAI y Wikipedia se prueban con respuestas HTTP simuladas (`httpx.M
 `test_material_adapters_llm.py`. Así las pruebas no gastan cuota, no dependen de internet y nunca necesitan la
 clave. Que el proveedor real responda se comprueba a mano en el sistema publicado (ver más abajo).
 
+## Evidencia para la revisión del 07/11/2026
+
+La tabla vincula los atributos priorizados en la guía de la semana con comprobaciones que
+el equipo puede reproducir. Las pruebas automáticas y la revisión docente aportan evidencia
+distinta.
+
+| Atributo | Comprobación | Evidencia del corte |
+| --- | --- | --- |
+| Mantenibilidad | Dependencias entre capas y nombres mediante AST. `python -m pytest tests/architecture` | Incluidas en las 514 pruebas del backend aprobadas sobre `a3f4a1f`. |
+| Adecuación funcional | Reglas de dominio, orquestación, persistencia, contratos y flujo de la API. `python -m pytest -q` | 514 aprobadas en el entorno local de revisión, con un aviso de dependencia. |
+| Adecuación funcional del recorrido web | Tipos, cobertura, build y Playwright en el CI del frontend | [CI del PR 6](https://github.com/Yansete/plataforma-5e-frontend/actions/runs/41923508025) en verde. El build local de `8271f99` también aprobó. |
+| Fiabilidad de recuperación | Prueba de timeout del embedding y continuación con BM25 en `tests/unit/test_evidence_retrieval_i20.py` | [PR 56](https://github.com/Yansete/plataforma-5e-backend/pull/56) fusionado y prueba incluida en la suite local. |
+| Usabilidad y accesibilidad | Lighthouse en la pantalla publicada y recorrido manual con teclado, foco visible y etiquetas | Medición nueva pendiente. La validación docente RN-004 aporta observaciones sobre el flujo y las citas. |
+| Rendimiento | Lighthouse en una ruta publicada y tiempos de generación bajo condiciones registradas | Medición nueva pendiente. Registrar ruta, fecha, perfil y métricas. |
+
+Para RN-003, guardar el reporte de Lighthouse con la URL, el perfil del dispositivo, la fecha y las
+puntuaciones. La pantalla de acceso y el recorrido autenticado se registran por separado. Lighthouse
+aporta métricas técnicas de accesibilidad y rendimiento. La facilidad de uso se contrasta con el
+recorrido manual y la validación con docentes.
+
 ## Cómo correrlas en local
 
 Backend (desde `backend/`, con el entorno virtual activado):

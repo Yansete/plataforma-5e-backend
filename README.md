@@ -13,10 +13,15 @@ Generación asistida de recursos educativos a partir del material del docente: m
 
 ~~~text
 .
-├── backend/      API FastAPI con arquitectura hexagonal (Render)
-├── docs/         Arquitectura, contrato de la API, decisiones, despliegue, pruebas, spikes y entregables
-├── .github/      Backend CI y recorrido End-to-end con el repositorio del frontend
-└── render.yaml   Configuración del servicio del backend en Render
+├── backend/
+│   ├── src/platform5e/  Dominio, aplicación, adaptadores y composición
+│   ├── tests/           Pruebas unitarias, de arquitectura, de integración y E2E
+│   ├── database/        Migraciones y entorno PostgreSQL con pgvector
+│   ├── evaluation/      Evaluación de generación
+│   └── scripts/         Herramientas de contrato, carga y verificación
+├── docs/                Arquitectura, API, decisiones, diseño y especificaciones
+├── .github/             CI del backend y E2E con el repositorio del frontend
+└── render.yaml          Configuración del servicio del backend en Render
 ~~~
 
 ## API publicada
@@ -48,7 +53,8 @@ Los identificadores dentro de los cuerpos JSON (por ejemplo `unidad-1`) también
 - [Contrato de la API (OpenAPI)](docs/api/openapi.json) y [contratos 5E](docs/api/contracts/)
 - [Decisiones técnicas](docs/decisions/technical-decisions.md)
 - [Despliegue](docs/deployment.md) · [Pruebas](docs/testing.md) · [Guía de Git](docs/git-guide.md)
-- [Spikes](docs/spikes/) · [Sistema de diseño](docs/design/ui-design-system.docx) · [Entregables del curso](docs/project-management/)
+- [Sistema de diseño](docs/design/ui-design-system.docx) · [Especificaciones y planes](docs/specs/)
+- La planificación y los entregables académicos se consultan en el Notion del equipo.
 
 ## Forma de trabajo
 
