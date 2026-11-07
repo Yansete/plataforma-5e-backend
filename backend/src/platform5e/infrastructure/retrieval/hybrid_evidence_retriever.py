@@ -128,14 +128,14 @@ class HybridEvidenceRetriever:
 
         return results
 
-    def _embed_query_with_timeout(self, query: str) -> list[float] | None:
-        """Invoca embed_query garantizando que no se superen los 10 segundos de espera."""
-        assert self._embedding_generator is not None
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(self._embedding_generator.embed_query, query)
-            try:
-                return future.result(timeout=EMBEDDING_QUERY_TIMEOUT_SECONDS)
-            except concurrent.futures.TimeoutError as err:
-                raise TimeoutError(
-                    f"Timeout al generar embedding de consulta ({EMBEDDING_QUERY_TIMEOUT_SECONDS} s superados)"
-                ) from err
+    def _embed_query_with_timeout(self, query: str):
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+        future = executor.submit(self._embedding_generator.embed_query, query)
+        try:
+            return future.result(timeout=EMBEDDING_QUERY_TIMEOUT_SECONDS)
+        except concurrent.futures.TimeoutError as err:
+            raise TimeoutError(
+                f"Timeout al generar embedding de consulta ({EMBEDDING_QUERY_TIMEOUT_SECONDS} s superados)"
+            ) from err
+        finally:
+            executor.shutdown(wait=False, cancel_futures=True)
