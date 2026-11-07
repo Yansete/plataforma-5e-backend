@@ -1,18 +1,8 @@
-"""
-Puertos de la ingesta de material: leer archivos, guardar fragmentos y buscar fuentes abiertas.
-"""
+"""Puerto de persistencia de fragmentos de material."""
 
 from __future__ import annotations
 
 from typing import Any, Protocol
-
-
-class TextExtractorPort(Protocol):
-    """Puerto para la extracción de texto sin formato a partir de documentos binarios."""
-
-    def extract(self, file_type: str, content: bytes) -> list[tuple[str, str]]:
-        """Devuelve [(ubicación, texto)]: una entrada por página, diapositiva o sección."""
-        ...
 
 
 class ChunkRepositoryPort(Protocol):
@@ -34,12 +24,4 @@ class ChunkRepositoryPort(Protocol):
 
     def update_document(self, teacher_id: str, document_data: dict[str, Any]) -> None:
         """Actualiza los metadatos o estado de un documento educativo."""
-        ...
-
-
-class OpenEducationalResourcePort(Protocol):
-    """Puerto para la consulta de recursos y fuentes abiertas externas."""
-
-    def search(self, topic: str, limit: int) -> list[dict[str, Any]]:
-        """Devuelve [{'titulo', 'url', 'texto', 'licencia', 'fuente'}] sobre el tema solicitado."""
         ...

@@ -93,7 +93,10 @@ class GenerationService:
         self._fallback_generator = fallback_generator
 
     def generate(self, request_data: dict[str, Any], teacher_id: str | None = None) -> dict[str, Any]:
-        """Dispara la generación de propuestas basada en material o modo demostración."""
+        """Genera un recurso o coordina una secuencia según los tipos solicitados."""
+        if request_data.get("resourceTypes"):
+            return self.generate_sequence(request_data, teacher_id)
+
         if (
             teacher_id
             and self._teacher_repository

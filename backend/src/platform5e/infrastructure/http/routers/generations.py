@@ -64,8 +64,6 @@ def create_generations_router(
             teacher_id = account_service.authenticate_token(authorization) if authorization else None
             if teacher_id:
                 account_service.get_unit(teacher_id, body.unit_id)
-            if body.resource_types:
-                return generation_service.generate_sequence(body.to_domain(), teacher_id)
             return generation_service.generate(body.to_domain(), teacher_id)
         except GenerationError as error:
             return error_json(400, error.code, error.message)
