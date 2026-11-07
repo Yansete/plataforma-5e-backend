@@ -11,8 +11,9 @@ El frontend usa React 18, TypeScript y Vite. El backend usa FastAPI y SQLAlchemy
 La recuperación de evidencia combina BM25 y búsqueda vectorial cuando pgvector y el proveedor de
 embeddings están disponibles. La generación usa un modelo de lenguaje configurado o el generador
 por reglas, según el proveedor y el resultado de la llamada. La revisión y el historial de descargas
-se guardan en el servidor. La importación en las instancias del curso de Moodle y Chamilo queda
-por comprobar (TA-006).
+se guardan en el servidor. TA-006 está cerrada. Según el registro de avance de Sergio en Notion,
+se comprobó la importación de Moodle XML en Moodle y de SCORM 1.2 en Chamilo. En SCORM Cloud
+se registraron 5 de 5 pruebas exitosas.
 
 El modelo instruccional 5E sigue siendo la base: cada tipo de recurso pertenece a una etapa, que se envía al
 backend y orienta la redacción. En la interfaz no se nombran las etapas; se muestran como momentos de la clase.
@@ -41,9 +42,9 @@ en [Catálogo de recursos](../api/resource-catalog.md).
 | Cursos y unidades | Creación, edición y borrado (con su material, recursos y descargas), con sumilla, logro y resultados de aprendizaje | Las unidades guardadas no se quitan de un curso; se borra el curso completo |
 | Material | Archivo en la BD, extracción de PDF, PPTX y TXT, fragmentos de unas 220 palabras con su página, búsqueda por tema en Wikipedia en español. El docente no ve conteos de fragmentos: el documento queda «Listo para generar» | Los PDF escaneados (solo imágenes) no tienen texto; no hay OCR |
 | Pedido | «Elegir opciones» (agrupadas por momento de la clase) o «Escribir pedido»: reglas que interpretan tipo, cantidad, dificultad, alternativas y resultado, y muestran lo entendido; el texto completo va como indicación | La interpretación del pedido escrito es por reglas, no por IA |
-| Generación | Recuperación híbrida y redacción con IA (Gemini, Anthropic u OpenAI) o por reglas; solo se aceptan recursos con citas válidas. Cada recurso guarda una copia de su evidencia y los parámetros del pedido | Con `resourceTypes`, un agente por etapa redacta la secuencia sin repetir contenido (HU-003, ADR-013); el frontend aún pide los tipos uno por uno. El umbral de evidencia aún no filtra |
+| Generación | Recuperación híbrida y redacción con IA (Gemini, Anthropic u OpenAI) o por reglas; solo se aceptan recursos con citas válidas. Cada recurso guarda una copia de su evidencia y los parámetros del pedido | Con `resourceTypes`, un agente por etapa redacta la secuencia sin repetir contenido (HU-003, ADR-013); el frontend aún pide los tipos uno por uno. Desde HU-016, `evidenceThreshold` se aplica al verificar las citas en `prompt_drafting.py`. |
 | Revisión | En el servidor: aceptar, editar o descartar distractores (con motivo), aprobar con las mismas reglas que el backend, regenerar (la versión anterior pasa a «Descartados») y borrar | No hay «Aceptar todos» (decisión del equipo: se revisa uno por uno) |
-| Descargas | Moodle XML (preguntas aprobadas) y paquete SCORM 1.2 para Chamilo (todos los recursos aprobados), armados en el backend; y el documento de la unidad (HTML) con su evidencia. Nombres con el curso y la unidad. Historial en el servidor, con «Borrar historial» | SCORM probado en SCORM Cloud; importación en las instancias del curso pendiente (TA-006) |
+| Descargas | Moodle XML (preguntas aprobadas) y paquete SCORM 1.2 para Chamilo (todos los recursos aprobados), armados en el backend; y el documento de la unidad (HTML) con su evidencia. Nombres con el curso y la unidad. Historial en el servidor, con «Borrar historial» | TA-006 cerrada: importación verificada en Moodle y Chamilo y 5 de 5 pruebas exitosas en SCORM Cloud, según el registro de Sergio en Notion. |
 
 ## Backend hexagonal
 
@@ -254,8 +255,7 @@ Los informes de avance y las validaciones académicas también se conservan en N
 
 ## Pendientes y límites
 
-Queda por verificar la importación en los LMS del curso, el comportamiento con lectores de pantalla y
-las mediciones de rendimiento. Los PDF escaneados requieren una capa de texto para la extracción actual.
+Queda por verificar el comportamiento con lectores de pantalla y completar las mediciones de rendimiento. Los PDF escaneados requieren una capa de texto para la extracción actual.
 La validación docente RN-004 se realizó, según el registro del equipo. Queda por confirmar el seguimiento
 de sus propuestas en el Sprint 2, en especial la correspondencia de las citas después de editar.
 
