@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from platform5e.infrastructure.retrieval.hybrid_evidence_retriever import HybridEvidenceRetriever
+from platform5e.infrastructure.retrieval import hybrid_evidence_retriever
 
 
 def _create_mock_chunk(
@@ -149,14 +150,18 @@ def test_fallback_to_bm25_when_embed_query_fails():
     assert 0.0 <= results[0]["relevance"] <= 1.0
 
 
-def test_fallback_to_bm25_when_embed_query_times_out():
-    """Si la generación de embedding tarda más de 10 s, activa el timeout y degrada a BM25."""
+def test_fallback_to_bm25_when_embed_query_times_out(monkeypatch: pytest.MonkeyPatch):
+    """Si la generación de embedding tarda más que el límite, corta de inmediato sin bloquear y degrada a BM25."""
+    # 1. Reducir el timeout configurado a 0.2 segundos mediante monkeypatch
+    monkeypatch.setattr(hybrid_evidence_retriever, "EMBEDDING_QUERY_TIMEOUT_SECONDS", 0.2)
+
     mock_chunk_repo = MagicMock()
     mock_embedding_gen = MagicMock()
     mock_chunk_repo.vector_store_available.return_value = True
 
+    # 2. Simular un embedding lento de 2 segundos
     def _slow_embed(_query: str):
-        time.sleep(11.0)
+        time.sleep(2.0)
         return [0.1] * 768
 
     mock_embedding_gen.embed_query.side_effect = _slow_embed
@@ -169,18 +174,20 @@ def test_fallback_to_bm25_when_embed_query_times_out():
         rrf_k=60,
     )
 
-    start = time.time()
+    # 3. Medir el tiempo de ejecución de retrieve
+    start = time.perf_counter()
     results = retriever.retrieve(
         query="léxico",
         chunks=chunks,
         top_k=1,
         unit_id="u_redes_01",
     )
-    elapsed = time.time() - start
+    elapsed = time.perf_counter() - start
 
+    # 4. Validar resultado de fallback y corte rápido
     assert len(results) == 1
     assert results[0]["id"] == "c_fast"
-    assert elapsed < 12.0  # Comprueba que el timeout cortó a los 10 segundos
+    assert elapsed < 1.0, f"El timeout bloqueó la ejecución: tardó {elapsed:.2f} s (esperado < 1.0 s)"
 
 
 def test_hybrid_retrieval_meets_indicator_i20_recall_at_10():
